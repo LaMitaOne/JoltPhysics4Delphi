@@ -1,0 +1,60 @@
+
+{.$DEFINE RAY_DYNAMIC}
+
+// FPC < 3.3.1 -> динамическая линковка
+{$IF DEFINED(FPC_FULLVERSION) AND (FPC_FULLVERSION < 30301)}
+  {$DEFINE RAY_DYNAMIC}
+{$ENDIF}
+
+// Configuration file for raylib
+{$IFDEF LINUX}
+  {$IFNDEF RAY_DYNAMIC}
+    {$DEFINE RAY_STATIC}
+  {$ENDIF}
+{$IFEND}
+
+{$IFDEF MSWINDOWS}
+  {$IFNDEF RAY_DYNAMIC}
+    {$IFDEF FPC}
+      {$DEFINE RAY_STATIC}  // FPC и не динамика - статика
+    {$ELSE}
+      {$DEFINE RAY_DYNAMIC} // Delphi - динамика
+    {$ENDIF}
+  {$ENDIF}
+{$IFEND}
+
+{$IFDEF openbsd}
+  {$UNDEF RAY_STATIC}
+  {$DEFINE RAY_DYNAMIC}
+{$ENDIF}
+
+{$IFDEF freebsd}
+  {$UNDEF RAY_DYNAMIC}
+  {$DEFINE RAY_STATIC}
+{$ENDIF}
+
+{$IFDEF DARWIN}
+  {$IFNDEF RAY_DYNAMIC}
+    {$DEFINE RAY_STATIC}
+  {$ENDIF}
+{$IFEND}
+
+{$IFDEF HAIKU}
+  {$IFNDEF RAY_DYNAMIC}
+    {.$DEFINE RAY_STATIC}
+  {$ENDIF}
+{$IFEND}
+
+{.$DEFINE DRAW_MEM_BUFFER} // Warning CPU render
+
+{$IFDEF DRAW_MEM_BUFFER}
+  {$define GRAPHICS_API_OPENGL_11}
+{$ELSE}
+  {$define GRAPHICS_API_OPENGL_33}
+{$ENDIF}
+
+{$IFDEF FPC}
+  {$PACKRECORDS C}
+{$ENDIF}
+{$ALIGN 8}
+{$MINENUMSIZE 4}
