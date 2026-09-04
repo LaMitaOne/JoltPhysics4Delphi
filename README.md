@@ -40,3 +40,5 @@ Since the original C API is massive, there is still a lot to cover. Here is what
      Character virtual controllers.
 
   Exe and sample project included
+   
+ Based on JoltC from https://github.com/amerkoleci/joltc    
