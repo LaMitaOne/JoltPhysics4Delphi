@@ -42,3 +42,6 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included
    
  Based on JoltC from https://github.com/amerkoleci/joltc    
+    
+ ModelEngine based on  https://github.com/GuvaCode/raylib-TPS-prototype    
+     
