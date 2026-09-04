@@ -7,7 +7,7 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
     
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (ALpha)     
+   Status: Work in Progress (Alpha)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers a few hundred of the most essential lines. While not feature-complete, the core functionality is fully usable and highly stable.     
       
 ✨ Features    
