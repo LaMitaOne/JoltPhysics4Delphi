@@ -5,7 +5,7 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
      
 <img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/52e374ae-b7a0-47a3-8f95-42426f21bf20" />
      
-Hundreds in movement sometimes and still almost cant get it under 60fps on ryzen4500u igpu vega...         
+Hundreds in movement sometimes and still almost cant get it under 60fps on ryzen4500u vega igpu...         
           
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
