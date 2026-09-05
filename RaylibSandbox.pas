@@ -3,6 +3,7 @@
 {==============================================================================*
  *  RaylibSandbox v0.2 - VCL Wrapper for a multi-threaded Raylib + Jolt Physics
  *------------------------------------------------------------------------------
+   Author:  Lara Miriam Tamy Reschke / LamitaOne
  *  Description:
  *    This component embeds a Raylib rendering window inside a standard Delphi
  *    VCL application. It runs the Raylib main loop and physics simulation

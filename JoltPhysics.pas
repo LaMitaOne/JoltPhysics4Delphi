@@ -3,6 +3,7 @@ unit JoltPhysics;
 {==============================================================================*
  *  JoltPhysics v0.2 - Delphi Wrapper for Jolt Physics C API
  *------------------------------------------------------------------------------
+    Author:  Lara Miriam Tamy Reschke / LamitaOne
  *  Description:
  *    This unit provides Delphi bindings for the Jolt Physics C API (JoltC.dll).
  *    Jolt Physics is a fast, multi-threaded physics engine originally written

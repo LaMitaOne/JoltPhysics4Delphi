@@ -3,6 +3,7 @@
 {==============================================================================*
  *  ModelEngine v0.2 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
+    Author:  Lara Miriam Tamy Reschke / LamitaOne
  *  Description:
  *    This unit provides an Object-Oriented Delphi layer wrapping the native
  *    Jolt Physics C API. It bridges the physics simulation with Raylib
