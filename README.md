@@ -3,7 +3,7 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
     
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaMitaOne/JoltPhysics4Delphi)    
      
-<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/cd5949ff-cd02-4d50-b4f9-7ff2aefe2313" />
+<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/52e374ae-b7a0-47a3-8f95-42426f21bf20" />
      
 Hundreds in movement sometimes and still almost cant get it under 60fps on ryzen4500u igpu vega...         
           
@@ -19,6 +19,7 @@ This project provides a clean VCL-friendly implementation that bridges the nativ
      Collision Shapes: Box, Sphere, Capsule, and Cylinder primitives.
      Physics Interactions: Apply forces, impulses, and set linear/angular velocities.
      Raycasting: Built-in 3D raycasting from screen coordinates to the physics world.
+     Optimization: Frustum & Distance Culling   
      Multi-threading: Utilizes Jolt's built-in thread pool and job system for maximum performance.
      VCL Integration: Includes a TRaylibSandbox component that embeds a Raylib 3D window inside a standard Delphi VCL form, running smoothly in a background thread.
     
@@ -41,8 +42,20 @@ Since the original C API is massive, there is still a lot to cover. Here is what
      Custom memory allocators (currently using JPH_TempAllocatorMalloc).
      Character virtual controllers.
 
-  Exe and sample project included
-   
+  Exe and sample project included    
+
+  Latest Changes:    
+      
+  v0.2:     
+  
+     True 3D Rotation: Implemented proper quaternion-based rotation and transform matrices (Scale * Rotation * Translation) so objects now visually roll and tumble correctly.
+     Pyramid Shape: Added stPyramid (simulated via a 4-sided Jolt cylinder) with a slight spawn offset to prevent perfect balancing.
+     Frustum & Distance Culling: Optimized the 3D renderer to skip drawing objects that are out of camera view or beyond a set distance limit.
+     Custom Spawn Transforms: TModelActor.Create now accepts optional initial position (APos) and rotation (ARot) parameters for dynamic spawning.
+     Dynamic Glow State: Moved collision glow logic into a TealGlow property on the actor, triggered by velocity thresholds for cleaner rendering logic.
+     Selection Highlighting: Dynamically selected objects are now rendered with a yellow wireframe overlay for clear visual feedback.
+     Code Cleanup: Renamed cube-specific variables to generic item names (FItems, PItemData) to reflect support for multiple shape types.    
+       
  Based on JoltC from https://github.com/amerkoleci/joltc    
     
  ModelEngine based on  https://github.com/GuvaCode/raylib-TPS-prototype    
