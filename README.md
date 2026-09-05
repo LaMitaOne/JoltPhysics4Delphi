@@ -23,6 +23,12 @@ This project provides a clean VCL-friendly implementation that bridges the nativ
      Multi-threading: Utilizes Jolt's built-in thread pool and job system for maximum performance.
      VCL Integration: Includes a TRaylibSandbox component that embeds a Raylib 3D window inside a standard Delphi VCL form, running smoothly in a background thread.
     
+  Controls:    
+      
+   Left click drag and throw items    
+   Right click camera rotation    
+   Mouse Wheel zoom in out     
+      
 📦 Project Structure    
     
 The repository consists of three main units:    
