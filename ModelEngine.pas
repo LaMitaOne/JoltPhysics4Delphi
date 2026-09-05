@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.2 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Description:
  *    This unit provides an Object-Oriented Delphi layer wrapping the native
@@ -29,26 +29,16 @@
 interface
 
 uses
-  Raylib, rlgl, Classes, SysUtils, Contnrs, RayMath, Math,
-  JoltPhysics, r3ddelphi;
+  Raylib, rlgl, Classes, SysUtils, Contnrs, RayMath, Math, JoltPhysics,
+  r3ddelphi;
 
 type
-  /// <summary>
-  /// Defines the primitive collision shape used by the physics engine.
-  /// </summary>
-  TShapeType = (stBox, stSphere, stCapsule, stCylinder);
+  TShapeType = (stBox, stSphere, stCapsule, stPyramid);
 
   TModelActor = class;
 
-  /// <summary>
-  /// Callback signature for collision events between actors.
-  /// </summary>
   TCollisionEvent = procedure(Sender: TModelActor; Other: TModelActor; const ContactPoint: TVector3; const Normal: TVector3) of object;
 
-  { TModelEngine }
-  /// <summary>
-  /// Manages the physics world, systems, and all actors.
-  /// </summary>
   TModelEngine = class
   private
     FActorList: TObjectList;
@@ -75,9 +65,6 @@ type
     procedure Render;
     procedure Clear;
 
-    /// <summary>
-    /// Casts a ray into the physics world and returns the closest hit.
-    /// </summary>
     function RayCast(const Origin, Direction: TVector3; out HitBodyID: JPH_BodyID; out HitPoint: TVector3): Boolean;
 
     property Items[const Index: integer]: TModelActor read GetModelActor; default;
@@ -87,10 +74,6 @@ type
     property BodyInterface: JPH_BodyInterface read FBodyInterface;
   end;
 
-  { TModelActor }
-  /// <summary>
-  /// Represents an individual physics body and its associated render model.
-  /// </summary>
   TModelActor = class
   private
     FFriction: Single;
@@ -112,24 +95,18 @@ type
     FRotation: TVector3;
     FQuaternion: TQuaternion;
     FModelOffset: TVector3;
-    FModelTransform: TMatrix;
     FUserData: Pointer;
     FOnCollision: TCollisionEvent;
-
-    /// <summary>
-    /// Syncs the internal Delphi Matrix transform used for rendering
-    /// with the Position and Quaternion from the physics body.
-    /// </summary>
+    FTealGlow: Boolean;
     procedure UpdateModelTransform;
   public
-    constructor Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType;
-      ASize: TVector3; IsStatic: Boolean = False);
+    FModelTransform: TMatrix;
+    constructor Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean = False; APos: PJPH_RVec3 = nil; ARot: PJPH_Quat = nil);
     destructor Destroy; override;
 
     procedure Update(DeltaTime: single); virtual;
     procedure Draw; virtual;
 
-    // Mutators & Accessors
     procedure SetPosition(APosition: TVector3);
     procedure SetRotation(AQuaternion: TQuaternion);
     procedure SetLinearVelocity(AVelocity: TVector3);
@@ -149,11 +126,14 @@ type
     property Friction: Single read FFriction write SetFriction;
     property Restitution: Single read FRestitution write SetRestitution;
     property Visible: boolean read FVisible write FVisible;
+    property TealGlow: Boolean read FTealGlow write FTealGlow;
     property OnCollision: TCollisionEvent read FOnCollision write FOnCollision;
+    property Scale: TVector3 read FScale;
   end;
 
-  // Placeholder for the actual r3ddelphi record
-  TR3D_Model = record Dummy: Integer; end;
+  TR3D_Model = record
+    Dummy: Integer;
+  end;
 
 implementation
 
@@ -169,22 +149,18 @@ var
   BFProcs: JPH_BodyFilter_Procs;
   SFProcs: JPH_ShapeFilter_Procs;
 begin
-  // We don't own the actors, so don't free them when list is cleared
   FActorList := TObjectList.Create(False);
-
-  // 1. Initialize Core Physics Systems
   JPH_Init;
-
-  // 2. Setup Broadphase Filters (Mask-based: everything collides with everything)
   FBroadPhaseLayerInterface := JPH_BroadPhaseLayerInterfaceMask_Create(1);
   FObjectLayerPairFilter := JPH_ObjectLayerPairFilterMask_Create;
   FObjectVsBroadPhaseLayerFilter := JPH_ObjectVsBroadPhaseLayerFilterMask_Create(FBroadPhaseLayerInterface);
   FCollideAllLayer := JPH_ObjectLayerPairFilterMask_GetObjectLayer(1, $FFFFFFFF);
 
-  // 3. Setup PhysicsSystem Settings
+  FillChar(Settings, SizeOf(Settings), 0);
   Settings.maxBodies := 10240;
+  Settings.numBodyMutexes := 2;
   Settings.maxBodyPairs := 65536;
-  Settings.maxContactConstraints := 10240;
+  Settings.maxContactConstraints := 65536;
   Settings.broadPhaseLayerInterface := FBroadPhaseLayerInterface;
   Settings.objectLayerPairFilter := FObjectLayerPairFilter;
   Settings.objectVsBroadPhaseLayerFilter := FObjectVsBroadPhaseLayerFilter;
@@ -192,18 +168,18 @@ begin
   FPhysicsSystem := JPH_PhysicsSystem_Create(@Settings);
   FBodyInterface := JPH_PhysicsSystem_GetBodyInterface(FPhysicsSystem);
 
-  // 4. Setup Threading & Memory Allocators
   JobConfig.maxJobs := JPH_MAX_PHYSICS_JOBS;
   JobConfig.maxBarriers := JPH_MAX_PHYSICS_BARRIERS;
-  JobConfig.numThreads := -1; // -1 = auto-detect CPU cores
+  JobConfig.numThreads := -1;
   FJobSystem := JPH_JobSystemThreadPool_Create(@JobConfig);
+
   FTempAllocator := JPH_TempAllocatorMalloc_Create;
 
-  // 5. Set Gravity (-9.81 m/s^2 on Y axis)
-  GravVec.x := 0; GravVec.y := -9.81; GravVec.z := 0;
+  GravVec.x := 0;
+  GravVec.y := -9.81;
+  GravVec.z := 0;
   JPH_PhysicsSystem_SetGravity(FPhysicsSystem, @GravVec);
 
-  // 6. Initialize Default Filters (Zeroed out structs mean "always allow")
   FillChar(BPLProcs, SizeOf(BPLProcs), 0);
   FBroadPhaseLayerFilter := JPH_BroadPhaseLayerFilter_Create(nil, @BPLProcs);
   FillChar(OLProcs, SizeOf(OLProcs), 0);
@@ -216,7 +192,6 @@ end;
 
 destructor TModelEngine.Destroy;
 begin
-  // Cleanup all native Jolt objects in reverse order of creation
   Clear;
   JPH_ShapeFilter_Destroy(FShapeFilter);
   JPH_BodyFilter_Destroy(FBodyFilter);
@@ -248,25 +223,17 @@ var
   i: integer;
   Actor: TModelActor;
 begin
-  // 1. Advance the Jolt Physics simulation by DeltaTime
   JPH_PhysicsSystem_Update2(FPhysicsSystem, DeltaTime, 1, FTempAllocator, FJobSystem);
-
-  // 2. Iterate backwards to safely handle deletions during iteration
   for i := FActorList.Count - 1 downto 0 do
   begin
-   try
     Actor := TModelActor(FActorList.Items[i]);
     if Assigned(Actor) and not Actor.FIsDead then
       Actor.Update(DeltaTime);
-   except
-     // Catch exceptions to prevent the thread from dying entirely
-   end;
   end;
 end;
 
 procedure TModelEngine.Render;
 begin
-  // Rendering is currently handled externally by Raylib in the Sandbox
 end;
 
 procedure TModelEngine.Clear;
@@ -295,30 +262,29 @@ begin
   Result := False;
   HitBodyID := 0;
   HitPoint := Vector3Zero;
-
-  if FPhysicsSystem = nil then Exit;
-
+  if FPhysicsSystem = nil then
+    Exit;
   Query := JPH_PhysicsSystem_GetNarrowPhaseQuery(FPhysicsSystem);
-  if Query = nil then Exit;
+  if Query = nil then
+    Exit;
 
-  // Map Delphi RayMath types to Jolt Physics types
-  JOrigin.x := Origin.x; JOrigin.y := Origin.y; JOrigin.z := Origin.z;
-  JDir.x := Direction.x; JDir.y := Direction.y; JDir.z := Direction.z;
+  JOrigin.x := Origin.x;
+  JOrigin.y := Origin.y;
+  JOrigin.z := Origin.z;
+  JDir.x := Direction.x;
+  JDir.y := Direction.y;
+  JDir.z := Direction.z;
 
-  // Allocate memory for the hit result safely
-  SafeSize := SizeOf(JPH_RayCastResult) + 32; // Add padding just to be safe against C API overruns
+  SafeSize := SizeOf(JPH_RayCastResult) + 32;
   GetMem(HitResult, SafeSize);
   try
     FillChar(HitResult^, SafeSize, 0);
-    RetVal := JPH_NarrowPhaseQuery_CastRay(
-      Query, @JOrigin, @JDir, HitResult,
-      FBroadPhaseLayerFilter, FObjectLayerFilter, FBodyFilter, FShapeFilter);
+    RetVal := JPH_NarrowPhaseQuery_CastRay(Query, @JOrigin, @JDir, HitResult, FBroadPhaseLayerFilter, FObjectLayerFilter, FBodyFilter, FShapeFilter);
 
     if RetVal <> 0 then
     begin
       Result := True;
       HitBodyID := HitResult^.bodyID;
-      // Calculate world hit point: Origin + (Direction * Fraction)
       HitPoint.x := Origin.x + Direction.x * HitResult^.fraction;
       HitPoint.y := Origin.y + Direction.y * HitResult^.fraction;
       HitPoint.z := Origin.z + Direction.z * HitResult^.fraction;
@@ -330,8 +296,7 @@ end;
 
 { TModelActor }
 
-constructor TModelActor.Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType;
-  ASize: TVector3; IsStatic: Boolean);
+constructor TModelActor.Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean; APos: PJPH_RVec3; ARot: PJPH_Quat);
 var
   ShapeSettings: JPH_ShapeSettings;
   HalfExtents: JPH_Vec3;
@@ -341,9 +306,8 @@ var
   CreationSettings: JPH_BodyCreationSettings;
 begin
   FEngine := AParent;
-  // Default Delphi properties
   FPosition := Vector3Create(0, 0, 0);
-  FScale := Vector3Create(1, 1, 1);
+  FScale := ASize;
   FQuaternion := QuaternionIdentity;
   FModelTransform := MatrixIdentity();
   FUserData := nil;
@@ -351,30 +315,34 @@ begin
   FRestitution := 0.2;
   FMass := 1.0;
   FShapeType := AShapeType;
+  FVisible := True;
+  FTealGlow := False;
 
   if IsStatic then
     MotionType := JPH_MotionType_Static
   else
     MotionType := JPH_MotionType_Dynamic;
 
-  // 1. Create Jolt Shape Settings based on ShapeType
   case AShapeType of
     stSphere:
-    begin
-      ShapeSettings := JPH_SphereShapeSettings_Create(ASize.x);
-      FShape := JPH_SphereShapeSettings_CreateShape(ShapeSettings);
-    end;
+      begin
+        ShapeSettings := JPH_SphereShapeSettings_Create(ASize.x * 0.5);
+        FShape := JPH_SphereShapeSettings_CreateShape(ShapeSettings);
+      end;
     stCapsule:
-    begin
-      ShapeSettings := JPH_CapsuleShapeSettings_Create(ASize.y * 0.5, ASize.x);
-      FShape := JPH_CapsuleShapeSettings_CreateShape(ShapeSettings);
-    end;
-    stCylinder:
-    begin
-      ShapeSettings := JPH_CylinderShapeSettings_Create(ASize.y * 0.5, ASize.x, JPH_DEFAULT_CONVEX_RADIUS);
-      FShape := JPH_CylinderShapeSettings_CreateShape(ShapeSettings);
-    end;
-    else // stBox
+      begin
+        ShapeSettings := JPH_CapsuleShapeSettings_Create(ASize.y * 0.5, ASize.x);
+        FShape := JPH_CapsuleShapeSettings_CreateShape(ShapeSettings);
+      end;
+    stPyramid:
+      begin
+      // Jolt has no direct pyramid type, but we can use a cylinder
+        ShapeSettings := JPH_CylinderShapeSettings_Create(0.75, ASize.x, JPH_DEFAULT_CONVEX_RADIUS);
+        FShape := JPH_CylinderShapeSettings_CreateShape(ShapeSettings);
+      // Adjust scale so Y and Z are swapped
+        FScale := Vector3Create(ASize.x, ASize.z, ASize.y);
+      end;
+  else
     begin
       HalfExtents.x := ASize.x * 0.5;
       HalfExtents.y := ASize.y * 0.5;
@@ -384,11 +352,25 @@ begin
     end;
   end;
 
-  // 2. Initial Position and Rotation
-  Pos.x := 0; Pos.y := 0; Pos.z := 0;
-  Rot.x := 0; Rot.y := 0; Rot.z := 0; Rot.w := 1; // Identity quaternion
+  if APos <> nil then
+    Pos := APos^
+  else
+  begin
+    Pos.x := 0;
+    Pos.y := 0;
+    Pos.z := 0;
+  end;
 
-  // 3. Create the Body
+  if ARot <> nil then
+    Rot := ARot^
+  else
+  begin
+    Rot.x := 0;
+    Rot.y := 0;
+    Rot.z := 0;
+    Rot.w := 1;
+  end;
+
   CreationSettings := JPH_BodyCreationSettings_Create3(FShape, @Pos, @Rot, MotionType, FEngine.CollideAllLayer);
 
   if IsStatic then
@@ -396,97 +378,147 @@ begin
   else
     FBodyID := JPH_BodyInterface_CreateAndAddBody(FEngine.BodyInterface, CreationSettings, JPH_Activation_Activate);
 
-  // 4. Clean up intermediate shape settings object
   JPH_ShapeSettings_Destroy(ShapeSettings);
-
-  // 5. Apply default physical properties
   JPH_BodyInterface_SetFriction(FEngine.BodyInterface, FBodyID, FFriction);
   JPH_BodyInterface_SetRestitution(FEngine.BodyInterface, FBodyID, FRestitution);
 
-  // 6. Register self with the Engine
   if Assigned(FEngine) then
     FEngine.Add(Self);
 end;
 
 destructor TModelActor.Destroy;
 begin
-  // CRITICAL: We must remove the native physics body from Jolt BEFORE
-  // the Delphi object is torn down, otherwise Jolt will hold dangling pointers.
   if Assigned(FEngine) and (FBodyID <> 0) then
   begin
     JPH_BodyInterface_RemoveAndDestroyBody(FEngine.BodyInterface, FBodyID);
-    FBodyID := 0; // Prevent double deletion
+    FBodyID := 0;
   end;
-
   inherited;
 end;
 
 procedure TModelActor.Update(DeltaTime: single);
+var
+  JPos: JPH_Vec3;
+  JRot: JPH_Quat;
 begin
-  // Poll the physics engine for the current transform and update Delphi vars
   if FBodyID <> 0 then
   begin
-    JPH_BodyInterface_GetCenterOfMassPosition(FEngine.BodyInterface, FBodyID, @FPosition);
-    JPH_BodyInterface_GetRotation(FEngine.BodyInterface, FBodyID, @FQuaternion);
+    JPH_BodyInterface_GetCenterOfMassPosition(FEngine.BodyInterface, FBodyID, @JPos);
+    FPosition.x := JPos.x;
+    FPosition.y := JPos.y;
+    FPosition.z := JPos.z;
+
+    JPH_BodyInterface_GetRotation(FEngine.BodyInterface, FBodyID, @JRot);
+    FQuaternion.x := JRot.x;
+    FQuaternion.y := JRot.y;
+    FQuaternion.z := JRot.z;
+    FQuaternion.w := JRot.w;
+
     UpdateModelTransform;
   end;
 end;
 
 procedure TModelActor.UpdateModelTransform;
+var
+  ScaleMat, RotMat, TransMat: TMatrix;
 begin
-  // Build render matrix: Translation * Rotation
-  FModelTransform := MatrixTranslate(FPosition.x, FPosition.y, FPosition.z);
-  FModelTransform := MatrixMultiply(QuaternionToMatrix(FQuaternion), FModelTransform);
+  ScaleMat := MatrixScale(FScale.x, FScale.y, FScale.z);
+  RotMat := QuaternionToMatrix(FQuaternion);
+  TransMat := MatrixTranslate(FPosition.x, FPosition.y, FPosition.z);
+
+  // Standard DirectX/OpenGL order: Scale -> Rotation -> Translation
+  FModelTransform := MatrixMultiply(MatrixMultiply(ScaleMat, RotMat), TransMat);
 end;
 
 procedure TModelActor.SetPosition(APosition: TVector3);
+var
+  JPos: JPH_RVec3;
 begin
   FPosition := APosition;
   if FBodyID <> 0 then
-    JPH_BodyInterface_SetPosition(FEngine.BodyInterface, FBodyID, @APosition, JPH_Activation_Activate);
+  begin
+    JPos.x := APosition.x;
+    JPos.y := APosition.y;
+    JPos.z := APosition.z;
+    JPH_BodyInterface_SetPosition(FEngine.BodyInterface, FBodyID, @JPos, JPH_Activation_Activate);
+  end;
   UpdateModelTransform;
 end;
 
 procedure TModelActor.SetRotation(AQuaternion: TQuaternion);
+var
+  JRot: JPH_Quat;
 begin
   FQuaternion := AQuaternion;
   if FBodyID <> 0 then
-    JPH_BodyInterface_SetRotation(FEngine.BodyInterface, FBodyID, @AQuaternion, JPH_Activation_Activate);
+  begin
+    JRot.x := AQuaternion.x;
+    JRot.y := AQuaternion.y;
+    JRot.z := AQuaternion.z;
+    JRot.w := AQuaternion.w;
+    JPH_BodyInterface_SetRotation(FEngine.BodyInterface, FBodyID, @JRot, JPH_Activation_Activate);
+  end;
   UpdateModelTransform;
 end;
 
 procedure TModelActor.SetLinearVelocity(AVelocity: TVector3);
+var
+  JVel: JPH_Vec3;
 begin
   if FBodyID <> 0 then
-    JPH_BodyInterface_SetLinearVelocity(FEngine.BodyInterface, FBodyID, @AVelocity);
+  begin
+    JVel.x := AVelocity.x;
+    JVel.y := AVelocity.y;
+    JVel.z := AVelocity.z;
+    JPH_BodyInterface_SetLinearVelocity(FEngine.BodyInterface, FBodyID, @JVel);
+  end;
 end;
 
 function TModelActor.GetLinearVelocity: TVector3;
+var
+  JVel: JPH_Vec3;
 begin
   if FBodyID <> 0 then
-    JPH_BodyInterface_GetLinearVelocity(FEngine.BodyInterface, FBodyID, @Result)
+  begin
+    JPH_BodyInterface_GetLinearVelocity(FEngine.BodyInterface, FBodyID, @JVel);
+    Result.x := JVel.x;
+    Result.y := JVel.y;
+    Result.z := JVel.z;
+  end
   else
     Result := Vector3Zero;
 end;
 
 procedure TModelActor.SetAngularVelocity(AVelocity: TVector3);
+var
+  JVel: JPH_Vec3;
 begin
   if FBodyID <> 0 then
-    JPH_BodyInterface_SetAngularVelocity(FEngine.BodyInterface, FBodyID, @AVelocity);
+  begin
+    JVel.x := AVelocity.x;
+    JVel.y := AVelocity.y;
+    JVel.z := AVelocity.z;
+    JPH_BodyInterface_SetAngularVelocity(FEngine.BodyInterface, FBodyID, @JVel);
+  end;
 end;
 
 function TModelActor.GetAngularVelocity: TVector3;
+var
+  JVel: JPH_Vec3;
 begin
   if FBodyID <> 0 then
-    JPH_BodyInterface_GetAngularVelocity(FEngine.BodyInterface, FBodyID, @Result)
+  begin
+    JPH_BodyInterface_GetAngularVelocity(FEngine.BodyInterface, FBodyID, @JVel);
+    Result.x := JVel.x;
+    Result.y := JVel.y;
+    Result.z := JVel.z;
+  end
   else
     Result := Vector3Zero;
 end;
 
 procedure TModelActor.SetMass(const Value: Single);
 begin
-  // NOTE: Setting mass dynamically in Jolt requires overriding mass properties
-  // which is not fully wrapped in this version. Stored locally only.
   FMass := Value;
 end;
 
@@ -505,16 +537,29 @@ begin
 end;
 
 procedure TModelActor.ApplyImpulse(AImpulse: TVector3);
+var
+  JImp: JPH_Vec3;
 begin
   if FBodyID <> 0 then
-    // nil position means apply impulse at Center of Mass
-    JPH_BodyInterface_AddImpulse(FEngine.BodyInterface, FBodyID, @AImpulse, nil);
+  begin
+    JImp.x := AImpulse.x;
+    JImp.y := AImpulse.y;
+    JImp.z := AImpulse.z;
+    JPH_BodyInterface_AddImpulse(FEngine.BodyInterface, FBodyID, @JImp, nil);
+  end;
 end;
 
 procedure TModelActor.AddForce(AForce: TVector3);
+var
+  JForce: JPH_Vec3;
 begin
   if FBodyID <> 0 then
-    JPH_BodyInterface_AddForce(FEngine.BodyInterface, FBodyID, @AForce);
+  begin
+    JForce.x := AForce.x;
+    JForce.y := AForce.y;
+    JForce.z := AForce.z;
+    JPH_BodyInterface_AddForce(FEngine.BodyInterface, FBodyID, @JForce);
+  end;
 end;
 
 procedure TModelActor.ActivateBody;
@@ -525,7 +570,8 @@ end;
 
 procedure TModelActor.Draw;
 begin
-  // Hook for descendants to implement custom Raylib rendering
+//--
 end;
 
 end.
+
