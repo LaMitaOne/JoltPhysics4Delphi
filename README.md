@@ -2,9 +2,9 @@
 A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-performance rigid body physics engine. 
     
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaMitaOne/JoltPhysics4Delphi)    
-     
-<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/52e374ae-b7a0-47a3-8f95-42426f21bf20" />
-       
+      
+<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/e9c94947-6c84-432e-a84b-2a805a60bfda" />
+           
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
    Status: Work in Progress (Alpha v0.3)     
