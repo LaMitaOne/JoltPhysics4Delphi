@@ -22,11 +22,16 @@ This project provides a clean VCL-friendly implementation that bridges the nativ
      Optimization: Frustum & Distance Culling   
      Multi-threading: Utilizes Jolt's built-in thread pool and job system for maximum performance.
      VCL Integration: Includes a TRaylibSandbox component that embeds a Raylib 3D window inside a standard Delphi VCL form, running smoothly in a background thread.
-    
+     Shooting mechanic: Fire persistent blue cannonball projectiles using Spacebar with a cooldown to knock objects away.   
+     Custom GLSL Lighting System implementing basic ambient and diffuse shading for the floor, walls, and actors.
+     Dynamic Fake Shadows: Flat shadows drawn under objects that scale in size and opacity based on the object's height.
+      
   Controls:    
       
    Left click drag and throw items    
    Right click camera rotation    
+   WASD move camera
+   Space shoot
    Mouse Wheel zoom in out     
       
 📦 Project Structure    
@@ -51,6 +56,32 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:    
+      
+  v0.3:     
+  
+  JoltPhysics:   
+     
+     Expanded Structs & Records: Added necessary records for advanced queries, including JPH_CollideShapeResult, JPH_ShapeCastResult, JPH_CollideShapeSettings, JPH_ShapeCastSettings, and JPH_RayCastSettings.    
+     Constraint System: Implemented base structs (JPH_ConstraintSettings) and specific settings for Fixed, Point, Distance, Hinge, and Slider constraints. Added corresponding API functions for creation, destruction, and control (e.g., JPH_HingeConstraint_SetMotorState).     
+     Complete Enum Constants: Added all missing enum values as constants (e.g., JPH_BodyType, JPH_ShapeSubType, JPH_AllowedDOFs, JPH_GroundState, JPH_MotorState, JPH_ConstraintSubType, etc.).     
+     Listeners & Callbacks: Added vtable structs and API functions for JPH_ContactListener (collision events) and JPH_BodyActivationListener (sleep/wake events).     
+     Extended Body Interface: Integrated many missing functions such as AddTorque, AddForce2 (with position parameter), AddAngularImpulse, combined getters/setters for velocities, and queries for Active-state, ObjectLayer, and UserData.     
+     Additional Shapes: Added settings and creation functions for TaperedCapsule, TaperedCylinder, ConvexHull, StaticCompound, and MeshShape. Also added JPH_CompoundShapeSettings_AddShape for grouping shapes.    
+     Math Helpers: Wrapped useful C-API math functions (JPH_Vec3_Cross, JPH_Vec3_Normalize, JPH_Quat_Rotate, JPH_Mat44_RotationTranslation, etc.).
+     Material System: Added functions to create and destroy JPH_PhysicsMaterial.    
+     Miscellaneous: Added JPH_PhysicsSystem_Update (without TempAllocator) and included the {$A+} compiler directive to ensure exact C/C++ struct alignment.   
+
+ RaylibSandbox:     
+     
+     Shooting Mechanic (Projectiles): Added the ability to shoot dynamic physics spheres by pressing SPACE. Projectiles use a 250ms cooldown to prevent machine-gun fire.     
+     Dynamic Fake Shadows: Implemented custom flat shadows (DrawFlatShadow / DrawCylinderEx) for the floor, walls, and all actors. Shadow radius and alpha opacity scale dynamically based on the object's Y-height to simulate realistic light scattering.    
+     Camera Panning & Bounds: Added WASD and Arrow Key panning. Camera movement is now clamped to world bounds (-80 to +80) to prevent the user from scrolling infinitely into the void.    
+     Custom Lighting System: Implemented a custom GLSL shader for basic ambient and diffuse lighting that affects the floor, walls, and objects, giving the scene proper depth.     
+     CCD (Continuous Collision Detection): Projectiles use JPH_MotionQuality_LinearCast to prevent fast-moving spheres from tunneling through walls or objects.    
+     Z-Fighting Fix: Enabled rlEnableDepthTest() for custom shadow drawing to prevent them from flickering or being hidden behind the wallpaper texture.   
+     Sphere Clipping Fix: Applied a manual Y-offset (+0.3 for spheres) during rendering to visually lift them out of the floor, bypassing Jolt's internal convex radius penetration.   
+     Raylib DrawSphere Workaround: Implemented manual matrix scaling (rlScalef) because Raylib's DrawSphere ignores the radius parameter when drawing inside a manually pushed rotation matrix.    
+     Memory Initialization: Used FillChar for TItemData upon spawn to prevent random memory garbage from causing projectiles to render incorrectly.    
       
   v0.2:     
   
