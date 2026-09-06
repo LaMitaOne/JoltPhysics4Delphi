@@ -1,7 +1,6 @@
 ﻿unit ModelEngine;
-
 {==============================================================================*
- *  ModelEngine v0.2 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.3 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
     Author:  Lara Miriam Tamy Reschke / LamitaOne
  *  Description:
@@ -137,7 +136,6 @@ type
   end;
 
 implementation
-
 { TModelEngine }
 
 constructor TModelEngine.Create;
@@ -294,7 +292,6 @@ begin
     FreeMem(HitResult);
   end;
 end;
-
 { TModelActor }
 
 constructor TModelActor.Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean; APos: PJPH_RVec3; ARot: PJPH_Quat);
@@ -546,7 +543,7 @@ begin
     JImp.x := AImpulse.x;
     JImp.y := AImpulse.y;
     JImp.z := AImpulse.z;
-    JPH_BodyInterface_AddImpulse(FEngine.BodyInterface, FBodyID, @JImp, nil);
+    JPH_BodyInterface_AddImpulse(FEngine.BodyInterface, FBodyID, @JImp);
   end;
 end;
 
