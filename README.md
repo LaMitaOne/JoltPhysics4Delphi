@@ -26,11 +26,11 @@ This project provides a clean VCL-friendly implementation that bridges the nativ
       
   Controls:    
       
-   Left click drag and throw items    
+   Left click drag and throw items      
    Right click camera rotation    
-   WASD move camera
-   Space shoot
-   Mouse Wheel zoom in out     
+   WASD move camera    
+   Space shoot    
+   Mouse Wheel zoom in out      
       
 📦 Project Structure    
     
