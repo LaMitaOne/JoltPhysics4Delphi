@@ -8,7 +8,7 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
    Status: Work in Progress (Alpha v0.3)     
-   The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers a few hundred of the most essential lines. While not feature-complete, the core functionality is fully usable and highly stable.     
+   The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features    
     
@@ -44,12 +44,12 @@ The repository consists of three main units:
       
 Since the original C API is massive, there is still a lot to cover. Here is what is currently missing but planned for future updates:    
     
-     Complete locking BodyInterface for safe multi-threaded access.
-     Advanced Joint/Constraint systems (Hinges, Distance, etc.).
-     Compound shapes (Mesh shapes, Convex Hulls).
-     Collision callback events in Delphi.
-     Custom memory allocators (currently using JPH_TempAllocatorMalloc).
-     Character virtual controllers.
+    Complete locking BodyInterface (BodyLockInterface) for safe multi-threaded access.
+    Character virtual controllers (JPH_CharacterVirtual for kinematic movement).
+    Soft Body simulation (creating and updating soft body shared settings).
+    Ragdoll & Skeleton systems (joint mapping, skeletal animations).
+    Complete Vehicle system (Wheeled, Tracked, Motorcycles, transmissions, differentials).
+    Custom memory allocators (currently relying on JPH_TempAllocatorMalloc).
 
   Exe and sample project included    
 
