@@ -1,7 +1,7 @@
 unit JoltPhysics;
 
 {==============================================================================*
- *  JoltPhysics v0.3 - Delphi Wrapper for Jolt Physics C API
+ *  JoltPhysics v0.4 - Delphi Wrapper for Jolt Physics C API
  *------------------------------------------------------------------------------
     Author:  Lara Miriam Tamy Reschke / LamitaOne
  *  Description:
@@ -37,8 +37,10 @@ unit JoltPhysics;
  *    Follow the licensing of the original Jolt Physics project.
  *    See: https://github.com/jrouwe/JoltPhysics
 
-
  Latest changes:
+
+  v0.4:
+     Added missing JPH_BodyInterface_GetShape JPH_BodyInterface_SetShape
 
   v0.3:
      Expanded Structs & Records: Added necessary records for advanced queries, including JPH_CollideShapeResult, JPH_ShapeCastResult, JPH_CollideShapeSettings, JPH_ShapeCastSettings, and JPH_RayCastSettings.
@@ -50,7 +52,6 @@ unit JoltPhysics;
      Math Helpers: Wrapped useful C-API math functions (JPH_Vec3_Cross, JPH_Vec3_Normalize, JPH_Quat_Rotate, JPH_Mat44_RotationTranslation, etc.).
      Material System: Added functions to create and destroy JPH_PhysicsMaterial.
      Miscellaneous: Added JPH_PhysicsSystem_Update (without TempAllocator) .
-
  *==============================================================================}
 interface
 {$MINENUMSIZE 4}
@@ -102,7 +103,6 @@ type
   // Debug-rendering color (0xRRGGBBAA)
 
   JPH_Color = UInt32;
-
   // --- Opaque Handles (Pointer) ---
   // They are declared as distinct types so the compiler can distinguish them.
 
@@ -129,8 +129,8 @@ type
   JPH_PhysicsMaterial = type Pointer;
 
   JPH_LinearCurve = type Pointer;
-
   // ShapeSettings
+
   JPH_ShapeSettings = type Pointer;
 
   JPH_ConvexShapeSettings = type Pointer;
@@ -170,8 +170,8 @@ type
   JPH_OffsetCenterOfMassShapeSettings = type Pointer;
 
   JPH_EmptyShapeSettings = type Pointer;
-
   // Shapes
+
   JPH_Shape = type Pointer;
 
   JPH_ConvexShape = type Pointer;
@@ -213,8 +213,8 @@ type
   JPH_OffsetCenterOfMassShape = type Pointer;
 
   JPH_EmptyShape = type Pointer;
-
   // Other Handles
+
   JPH_BodyCreationSettings = type Pointer;
 
   JPH_SoftBodyCreationSettings = type Pointer;
@@ -248,8 +248,8 @@ type
   JPH_SharedMutex = type Pointer;
 
   JPH_DebugRenderer = type Pointer;
-
   // Constraints
+
   JPH_Constraint = type Pointer;
 
   JPH_TwoBodyConstraint = type Pointer;
@@ -271,8 +271,8 @@ type
   JPH_SixDOFConstraint = type Pointer;
 
   JPH_GearConstraint = type Pointer;
-
   // Characters
+
   JPH_CharacterBase = type Pointer;
 
   JPH_Character = type Pointer;
@@ -286,8 +286,8 @@ type
   JPH_TempAllocator = type Pointer;
 
   JPH_JobSystem = type Pointer;
-
   // --- Math Types (Records must match the C struct layout exactly) ---
+
   JPH_Vec3 = record
     x, y, z: Single;
   end;
@@ -318,9 +318,9 @@ type
   end;
 
   PJPH_Mat44 = ^JPH_Mat44;
-
   // Double-precision Vec3 - here aliased to single precision. If you need
   // real double-precision coordinates enable the corresponding Jolt build.
+
   JPH_RVec3 = JPH_Vec3;
 
   PJPH_RVec3 = ^JPH_RVec3;
@@ -360,9 +360,9 @@ type
   end;
 
   PJPH_MassProperties = ^JPH_MassProperties;
-
   // --- Enums (Declared early so records can use them) ---
   // Result code returned by JPH_PhysicsSystem_Update2.
+
   JPH_PhysicsUpdateError = type UInt32;
   // Type of a body (Rigid or Soft)
 
@@ -437,26 +437,21 @@ const
   JPH_PhysicsUpdateError_ManifoldCacheFull = 1 shl 0;
   JPH_PhysicsUpdateError_BodyPairCacheFull = 1 shl 1;
   JPH_PhysicsUpdateError_ContactConstraintsFull = 1 shl 2;
-
   // Motion types: Static (never moves), Kinematic (moved by user), Dynamic (simulated)
   JPH_MotionType_Static = 0;
   JPH_MotionType_Kinematic = 1;
   JPH_MotionType_Dynamic = 2;
-
   // Body types: Rigid (solid) or Soft (deformable)
   JPH_BodyType_Rigid = 0;
   JPH_BodyType_Soft = 1;
-
   // Activation modes: Activate or DontActivate
   JPH_Activation_Activate = 0;
   JPH_Activation_DontActivate = 1;
-
   // Validation results for contact listeners
   JPH_ValidateResult_AcceptAllContactsForThisBodyPair = 0;
   JPH_ValidateResult_AcceptContact = 1;
   JPH_ValidateResult_RejectContact = 2;
   JPH_ValidateResult_RejectAllContactsForThisBodyPair = 3;
-
   // Shape types: Defines the fundamental category of a shape
   JPH_ShapeType_Convex = 0;
   JPH_ShapeType_Compound = 1;
@@ -468,7 +463,6 @@ const
   JPH_ShapeType_User2 = 7;
   JPH_ShapeType_User3 = 8;
   JPH_ShapeType_User4 = 9;
-
   // Shape sub-types: Specific implementations of shape types
   JPH_ShapeSubType_Sphere = 0;
   JPH_ShapeSubType_Box = 1;
@@ -485,16 +479,13 @@ const
   JPH_ShapeSubType_Mesh = 12;
   JPH_ShapeSubType_HeightField = 13;
   JPH_ShapeSubType_SoftBody = 14;
-
   // Motion qualities: Discrete (default, fast objects might tunnel) or LinearCast (prevents tunneling at high speeds)
   JPH_MotionQuality_Discrete = 0;
   JPH_MotionQuality_LinearCast = 1;
-
   // Mass properties override modes for body creation
   JPH_OverrideMassProperties_CalculateMassAndInertia = 0;
   JPH_OverrideMassProperties_CalculateInertia = 1;
   JPH_OverrideMassProperties_MassAndInertiaProvided = 2;
-
   // Allowed Degrees of Freedom (bitflags)
   JPH_AllowedDOFs_All = $3F;
   JPH_AllowedDOFs_TranslationX = $01;
@@ -504,44 +495,35 @@ const
   JPH_AllowedDOFs_RotationY = $10;
   JPH_AllowedDOFs_RotationZ = $20;
   JPH_AllowedDOFs_Plane2D = JPH_AllowedDOFs_TranslationX or JPH_AllowedDOFs_TranslationY or JPH_AllowedDOFs_RotationZ;
-
   // Ground states for characters
   JPH_GroundState_OnGround = 0;
   JPH_GroundState_OnSteepGround = 1;
   JPH_GroundState_NotSupported = 2;
   JPH_GroundState_InAir = 3;
-
   // Back face modes for ray/shape casting
   JPH_BackFaceMode_IgnoreBackFaces = 0;
   JPH_BackFaceMode_CollideWithBackFaces = 1;
-
   // Active edge modes for meshes
   JPH_ActiveEdgeMode_CollideOnlyWithActive = 0;
   JPH_ActiveEdgeMode_CollideWithAll = 1;
-
   // Collect faces modes for shape collisions
   JPH_CollectFacesMode_CollectFaces = 0;
   JPH_CollectFacesMode_NoFaces = 1;
-
   // Motor states for constraints
   JPH_MotorState_Off = 0;
   JPH_MotorState_Velocity = 1;
   JPH_MotorState_Position = 2;
-
   // Collision collector types
   JPH_CollisionCollectorType_AllHit = 0;
   JPH_CollisionCollectorType_AllHitSorted = 1;
   JPH_CollisionCollectorType_ClosestHit = 2;
   JPH_CollisionCollectorType_AnyHit = 3;
-
   // Swing types for constraints
   JPH_SwingType_Cone = 0;
   JPH_SwingType_Pyramid = 1;
-
   // Constraint types
   JPH_ConstraintType_Constraint = 0;
   JPH_ConstraintType_TwoBodyConstraint = 1;
-
   // Constraint sub-types
   JPH_ConstraintSubType_Fixed = 0;
   JPH_ConstraintSubType_Point = 1;
@@ -560,19 +542,15 @@ const
   JPH_ConstraintSubType_User2 = 14;
   JPH_ConstraintSubType_User3 = 15;
   JPH_ConstraintSubType_User4 = 16;
-
   // Constraint spaces
   JPH_ConstraintSpace_LocalToBodyCOM = 0;
   JPH_ConstraintSpace_WorldSpace = 1;
-
   // Spring modes: Frequency/Damping or Stiffness/Damping
   JPH_SpringMode_FrequencyAndDamping = 0;
   JPH_SpringMode_StiffnessAndDamping = 1;
-
   // Transmission modes for vehicles
   JPH_TransmissionMode_Auto = 0;
   JPH_TransmissionMode_Manual = 1;
-
   // 6DOF constraint axes
   JPH_SixDOFConstraintAxis_TranslationX = 0;
   JPH_SixDOFConstraintAxis_TranslationY = 1;
@@ -598,8 +576,8 @@ type
     relativeLinearSurfaceVelocity: JPH_Vec3;
     relativeAngularSurfaceVelocity: JPH_Vec3;
   end;
-
   // Configuration record for the thread-pool based job system.
+
   PJobSystemThreadPoolConfig = ^JobSystemThreadPoolConfig;
 
   JobSystemThreadPoolConfig = record
@@ -607,8 +585,8 @@ type
     maxBarriers: UInt32;  // Maximum number of barriers allowed
     numThreads: Int32;    // Number of worker threads (-1 = auto-detect)
   end;
-
   // Settings used to construct a JPH_PhysicsSystem instance.
+
   PJPH_PhysicsSystemSettings = ^JPH_PhysicsSystemSettings;
 
   JPH_PhysicsSystemSettings = record
@@ -621,8 +599,8 @@ type
     objectLayerPairFilter: JPH_ObjectLayerPairFilter;          // User-provided layer pair filter
     objectVsBroadPhaseLayerFilter: JPH_ObjectVsBroadPhaseLayerFilter; // User-provided BP-vs-object filter
   end;
-
   // General physics simulation settings.
+
   PJPH_PhysicsSettings = ^JPH_PhysicsSettings;
 
   JPH_PhysicsSettings = record
@@ -653,8 +631,8 @@ type
     allowSleeping: JPH_Bool;
     checkActiveEdges: JPH_Bool;
   end;
-
   // Collision group settings for a body
+
   PJPH_CollisionGroup = ^JPH_CollisionGroup;
 
   JPH_CollisionGroup = record
@@ -662,8 +640,8 @@ type
     groupID: JPH_CollisionGroupID;
     subGroupID: JPH_CollisionSubGroupID;
   end;
-
   // Spring settings used by motors and constraints
+
   PJPH_SpringSettings = ^JPH_SpringSettings;
 
   JPH_SpringSettings = record
@@ -671,16 +649,16 @@ type
     frequencyOrStiffness: Single;
     damping: Single;
   end;
-
   // Motor settings used by constraints
+
   PJPH_MotorSettings = ^JPH_MotorSettings;
 
   JPH_MotorSettings = record
     springSettings: JPH_SpringSettings;
     minForceLimit, maxForceLimit, minTorqueLimit, maxTorqueLimit: Single;
   end;
-
   // Result of a successful ray cast.
+
   PJPH_RayCastResult = ^JPH_RayCastResult;
 
   JPH_RayCastResult = record
@@ -688,24 +666,24 @@ type
     fraction: Single;
     subShapeID2: JPH_SubShapeID;
   end;
-
   // Result of a broad-phase cast (raycast or shape cast).
+
   PJPH_BroadPhaseCastResult = ^JPH_BroadPhaseCastResult;
 
   JPH_BroadPhaseCastResult = record
     bodyID: JPH_BodyID;
     fraction: Single;
   end;
-
   // Result of a point collision query.
+
   PJPH_CollidePointResult = ^JPH_CollidePointResult;
 
   JPH_CollidePointResult = record
     bodyID: JPH_BodyID;
     subShapeID2: JPH_SubShapeID;
   end;
-
   // Identifies a pair of sub-shapes that are colliding.
+
   PJPH_SubShapeIDPair = ^JPH_SubShapeIDPair;
 
   JPH_SubShapeIDPair = record
@@ -714,8 +692,8 @@ type
     Body2ID: JPH_BodyID;
     subShapeID2: JPH_SubShapeID;
   end;
-
   // Result of a shape-vs-shape collision query.
+
   PJPH_CollideShapeResult = ^JPH_CollideShapeResult;
 
   JPH_CollideShapeResult = record
@@ -731,8 +709,8 @@ type
     shape2FaceCount: UInt32;
     shape2Faces: PJPH_Vec3;
   end;
-
   // Result of a shape cast (sweep test).
+
   PJPH_ShapeCastResult = ^JPH_ShapeCastResult;
 
   JPH_ShapeCastResult = record
@@ -746,8 +724,8 @@ type
     fraction: Single;
     isBackFaceHit: JPH_Bool;
   end;
-
   // Base settings for shape collision queries.
+
   PJPH_CollideSettingsBase = ^JPH_CollideSettingsBase;
 
   JPH_CollideSettingsBase = record
@@ -757,8 +735,8 @@ type
     penetrationTolerance: Single;
     activeEdgeMovementDirection: JPH_Vec3;
   end;
-
   // Settings for shape collision queries.
+
   PJPH_CollideShapeSettings = ^JPH_CollideShapeSettings;
 
   JPH_CollideShapeSettings = record
@@ -766,8 +744,8 @@ type
     maxSeparationDistance: Single;
     backFaceMode: JPH_BackFaceMode;
   end;
-
   // Settings for shape casting (sweep tests).
+
   PJPH_ShapeCastSettings = ^JPH_ShapeCastSettings;
 
   JPH_ShapeCastSettings = record
@@ -777,8 +755,8 @@ type
     useShrunkenShapeAndConvexRadius: JPH_Bool;
     returnDeepestPoint: JPH_Bool;
   end;
-
   // Settings for ray casts.
+
   PJPH_RayCastSettings = ^JPH_RayCastSettings;
 
   JPH_RayCastSettings = record
@@ -786,8 +764,8 @@ type
     backFaceModeConvex: JPH_BackFaceMode;
     treatConvexAsSolid: JPH_Bool;
   end;
-
   // Base settings for all constraints.
+
   PJPH_ConstraintSettings = ^JPH_ConstraintSettings;
 
   JPH_ConstraintSettings = record
@@ -798,8 +776,8 @@ type
     drawConstraintSize: Single;
     userData: UInt64;
   end;
-
   // Settings for a fixed constraint (welds two bodies together).
+
   PJPH_FixedConstraintSettings = ^JPH_FixedConstraintSettings;
 
   JPH_FixedConstraintSettings = record
@@ -813,8 +791,8 @@ type
     axisX2: JPH_Vec3;
     axisY2: JPH_Vec3;
   end;
-
   // Settings for a point constraint (ball joint).
+
   PJPH_PointConstraintSettings = ^JPH_PointConstraintSettings;
 
   JPH_PointConstraintSettings = record
@@ -823,8 +801,8 @@ type
     point1: JPH_RVec3;
     point2: JPH_RVec3;
   end;
-
   // Settings for a distance constraint (keeps bodies at a fixed distance).
+
   PJPH_DistanceConstraintSettings = ^JPH_DistanceConstraintSettings;
 
   JPH_DistanceConstraintSettings = record
@@ -836,8 +814,8 @@ type
     maxDistance: Single;
     limitsSpringSettings: JPH_SpringSettings;
   end;
-
   // Settings for a hinge constraint (door joint).
+
   PJPH_HingeConstraintSettings = ^JPH_HingeConstraintSettings;
 
   JPH_HingeConstraintSettings = record
@@ -855,8 +833,8 @@ type
     maxFrictionTorque: Single;
     motorSettings: JPH_MotorSettings;
   end;
-
   // Settings for a slider constraint (prismatic joint).
+
   PJPH_SliderConstraintSettings = ^JPH_SliderConstraintSettings;
 
   JPH_SliderConstraintSettings = record
@@ -875,11 +853,11 @@ type
     maxFrictionForce: Single;
     motorSettings: JPH_MotorSettings;
   end;
-
   // ---------------------------------------------------------------------------
   //  Callback vtables - these are struct-of-function-pointers matching the
   //  C API. Each field must point to a cdecl callback.
   // ---------------------------------------------------------------------------
+
   PJPH_BroadPhaseLayerFilter_Procs = ^JPH_BroadPhaseLayerFilter_Procs;
 
   JPH_BroadPhaseLayerFilter_Procs = record
@@ -905,8 +883,8 @@ type
     ShouldCollide: Pointer;
     ShouldCollide2: Pointer;
   end;
-
   // Contact listener callbacks for collision events.
+
   PJPH_ContactListener_Procs = ^JPH_ContactListener_Procs;
 
   JPH_ContactListener_Procs = record
@@ -915,15 +893,14 @@ type
     OnContactPersisted: Pointer;
     OnContactRemoved: Pointer;
   end;
-
   // Body activation listener callbacks for sleeping/waking events.
+
   PJPH_BodyActivationListener_Procs = ^JPH_BodyActivationListener_Procs;
 
   JPH_BodyActivationListener_Procs = record
     OnBodyActivated: Pointer;
     OnBodyDeactivated: Pointer;
   end;
-
   // === API FUNCTIONS ===
   // All functions are cdecl and imported from JoltC.dll.
   // Ownership rules:
@@ -937,7 +914,6 @@ type
 function JPH_Init: JPH_Bool; cdecl; external JOLT_LIB;
 
 procedure JPH_Shutdown; cdecl; external JOLT_LIB;
-
   // -- BroadPhaseLayerInterface (mask-based default implementation) -------------
 
 function JPH_BroadPhaseLayerInterfaceMask_Create(numBroadPhaseLayers: UInt32): JPH_BroadPhaseLayerInterface; cdecl; external JOLT_LIB;
@@ -945,26 +921,23 @@ function JPH_BroadPhaseLayerInterfaceMask_Create(numBroadPhaseLayers: UInt32): J
 procedure JPH_BroadPhaseLayerInterface_Destroy(bpInterface: JPH_BroadPhaseLayerInterface); cdecl; external JOLT_LIB;
 
 procedure JPH_BroadPhaseLayerInterfaceMask_ConfigureLayer(bpInterface: JPH_BroadPhaseLayerInterface; broadPhaseLayer: JPH_BroadPhaseLayer; groupsToInclude: UInt32; groupsToExclude: UInt32); cdecl; external JOLT_LIB;
-
   // -- ObjectLayerPairFilter (mask-based default implementation) ---------------
 
 function JPH_ObjectLayerPairFilterMask_Create: JPH_ObjectLayerPairFilter; cdecl; external JOLT_LIB;
 
 procedure JPH_ObjectLayerPairFilter_Destroy(filter: JPH_ObjectLayerPairFilter); cdecl; external JOLT_LIB;
-
   // Helper to build an ObjectLayer value from a (group, mask) pair.
+
 function JPH_ObjectLayerPairFilterMask_GetObjectLayer(group: UInt32; mask: UInt32): JPH_ObjectLayer; cdecl; external JOLT_LIB;
 
 function JPH_ObjectLayerPairFilterMask_GetGroup(layer: JPH_ObjectLayer): UInt32; cdecl; external JOLT_LIB;
 
 function JPH_ObjectLayerPairFilterMask_GetMask(layer: JPH_ObjectLayer): UInt32; cdecl; external JOLT_LIB;
-
   // -- ObjectVsBroadPhaseLayerFilter (mask-based default implementation) --------
 
 function JPH_ObjectVsBroadPhaseLayerFilterMask_Create(broadPhaseLayerInterface: JPH_BroadPhaseLayerInterface): JPH_ObjectVsBroadPhaseLayerFilter; cdecl; external JOLT_LIB;
 
 procedure JPH_ObjectVsBroadPhaseLayerFilter_Destroy(filter: JPH_ObjectVsBroadPhaseLayerFilter); cdecl; external JOLT_LIB;
-
   // -- Custom filter wrappers (callback-based) ----------------------------------
   //  Each Create() takes a userData pointer and a vtable of callbacks.
 
@@ -983,7 +956,6 @@ procedure JPH_BodyFilter_Destroy(filter: JPH_BodyFilter); cdecl; external JOLT_L
 function JPH_ShapeFilter_Create(userData: Pointer; procs: PJPH_ShapeFilter_Procs): JPH_ShapeFilter; cdecl; external JOLT_LIB;
 
 procedure JPH_ShapeFilter_Destroy(filter: JPH_ShapeFilter); cdecl; external JOLT_LIB;
-
   // -- Contact & Activation Listeners ------------------------------------------
 
 function JPH_ContactListener_Create(userData: Pointer; procs: PJPH_ContactListener_Procs): JPH_ContactListener; cdecl; external JOLT_LIB;
@@ -997,7 +969,6 @@ function JPH_BodyActivationListener_Create(userData: Pointer; procs: PJPH_BodyAc
 procedure JPH_BodyActivationListener_Destroy(listener: JPH_BodyActivationListener); cdecl; external JOLT_LIB;
 
 procedure JPH_PhysicsSystem_SetBodyActivationListener(system: JPH_PhysicsSystem; listener: JPH_BodyActivationListener); cdecl; external JOLT_LIB;
-
   // -- PhysicsSystem -----------------------------------------------------------
 
 function JPH_PhysicsSystem_Create(settings: PJPH_PhysicsSystemSettings): JPH_PhysicsSystem; cdecl; external JOLT_LIB;
@@ -1007,11 +978,11 @@ procedure JPH_PhysicsSystem_Destroy(system: JPH_PhysicsSystem); cdecl; external 
 procedure JPH_PhysicsSystem_SetPhysicsSettings(system: JPH_PhysicsSystem; settings: PJPH_PhysicsSettings); cdecl; external JOLT_LIB;
 
 procedure JPH_PhysicsSystem_GetPhysicsSettings(system: JPH_PhysicsSystem; settings: PJPH_PhysicsSettings); cdecl; external JOLT_LIB;
-
   // Rebuilds the broad-phase structures. Call after adding/removing many bodies.
-procedure JPH_PhysicsSystem_OptimizeBroadPhase(system: JPH_PhysicsSystem); cdecl; external JOLT_LIB;
 
+procedure JPH_PhysicsSystem_OptimizeBroadPhase(system: JPH_PhysicsSystem); cdecl; external JOLT_LIB;
   // Advance the simulation by deltaTime seconds.
+
 function JPH_PhysicsSystem_Update(system: JPH_PhysicsSystem; deltaTime: Single; collisionSteps: Int32; jobSystem: JPH_JobSystem): JPH_PhysicsUpdateError; cdecl; external JOLT_LIB;
 
 function JPH_PhysicsSystem_Update2(system: JPH_PhysicsSystem; deltaTime: Single; collisionSteps: Int32; tempAllocator: JPH_TempAllocator; jobSystem: JPH_JobSystem): JPH_PhysicsUpdateError; cdecl; external JOLT_LIB;
@@ -1019,8 +990,8 @@ function JPH_PhysicsSystem_Update2(system: JPH_PhysicsSystem; deltaTime: Single;
 procedure JPH_PhysicsSystem_SetGravity(system: JPH_PhysicsSystem; value: PJPH_Vec3); cdecl; external JOLT_LIB;
 
 procedure JPH_PhysicsSystem_GetGravity(system: JPH_PhysicsSystem; result: PJPH_Vec3); cdecl; external JOLT_LIB;
-
   // Returns the non-locking body interface.
+
 function JPH_PhysicsSystem_GetBodyInterface(system: JPH_PhysicsSystem): JPH_BodyInterface; cdecl; external JOLT_LIB;
 
 function JPH_PhysicsSystem_GetBodyInterfaceNoLock(system: JPH_PhysicsSystem): JPH_BodyInterface; cdecl; external JOLT_LIB;
@@ -1032,28 +1003,26 @@ function JPH_PhysicsSystem_GetNumBodies(system: JPH_PhysicsSystem): UInt32; cdec
 function JPH_PhysicsSystem_GetMaxBodies(system: JPH_PhysicsSystem): UInt32; cdecl; external JOLT_LIB;
 
 function JPH_PhysicsSystem_WereBodiesInContact(system: JPH_PhysicsSystem; body1: JPH_BodyID; body2: JPH_BodyID): JPH_Bool; cdecl; external JOLT_LIB;
-
   // -- JobSystem / TempAllocator ------------------------------------------------
 
 function JPH_JobSystemThreadPool_Create(config: PJobSystemThreadPoolConfig): JPH_JobSystem; cdecl; external JOLT_LIB;
 
 procedure JPH_JobSystem_Destroy(jobSystem: JPH_JobSystem); cdecl; external JOLT_LIB;
-
   // Uses malloc internally.
+
 function JPH_TempAllocator_Create(size: UInt32): JPH_TempAllocator; cdecl; external JOLT_LIB;
 
 function JPH_TempAllocatorMalloc_Create: JPH_TempAllocator; cdecl; external JOLT_LIB;
 
 procedure JPH_TempAllocator_Destroy(allocator: JPH_TempAllocator); cdecl; external JOLT_LIB;
-
   // -- Body creation & Transforms ----------------------------------------------
   // Create3 builds a JPH_BodyCreationSettings from a shape, transform and motion type.
 
 function JPH_BodyCreationSettings_Create3(shape: JPH_Shape; position: PJPH_RVec3; rotation: PJPH_Quat; motionType: JPH_MotionType; objectLayer: JPH_ObjectLayer): JPH_BodyCreationSettings; cdecl; external JOLT_LIB;
 
 procedure JPH_BodyCreationSettings_Destroy(settings: JPH_BodyCreationSettings); cdecl; external JOLT_LIB;
-
   // Returns the BodyID of the newly added body.
+
 function JPH_BodyInterface_CreateAndAddBody(bodyInterface: JPH_BodyInterface; settings: JPH_BodyCreationSettings; activationMode: JPH_Activation): JPH_BodyID; cdecl; external JOLT_LIB;
   // Removes the body from the world and destroys the underlying body object.
 
@@ -1081,7 +1050,6 @@ procedure JPH_BodyInterface_GetCenterOfMassPosition(bodyInterface: JPH_BodyInter
 procedure JPH_BodyInterface_GetWorldTransform(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; result: PJPH_RMat44); cdecl; external JOLT_LIB;
 
 procedure JPH_BodyInterface_GetCenterOfMassTransform(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; result: PJPH_RMat44); cdecl; external JOLT_LIB;
-
   // -- Body Velocity & Forces --------------------------------------------------
 
 procedure JPH_BodyInterface_SetLinearVelocity(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; velocity: PJPH_Vec3); cdecl; external JOLT_LIB;
@@ -1095,9 +1063,9 @@ procedure JPH_BodyInterface_GetAngularVelocity(bodyInterface: JPH_BodyInterface;
 procedure JPH_BodyInterface_SetLinearAndAngularVelocity(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; linearVelocity: PJPH_Vec3; angularVelocity: PJPH_Vec3); cdecl; external JOLT_LIB;
 
 procedure JPH_BodyInterface_GetLinearAndAngularVelocity(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; linearVelocity: PJPH_Vec3; angularVelocity: PJPH_Vec3); cdecl; external JOLT_LIB;
-
   //  AddImpulse: optional world-space position; if nil, applies at the center of mass.
   //  AddForce:   continuous force, applied during the next simulation step only.
+
 procedure JPH_BodyInterface_AddImpulse(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; impulse: PJPH_Vec3); cdecl; external JOLT_LIB;
 
 procedure JPH_BodyInterface_AddImpulse2(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; impulse: PJPH_Vec3; point: PJPH_RVec3); cdecl; external JOLT_LIB;
@@ -1114,19 +1082,23 @@ procedure JPH_BodyInterface_ActivateBody(bodyInterface: JPH_BodyInterface; bodyI
 
 procedure JPH_BodyInterface_DeactivateBody(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID); cdecl; external JOLT_LIB;
 
-function JPH_BodyInterface_IsActive(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID): JPH_Bool; cdecl; external JOLT_LIB;
+function JPH_BodyInterface_GetShape(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID): JPH_Shape; cdecl; external JOLT_LIB;
 
+procedure JPH_BodyInterface_SetShape(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; shape: JPH_Shape; updateMassProperties: JPH_Bool; 
+
+activationMode: JPH_Activation); cdecl; external JOLT_LIB;
+
+function JPH_BodyInterface_IsActive(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID): JPH_Bool; cdecl; external JOLT_LIB;
   // -- Body Properties ---------------------------------------------------------
 
 procedure JPH_BodyInterface_SetMotionType(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; motionType: JPH_MotionType; activationMode: JPH_Activation); cdecl; external JOLT_LIB;
 
 function JPH_BodyInterface_GetMotionType(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID): JPH_MotionType; cdecl; external JOLT_LIB;
-
   // Set motion quality (Discrete or LinearCast). LinearCast prevents fast moving objects from tunneling through walls.
+
 procedure JPH_BodyInterface_SetMotionQuality(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; quality: JPH_MotionQuality); cdecl; external JOLT_LIB;
 
 function JPH_BodyInterface_GetMotionQuality(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID): JPH_MotionQuality; cdecl; external JOLT_LIB;
-
   // -- Surface properties -------------------------------------------------------
 
 procedure JPH_BodyInterface_SetFriction(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; friction: Single); cdecl; external JOLT_LIB;
@@ -1136,7 +1108,6 @@ function JPH_BodyInterface_GetFriction(bodyInterface: JPH_BodyInterface; bodyID:
 procedure JPH_BodyInterface_SetRestitution(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; restitution: Single); cdecl; external JOLT_LIB;
 
 function JPH_BodyInterface_GetRestitution(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID): Single; cdecl; external JOLT_LIB;
-
   // -- Object Layer & User Data ------------------------------------------------
 
 procedure JPH_BodyInterface_SetObjectLayer(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; layer: JPH_ObjectLayer); cdecl; external JOLT_LIB;
@@ -1146,7 +1117,6 @@ function JPH_BodyInterface_GetObjectLayer(bodyInterface: JPH_BodyInterface; body
 procedure JPH_BodyInterface_SetUserData(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; userData: UInt64); cdecl; external JOLT_LIB;
 
 function JPH_BodyInterface_GetUserData(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID): UInt64; cdecl; external JOLT_LIB;
-
   // -- Ray casting & Collisions ------------------------------------------------
   //  Casts a ray from `origin` in `direction` (not necessarily normalized).
   //  Returns 1 if a hit was found and writes the result to `hit`, otherwise 0.
@@ -1154,7 +1124,6 @@ function JPH_BodyInterface_GetUserData(bodyInterface: JPH_BodyInterface; bodyID:
 function JPH_NarrowPhaseQuery_CastRay(query: JPH_NarrowPhaseQuery; origin: PJPH_RVec3; direction: PJPH_Vec3; hit: PJPH_RayCastResult; broadPhaseLayerFilter: JPH_BroadPhaseLayerFilter; objectLayerFilter: JPH_ObjectLayerFilter; bodyFilter: JPH_BodyFilter; shapeFilter: JPH_ShapeFilter): JPH_Bool; cdecl; external JOLT_LIB;
 
 function JPH_NarrowPhaseQuery_CollidePoint(query: JPH_NarrowPhaseQuery; point: PJPH_RVec3; hit: PJPH_CollidePointResult; broadPhaseLayerFilter: JPH_BroadPhaseLayerFilter; objectLayerFilter: JPH_ObjectLayerFilter; bodyFilter: JPH_BodyFilter; shapeFilter: JPH_ShapeFilter): JPH_Bool; cdecl; external JOLT_LIB;
-
   // -- Shape settings (builders for convex shapes) -----------------------------
   //  Each *ShapeSettings_Create returns a settings object. Call the corresponding
   //  *_CreateShape to obtain the actual JPH_Shape, then destroy the settings object.
@@ -1194,14 +1163,13 @@ function JPH_ConvexHullShapeSettings_CreateShape(settings: JPH_ConvexHullShapeSe
 function JPH_StaticCompoundShapeSettings_CreateShape(settings: JPH_StaticCompoundShapeSettings): JPH_Shape; cdecl; external JOLT_LIB;
 
 function JPH_MeshShapeSettings_CreateShape(settings: JPH_MeshShapeSettings): JPH_Shape; cdecl; external JOLT_LIB;
-
   // Adds a child shape to a compound shape settings object.
+
 procedure JPH_CompoundShapeSettings_AddShape(settings: JPH_CompoundShapeSettings; position: PJPH_Vec3; rotation: PJPH_Quat; shapeSettings: JPH_ShapeSettings; userData: UInt32); cdecl; external JOLT_LIB;
 
 procedure JPH_ShapeSettings_Destroy(settings: JPH_ShapeSettings); cdecl; external JOLT_LIB;
 
 procedure JPH_Shape_Destroy(shape: JPH_Shape); cdecl; external JOLT_LIB;
-
   // -- Constraints -------------------------------------------------------------
   //  Create joints between bodies. Settings must be initialized before creation.
 
@@ -1236,7 +1204,6 @@ procedure JPH_Constraint_Destroy(constraint: JPH_Constraint); cdecl; external JO
 procedure JPH_PhysicsSystem_AddConstraint(system: JPH_PhysicsSystem; constraint: JPH_Constraint); cdecl; external JOLT_LIB;
 
 procedure JPH_PhysicsSystem_RemoveConstraint(system: JPH_PhysicsSystem; constraint: JPH_Constraint); cdecl; external JOLT_LIB;
-
   // -- Math Helpers ------------------------------------------------------------
   //  Utility functions provided by the C API for vector and matrix math.
 
@@ -1259,7 +1226,6 @@ procedure JPH_Quat_Inversed(quat: PJPH_Quat; result: PJPH_Quat); cdecl; external
 procedure JPH_Mat44_Identity(result: PJPH_Mat44); cdecl; external JOLT_LIB;
 
 procedure JPH_Mat44_RotationTranslation(result: PJPH_Mat44; rotation: PJPH_Quat; translation: PJPH_Vec3); cdecl; external JOLT_LIB;
-
   // -- Materials ---------------------------------------------------------------
   //  Custom materials can be assigned to shape sub-parts for per-face friction/restitution.
 
