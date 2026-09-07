@@ -3,11 +3,11 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
     
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaMitaOne/JoltPhysics4Delphi)    
       
-<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/e9c94947-6c84-432e-a84b-2a805a60bfda" />
+<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/09023b1a-9949-4eed-a4b4-fd0a267ddfb7" />
            
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.3)     
+   Status: Work in Progress (Alpha v0.4)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features    
@@ -26,8 +26,8 @@ This project provides a clean VCL-friendly implementation that bridges the nativ
       
   Controls:    
       
-   Left click drag and throw items      
-   Right click camera rotation    
+   Ctrl to switch move/rotate/size    
+   Middle click camera rotation    
    WASD move camera    
    Space shoot    
    Mouse Wheel zoom in out      
@@ -54,7 +54,19 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:    
-      
+     
+ v0.4:    
+     
+  Editor & Gizmo Update:
+     
+     Gizmo System: Added Translate, Rotate, and Scale gizmos (toggleable via CTRL).    
+     Object Inspector (RTTI): Live TStringGrid reading/writing all properties (Position, Rotation, Colors, Physics) directly to the object.    
+     Scene Hierarchy: TreeView sync.    
+     Brush System: Click-to-place mechanics with semi-transparent ghost preview.    
+     Play/Pause Mode: Simulation can now be frozen for pure editing.    
+     Safe Editing (Detach/Reattach): Objects are fully detached from Jolt while being edited (preventing crashes/jitter) and cleanly re-attached with new transforms on mouse release.    
+     Tiny Scale Fix: SetScale automatically falls back to 0.0 convex radius for objects < 0.2m (allows paper-thin walls).    
+        
   v0.3:     
   
   JoltPhysics:   
