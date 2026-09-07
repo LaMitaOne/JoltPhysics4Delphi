@@ -57,10 +57,7 @@ object Form1: TForm1
       Align = alClient
       Caption = 'Panel1'
       TabOrder = 1
-      ExplicitLeft = 16
-      ExplicitTop = 344
-      ExplicitWidth = 185
-      ExplicitHeight = 41
+      ExplicitHeight = 301
       object StringGrid1: TStringGrid
         Left = 1
         Top = 1
@@ -69,8 +66,9 @@ object Form1: TForm1
         Align = alClient
         Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goFixedRowDefAlign]
         TabOrder = 0
-        ExplicitLeft = 2
-        ExplicitTop = 2
+        OnSelectCell = StringGrid1SelectCell
+        OnSetEditText = StringGrid1SetEditText
+        ExplicitHeight = 299
       end
     end
   end
@@ -138,6 +136,7 @@ object Form1: TForm1
       Caption = 'play/pause'
       TabOrder = 4
       OnClick = btnPlayPauseClick
+      ExplicitLeft = 1006
     end
   end
   object PopupMenu1: TPopupMenu

@@ -92,7 +92,6 @@ var
 implementation
 {$R *.dfm}
 
-
 /// Parses a string formatted as "x, y, z" into a TVector3.
 /// Handles both dot and comma decimal separators.
 
@@ -117,7 +116,6 @@ begin
     if TryStrToFloat(Trim(Parts[2]), v) then
       Result.z := v;
 end;
-
 
 /// Converts a TVector3 to a formatted string "x, y, z".
 
@@ -277,7 +275,6 @@ begin
   SelectActorInUI(NewActor);
   lblInfo.Caption := 'Object duplicated.';
 end;
-
 // === Object Inspector Logic ===
 
 procedure TForm1.LoadPropertiesIntoGrid(AComponent: TBy3DComponent);
@@ -502,7 +499,6 @@ begin
     end;
   end;
 end;
-
 // === Engine Events ===
 
 procedure TForm1.HandleViewportReady(Sender: TObject);
@@ -538,7 +534,6 @@ procedure TForm1.HandleEngineException(Sender: TObject; const Args: TEngineExcep
 begin
   lblInfo.Caption := Format('ERR [%s]: %s', [Args.Context, Args.Message]);
 end;
-
 // === Buttons & UI ===
 
 procedure TForm1.btnSpawnCubesClick(Sender: TObject);
