@@ -7,7 +7,7 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
            
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.4)     
+   Status: Work in Progress (Alpha v0.5)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features    
@@ -54,6 +54,18 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:    
+     
+ v0.5:    
+     
+     Native Context Popup: Replaced VCL PopupMenu with a fully native Raylib 2D popup ("Delete" / "Duplicate") rendered directly inside the 3D viewport.
+     Click-Out Deselection: Left-clicking empty 3D space now immediately deselects the current actor and hides the gizmo.    
+     Ghost-Cube Fix: Setting gmNone on scene clear prevents the bug where clicking a spawn button accidentally spawned an object at the button's location.     
+     Perfect Local Rotation: Gizmos now calculate axis vectors directly from the actor's quaternion, ensuring they stay perfectly attached to the object's local faces regardless of its physical rotation or falling state.    
+     Hover Highlighting: Gizmo axes now highlight yellow on mouse hover before clicking, showing exactly which axis will be grabbed.     
+     Robust Hitboxes: Invisible bounding boxes for gizmo picking have been significantly enlarged, making axes much easier to grab without accidentally selecting the 3D object behind them.     
+     Dynamic Sizing: Gizmo arrow thickness now scales dynamically based on the object's size, preventing them from becoming invisible on large actors.   
+     Drag & Throw Tool: Reintroduced the Drag & Throw tool as a distinct mode (gmNone), allowing users to pull, push, and test physics interactions without the gizmo interfering.       
+     Capsule Actor: Added Capsule as a new primitive shape, including UI button, rendering logic, and Jolt physics mapping.    
      
  v0.4:    
      
