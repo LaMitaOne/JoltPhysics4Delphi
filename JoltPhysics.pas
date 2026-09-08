@@ -1,7 +1,7 @@
 unit JoltPhysics;
 
 {==============================================================================*
- *  JoltPhysics v0.4 - Delphi Wrapper for Jolt Physics C API
+ *  JoltPhysics v0.5 - Delphi Wrapper for Jolt Physics C API
  *------------------------------------------------------------------------------
     Author:  Lara Miriam Tamy Reschke / LamitaOne
  *  Description:
