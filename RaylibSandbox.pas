@@ -2,7 +2,7 @@
 
 
 {==============================================================================*
- *  RaylibSandbox v0.4 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.5 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -23,7 +23,7 @@
  *      interacting with 3D Gizmos.
  *
  *  Core Features:
- *    - Spawning dynamic objects (Cubes, Spheres, Pyramids) that interact
+ *    - Spawning dynamic objects (Cubes, Spheres, Pyramids, Capsules) that interact
  *      with a static floor and walls using Jolt Physics.
  *    - Orbit camera (Middle Mouse Button), Zoom (Mouse Wheel), and WASD/Arrow
  *      key panning with world boundaries.
@@ -48,6 +48,9 @@
  *      from Jolt Physics (preventing crashes or physics jitter). Changes are
  *      applied directly to Delphi variables. Upon mouse release, the object
  *      is cleanly re-attached to the physics world with its new transform.
+
+ *------------------------------------------------------------------------------
+ *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *==============================================================================}
 
 {$POINTERMATH ON}
@@ -134,7 +137,6 @@ type
     FLightSpeed: Single;
     FProjectiles: TArray<TBy3DComponent>;
     FShootCooldown: Single;
-    FRightClickHandled: Boolean;
     FRightClickWasPressed: Boolean;
     FOnViewportReady: TNotifyEngineEvent;
     FOnActorSpawned: TActorEvent;
@@ -148,13 +150,21 @@ type
     FGhostPos: TVector3;
     FGhostVisible: Boolean;
     FGizmoMode: TGizmoMode;
-    FGizmoAxis: Integer; // 0=None, 1=X, 2=Y, 3=Z
+    FGizmoAxis: Integer;
+    FGizmoHoverAxis: Integer;
     FGizmoDragging: Boolean;
     FGizmoStartMouse: TVector2;
     FGizmoStartVal: TVector3;
     FGizmoStartQuat: TQuaternion;
     FCtrlWasPressed: Boolean;
     FMouseLeftPressed: Boolean;
+
+    // Native Popup System
+    FPopupOpen: Boolean;
+    FPopupPos: TVector2;
+    FPopupSegments: array of string;
+    FPopupHoverIndex: Integer;
+    FPopupCloseLock: Boolean;
 
     procedure ShootBall;
     procedure UpdateProjectiles(dt: Single);
@@ -168,7 +178,7 @@ type
     procedure Render3DScene;
     procedure DrawGUI;
     procedure DrawGizmo;
-    procedure DrawThickRing(Axis: Integer; Radius, Thickness: Single; Color: TColorB);
+    procedure DrawThickRingAt(Center, NormalAxis: TVector3; Radius, Thickness: Single; Color: TColorB);
     procedure UpdateGizmoInteraction;
     function CheckGizmoAxisHit(Pos, Scale: TVector3; RayRadius: Single; Ray: TRay; out Axis: Integer): Boolean;
     function CheckGizmoRingHit(Pos, Scale: TVector3; RayRadius: Single; Ray: TRay; out Axis: Integer): Boolean;
@@ -184,6 +194,10 @@ type
     procedure DoEngineException(const Msg, Context: string);
     procedure DoObjectSelected(Actor: TBy3DComponent);
     procedure DoViewportRightClick;
+
+    procedure DrawNativePopup;
+    procedure HandlePopupInput;
+    procedure ExecutePopupAction(Index: Integer);
   protected
     procedure Resize; override;
     procedure CreateWindowHandle(const Params: TCreateParams); override;
@@ -193,6 +207,7 @@ type
     FMouseLeftHandled: Boolean;
     function ItemCount: Integer;
     procedure ClearItems;
+    procedure DeleteSelectedActor;
     procedure SpawnObjects(Count: Integer; ShapeType: TShapeType);
     procedure SetBrush(AShape: TShapeType);
     procedure SetSimulationRunning(AValue: Boolean);
@@ -207,9 +222,9 @@ type
     property OnObjectSelected: TObjectSelectedEvent read FOnObjectSelected write FOnObjectSelected;
     property OnViewportRightClick: TNotifyEngineEvent read FOnViewportRightClick write FOnViewportRightClick;
     procedure SetSelectedActor(AActor: TBy3DComponent);
+    procedure SetGizmoMode(AMode: TGizmoMode);
     property Engine: TModelEngine read FEngine;
   published
-    property PopupMenu;
     property Align;
     property Anchors;
     property Visible;
@@ -281,16 +296,18 @@ begin
   FSpawnShape := stBox;
   FClearItemsQueued := False;
   FShootCooldown := 0.0;
-  FIsBrushActive := False;
+  FIsBrushActive := false;
   FSimulationRunning := True;
   FGhostVisible := False;
   FGizmoMode := gmTranslate;
   FGizmoAxis := 0;
+  FGizmoHoverAxis := 0;
   FGizmoDragging := False;
   FRightClickWasPressed := False;
   FCtrlWasPressed := False;
   FMouseLeftPressed := False;
   FMouseLeftHandled := False;
+  FPopupOpen := False;
 end;
 
 destructor TRaylibSandbox.Destroy;
@@ -354,6 +371,11 @@ end;
 function TRaylibSandbox.GetSimulationRunning: Boolean;
 begin
   Result := FSimulationRunning;
+end;
+
+procedure TRaylibSandbox.SetGizmoMode(AMode: TGizmoMode);
+begin
+  FGizmoMode := AMode;
 end;
 
 procedure TRaylibSandbox.InitLighting;
@@ -442,10 +464,8 @@ begin
               QueryPerformanceCounter(FrameStart);
               if WindowShouldClose() then
                 Break;
-
               UpdateGame;
               RenderGame;
-
               if FTargetFPS > 0 then
               begin
                 FrameTicks := Freq div FTargetFPS;
@@ -547,6 +567,7 @@ procedure TRaylibSandbox.ClearItems;
 begin
   FLock.Enter;
   try
+    FGizmoMode := gmNone;
     FClearItemsQueued := True;
   finally
     FLock.Leave;
@@ -580,6 +601,7 @@ begin
   FSpawnTimer := FSpawnTimer - dt;
   if FSpawnTimer > 0 then
     Exit;
+
   FSpawnQueue := FSpawnQueue - 1;
   FSpawnTimer := 0.04;
   oldLen := Length(FItems);
@@ -596,13 +618,17 @@ begin
       Data^.Name := 'Sphere_' + IntToStr(oldLen);
     stPyramid:
       Data^.Name := 'Pyramid_' + IntToStr(oldLen);
+    stCapsule:
+      Data^.Name := 'Capsule_' + IntToStr(oldLen);
   end;
 
   Size := Vector3Create(1, 1, 1);
   if FSpawnShape = stSphere then
     Size := Vector3Create(0.5, 0.5, 0.5)
   else if FSpawnShape = stPyramid then
-    Size := Vector3Create(0.8, 1.5, 0.8);
+    Size := Vector3Create(0.8, 1.5, 0.8)
+  else if FSpawnShape = stCapsule then
+    Size := Vector3Create(0.5, 1.5, 0.5);
 
   JPos.x := -20.0 + (Random * 40.0);
   JPos.y := 25.0 + (Random * 10.0);
@@ -805,6 +831,7 @@ var
   topY: Single;
   HalfH, HalfX, HalfZ, HalfY: Single;
   GScaleX, GScaleY, GScaleZ: Single;
+  TargetY, t: Single;
 begin
   dt := GetFrameTime();
   if FShootCooldown > 0 then
@@ -824,22 +851,6 @@ begin
 
   FMouseLeftPressed := (GetAsyncKeyState(VK_LBUTTON) and $8000) <> 0;
 
-  if FMouseLeftPressed and not FMouseLeftHandled then
-    FMouseLeftHandled := True
-  else if not FMouseLeftPressed and FMouseLeftHandled then
-    FMouseLeftHandled := False;
-
-  if (GetAsyncKeyState(VK_RBUTTON) and $8000) <> 0 then
-  begin
-    if not FRightClickWasPressed then
-    begin
-      DoViewportRightClick;
-      FRightClickWasPressed := True;
-    end;
-  end
-  else
-    FRightClickWasPressed := False;
-
   if (GetAsyncKeyState(VK_CONTROL) and $8000) <> 0 then
   begin
     if not FCtrlWasPressed then
@@ -856,6 +867,47 @@ begin
   else
     FCtrlWasPressed := False;
 
+  // Native Popup Input abfangen
+  if FPopupOpen then
+  begin
+    HandlePopupInput;
+    Exit;
+  end;
+
+  // Rechtsklick abfangen
+  if (GetAsyncKeyState(VK_RBUTTON) and $8000) <> 0 then
+  begin
+    if not FRightClickWasPressed then
+    begin
+      if Assigned(FItemSelected) and not FIsBrushActive and (FGizmoMode <> gmNone) then
+      begin
+        FPopupOpen := True;
+        FPopupPos := FMousePos;
+        SetLength(FPopupSegments, 2);
+        FPopupSegments[0] := 'Delete';
+        FPopupSegments[1] := 'Duplicate';
+        FPopupHoverIndex := -1;
+        FPopupCloseLock := True;
+      end;
+      FRightClickWasPressed := True;
+    end;
+  end
+  else
+    FRightClickWasPressed := False;
+
+  // Shooting logic (always allowed if sim is running)
+  if FSimulationRunning then
+  begin
+    if (GetAsyncKeyState(VK_SPACE) and $8000) <> 0 then
+    begin
+      if FShootCooldown <= 0 then
+      begin
+        ShootBall;
+        FShootCooldown := 0.25;
+      end;
+    end;
+  end;
+
   if (GetAsyncKeyState(VK_MBUTTON) and $8000) <> 0 then
   begin
     FGhostVisible := False;
@@ -864,7 +916,70 @@ begin
 
   ray := GetScreenToWorldRay(FMousePos, FCamera);
 
-  // Handle active Gizmo dragging
+  // --- DRAG & THROW MODE (Test Tool) ---
+  if FGizmoMode = gmNone then
+  begin
+    // If we are already dragging, keep the target updated
+    if FDragging and Assigned(FItemSelected) then
+    begin
+      if FMouseLeftPressed then
+      begin
+        // Highlight the dragged object so the user sees what they grabbed
+        FItemSelected.TealGlow := True;
+
+        if Abs(ray.direction.y) > 0.0001 then
+        begin
+          TargetY := FItemSelected.Position.y + 0.5;
+          t := (TargetY - ray.position.y) / ray.direction.y;
+          if t > 0 then
+          begin
+            FDragTargetPos.x := ray.position.x + ray.direction.x * t;
+            FDragTargetPos.z := ray.position.z + ray.direction.z * t;
+          end;
+        end;
+      end
+      else
+      begin
+        FItemSelected.TealGlow := False; // Turn off glow when released
+        FDragging := False;
+      end;
+    end
+    // Only select a new object to drag if we are NOT already dragging
+    else if FMouseLeftPressed then
+    begin
+      for i := 0 to High(FItems) do
+      begin
+        if FItems[i] = nil then
+          Continue;
+
+        // Calculate ACTUAL bounding box based on scale
+        HalfX := FItems[i].Scale.x * 0.5;
+        HalfY := FItems[i].Scale.y * 0.5;
+        HalfZ := FItems[i].Scale.z * 0.5;
+
+        itemBox.min := Vector3Create(FItems[i].position.x - HalfX, FItems[i].position.y - HalfY, FItems[i].position.z - HalfZ);
+        itemBox.max := Vector3Create(FItems[i].position.x + HalfX, FItems[i].position.y + HalfY, FItems[i].position.z + HalfZ);
+
+        hitInfo := GetRayCollisionBox(ray, itemBox);
+        if hitInfo.hit then
+        begin
+          if FItemSelected <> FItems[i] then
+          begin
+            FItemSelected := FItems[i];
+            DoObjectSelected(FItemSelected);
+          end;
+          FItemSelected.TealGlow := True; // Turn on glow when grabbed
+          FItemSelected.ActivateBody;
+          FDragging := True;
+          Break;
+        end;
+      end;
+    end;
+
+    Exit; // IMPORTANT: Skip the rest of the input handling completely!
+  end;
+
+  // --- GIZMO MODE ---
   if FGizmoDragging then
   begin
     UpdateGizmoInteraction;
@@ -872,14 +987,11 @@ begin
     begin
       FGizmoDragging := False;
       FGizmoAxis := 0;
-
-      // Reattach to Jolt physics
       if Assigned(FItemSelected) then
         FItemSelected.ReattachToPhysics;
     end
     else
     begin
-      // Accumulate start values so it doesn't jump
       if (FGizmoMode = gmTranslate) then
       begin
         FGizmoStartMouse := FMousePos;
@@ -894,19 +1006,16 @@ begin
     Exit;
   end;
 
-  // Handle Gizmo picking if an item is selected
   if Assigned(FItemSelected) and not FIsBrushActive then
   begin
     if FMouseLeftPressed then
     begin
-      // Calculate gizmo scale per axis, exactly as drawn in DrawGizmo
       GScaleX := EnsureRange(FItemSelected.Scale.x + 0.3, 1.0, 20.0);
       GScaleY := EnsureRange(FItemSelected.Scale.y + 0.3, 1.0, 20.0);
       GScaleZ := EnsureRange(FItemSelected.Scale.z + 0.3, 1.0, 20.0);
 
       if FGizmoMode = gmTranslate then
       begin
-        // Increased RayRadius to 0.25 for much easier grabbing
         if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.25, ray, FGizmoAxis) then
         begin
           FGizmoDragging := True;
@@ -920,7 +1029,7 @@ begin
       end
       else if FGizmoMode = gmRotate then
       begin
-        if CheckGizmoRingHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.15, ray, FGizmoAxis) then
+        if CheckGizmoRingHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.2, ray, FGizmoAxis) then
         begin
           FGizmoDragging := True;
           FGizmoStartMouse := FMousePos;
@@ -947,7 +1056,6 @@ begin
     end;
   end;
 
-  // Brush Ghost Preview & Spawn Logic
   if FIsBrushActive then
   begin
     groundBox.min := Vector3Create(-1000, -0.1, -1000);
@@ -1022,22 +1130,10 @@ begin
     Exit;
   end;
 
-  if FSimulationRunning then
-  begin
-    if (GetAsyncKeyState(VK_SPACE) and $8000) <> 0 then
-    begin
-      if FShootCooldown <= 0 then
-      begin
-        ShootBall;
-        FShootCooldown := 0.25;
-      end;
-    end;
-  end;
-
   if FShootCooldown > 0 then
     Exit;
 
-  // Selection logic
+  // Object Selection (Nur in Gizmo Modes)
   if FMouseLeftPressed then
   begin
     if not FDragging then
@@ -1063,11 +1159,135 @@ begin
           Break;
         end;
       end;
+
+      if not FDragging then
+      begin
+        if Assigned(FItemSelected) then
+        begin
+          FItemSelected := nil;
+          DoObjectSelected(nil);
+        end;
+      end;
     end;
   end
   else
   begin
     FDragging := False;
+  end;
+end;
+
+procedure TRaylibSandbox.HandlePopupInput;
+var
+  I: Integer;
+  Rect: TRectangle;
+  NewHover: Integer;
+begin
+  NewHover := -1;
+  for I := 0 to High(FPopupSegments) do
+  begin
+    Rect.x := FPopupPos.x;
+    Rect.y := FPopupPos.y + (I * 40);
+    Rect.width := 150;
+    Rect.height := 38;
+    if CheckCollisionPointRec(FMousePos, Rect) then
+    begin
+      NewHover := I;
+      Break;
+    end;
+  end;
+  if FPopupHoverIndex <> NewHover then
+    FPopupHoverIndex := NewHover;
+
+  if FPopupCloseLock then
+  begin
+    if (GetAsyncKeyState(VK_RBUTTON) and $8000) = 0 then
+      FPopupCloseLock := False;
+    Exit;
+  end;
+
+  if (GetAsyncKeyState(VK_LBUTTON) and $8000) <> 0 then
+  begin
+    ExecutePopupAction(FPopupHoverIndex);
+    FPopupOpen := False;
+    FMouseLeftHandled := True;
+  end;
+end;
+
+procedure TRaylibSandbox.ExecutePopupAction(Index: Integer);
+var
+  SelectedIdx, I: Integer;
+  NewActor: TBy3DComponent;
+  NewPos: TVector3;
+  NewRot: JPH_Quat;
+  NewSize: TVector3;
+  NewData: PItemData;
+  OldLen: Integer;
+begin
+  if (Index < 0) or (Index > High(FPopupSegments)) then
+    Exit;
+
+  if FPopupSegments[Index] = 'Delete' then
+    DeleteSelectedActor
+  else if FPopupSegments[Index] = 'Duplicate' then
+  begin
+    if not Assigned(FItemSelected) then
+      Exit;
+    OldLen := Length(FItems);
+    SetLength(FItems, OldLen + 1);
+    NewPos.x := FItemSelected.Position.x + 1.0;
+    NewPos.y := FItemSelected.Position.y;
+    NewPos.z := FItemSelected.Position.z;
+    NewRot.x := FItemSelected.Quaternion.x;
+    NewRot.y := FItemSelected.Quaternion.y;
+    NewRot.z := FItemSelected.Quaternion.z;
+    NewRot.w := FItemSelected.Quaternion.w;
+    NewSize := FItemSelected.Scale;
+    NewActor := TBy3DComponent.Create('', FEngine, FItemSelected.ShapeType, NewSize, False, @NewPos, @NewRot);
+    NewActor.Friction := FItemSelected.Friction;
+    NewActor.Restitution := FItemSelected.Restitution;
+    NewActor.TargetColor := FItemSelected.TargetColor;
+    New(NewData);
+    FillChar(NewData^, SizeOf(TItemData), 0);
+    NewData^.SpawnTime := GetTime();
+    NewData^.IsProjectile := False;
+    case NewActor.ShapeType of
+      stBox:
+        NewData^.Name := 'Cube_' + IntToStr(OldLen);
+      stSphere:
+        NewData^.Name := 'Sphere_' + IntToStr(OldLen);
+      stPyramid:
+        NewData^.Name := 'Pyramid_' + IntToStr(OldLen);
+    end;
+    NewActor.UserData := NewData;
+    NewActor.Visible := True;
+    FItems[OldLen] := NewActor;
+    DoActorSpawned(NewActor, OldLen);
+    DoObjectSelected(NewActor);
+  end;
+end;
+
+procedure TRaylibSandbox.DeleteSelectedActor;
+var
+  SelectedIdx, I: Integer;
+begin
+  if not Assigned(FItemSelected) then
+    Exit;
+  SelectedIdx := -1;
+  for I := 0 to High(FItems) do
+    if FItems[I] = FItemSelected then
+    begin
+      SelectedIdx := I;
+      Break;
+    end;
+  if SelectedIdx >= 0 then
+  begin
+    FItemSelected.Visible := False;
+    FItemSelected.Free;
+    for I := SelectedIdx to High(FItems) - 1 do
+      FItems[I] := FItems[I + 1];
+    SetLength(FItems, Length(FItems) - 1);
+    FItemSelected := nil;
+    DoObjectSelected(nil);
   end;
 end;
 
@@ -1114,13 +1334,9 @@ begin
       FGizmoStartQuat := FItemSelected.Quaternion;
     end;
   end
-  // --- SCALE ---
   else if FGizmoMode = gmScale then
   begin
-    // Mouse Right or Down = Larger. Mouse Left or Up = Smaller.
-    // Note: MouseDeltaY is inverted because screen Y goes down, but we want to pull UP to make it larger.
     ScaleChange := (MouseDeltaX * 0.05) + (-MouseDeltaY * 0.05);
-
     EndScale := FGizmoStartVal;
     if FGizmoAxis = 1 then
       EndScale.x := EnsureRange(EndScale.x + ScaleChange, 0.05, 100)
@@ -1128,23 +1344,20 @@ begin
       EndScale.y := EnsureRange(EndScale.y + ScaleChange, 0.05, 100)
     else if FGizmoAxis = 3 then
       EndScale.z := EnsureRange(EndScale.z + ScaleChange, 0.05, 100);
-
     FItemSelected.Scale := EndScale;
   end;
 end;
 
 function TRaylibSandbox.CheckGizmoAxisHit(Pos, Scale: TVector3; RayRadius: Single; Ray: TRay; out Axis: Integer): Boolean;
 var
-  CylEnd: TVector3;
   Box: TBoundingBox;
   Hit: TRayCollision;
 begin
   Result := False;
   Axis := 0;
 
-  CylEnd := Vector3Add(Pos, Vector3Create(Scale.x, 0, 0));
-  Box.min := Vector3Create(Pos.x, Pos.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(CylEnd.x + RayRadius, Pos.y + RayRadius, Pos.z + RayRadius);
+  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, Pos.z - RayRadius);
+  Box.max := Vector3Create(Pos.x + Scale.x + RayRadius, Pos.y + RayRadius, Pos.z + RayRadius);
   Hit := GetRayCollisionBox(Ray, Box);
   if Hit.hit then
   begin
@@ -1153,9 +1366,8 @@ begin
     Exit;
   end;
 
-  CylEnd := Vector3Add(Pos, Vector3Create(0, Scale.y, 0));
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, CylEnd.y + RayRadius, Pos.z + RayRadius);
+  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, Pos.z - RayRadius);
+  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + Scale.y + RayRadius, Pos.z + RayRadius);
   Hit := GetRayCollisionBox(Ray, Box);
   if Hit.hit then
   begin
@@ -1164,9 +1376,8 @@ begin
     Exit;
   end;
 
-  CylEnd := Vector3Add(Pos, Vector3Create(0, 0, Scale.z));
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, Pos.z);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + RayRadius, CylEnd.z + RayRadius);
+  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, Pos.z - RayRadius);
+  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + RayRadius, Pos.z + Scale.z + RayRadius);
   Hit := GetRayCollisionBox(Ray, Box);
   if Hit.hit then
   begin
@@ -1217,16 +1428,14 @@ end;
 
 function TRaylibSandbox.CheckGizmoScaleHit(Pos, Scale: TVector3; RayRadius: Single; Ray: TRay; out Axis: Integer): Boolean;
 var
-  BoxEnd: TVector3;
   Box: TBoundingBox;
   Hit: TRayCollision;
 begin
   Result := False;
   Axis := 0;
 
-  BoxEnd := Vector3Add(Pos, Vector3Create(Scale.x, 0, 0));
-  Box.min := Vector3Create(BoxEnd.x - RayRadius, Pos.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(BoxEnd.x + RayRadius, Pos.y + RayRadius, Pos.z + RayRadius);
+  Box.min := Vector3Create(Pos.x + Scale.x - RayRadius, Pos.y - RayRadius, Pos.z - RayRadius);
+  Box.max := Vector3Create(Pos.x + Scale.x + RayRadius, Pos.y + RayRadius, Pos.z + RayRadius);
   Hit := GetRayCollisionBox(Ray, Box);
   if Hit.hit then
   begin
@@ -1235,9 +1444,8 @@ begin
     Exit;
   end;
 
-  BoxEnd := Vector3Add(Pos, Vector3Create(0, Scale.y, 0));
-  Box.min := Vector3Create(Pos.x - RayRadius, BoxEnd.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, BoxEnd.y + RayRadius, Pos.z + RayRadius);
+  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y + Scale.y - RayRadius, Pos.z - RayRadius);
+  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + Scale.y + RayRadius, Pos.z + RayRadius);
   Hit := GetRayCollisionBox(Ray, Box);
   if Hit.hit then
   begin
@@ -1246,9 +1454,8 @@ begin
     Exit;
   end;
 
-  BoxEnd := Vector3Add(Pos, Vector3Create(0, 0, Scale.z));
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, BoxEnd.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + RayRadius, BoxEnd.z + RayRadius);
+  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, Pos.z + Scale.z - RayRadius);
+  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + RayRadius, Pos.z + Scale.z + RayRadius);
   Hit := GetRayCollisionBox(Ray, Box);
   if Hit.hit then
   begin
@@ -1286,16 +1493,31 @@ begin
       Data^.Name := 'Sphere_' + IntToStr(oldLen);
     stPyramid:
       Data^.Name := 'Pyramid_' + IntToStr(oldLen);
+    stCapsule:
+      Data^.Name := 'Capsule_' + IntToStr(oldLen);
   end;
 
   Size := Vector3Create(1, 1, 1);
   if FBrushShape = stSphere then
     Size := Vector3Create(0.5, 0.5, 0.5)
   else if FBrushShape = stPyramid then
-    Size := Vector3Create(0.8, 1.5, 0.8);
+    Size := Vector3Create(0.8, 1.5, 0.8)
+  else if FBrushShape = stCapsule then
+    Size := Vector3Create(0.5, 1.5, 0.5);
 
   JPos.x := Pos.x;
-  JPos.y := Pos.y + (Size.y * 0.5);
+
+  if FBrushShape = stCapsule then
+    JPos.y := Pos.y + (Size.y * 0.5)
+  else if FBrushShape = stBox then
+    JPos.y := Pos.y + (Size.y * 0.5)
+  else if FBrushShape = stSphere then
+    JPos.y := Pos.y + (Size.x * 0.5)
+  else if FBrushShape = stPyramid then
+    JPos.y := Pos.y + (Size.z * 0.5) // Pyramide uses Size.z for height in jolt
+  else
+    JPos.y := Pos.y;
+
   JPos.z := Pos.z;
 
   JRot.x := 0;
@@ -1304,7 +1526,6 @@ begin
   JRot.w := 1;
 
   Obj := TBy3DComponent.Create('', FEngine, FBrushShape, Size, False, @JPos, @JRot);
-
   Obj.Friction := 1.0;
   Obj.Restitution := 0.0;
   Obj.UserData := Data;
@@ -1324,6 +1545,12 @@ var
   Diffuse: array[0..3] of Single;
   CamPosArr: array[0..2] of Single;
   LightPosArr: array[0..2] of Single;
+  HoverRay: TRay;
+  HoverScaleX, HoverScaleY, HoverScaleZ: Single;
+  HoverAxis: Integer;
+  Dir: TVector3;
+  Dist: single;
+  NewVel: TVector3;
 begin
   if FClearItemsQueued then
   begin
@@ -1361,6 +1588,7 @@ begin
   end;
 
   dt := GetFrameTime();
+
   HandleCameraInput;
   HandleDesktopInput;
   ProcessSpawnQueue(dt);
@@ -1384,20 +1612,77 @@ begin
     if FHUDAnimY > -0.5 then
       FHUDAnimY := 0;
   end;
+            // Gizmo Hover Check
+  FGizmoHoverAxis := 0;
+  if FInitialized and Assigned(FItemSelected) and not FGizmoDragging and not FDragging and not FPopupOpen and (FGizmoMode <> gmNone) then
+  begin
+    HoverRay := GetScreenToWorldRay(FMousePos, FCamera);
+    HoverScaleX := EnsureRange(FItemSelected.Scale.x + 1.0, 1.0, 20.0);
+    HoverScaleY := EnsureRange(FItemSelected.Scale.y + 1.0, 1.0, 20.0);
+    HoverScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 20.0);
 
+    if FGizmoMode = gmTranslate then
+    begin
+      if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(HoverScaleX, HoverScaleY, HoverScaleZ), 0.25, HoverRay, HoverAxis) then
+        FGizmoHoverAxis := HoverAxis;
+    end
+    else if FGizmoMode = gmRotate then
+    begin
+      if CheckGizmoRingHit(FItemSelected.Position, Vector3Create(HoverScaleX, HoverScaleY, HoverScaleZ), 0.2, HoverRay, HoverAxis) then
+        FGizmoHoverAxis := HoverAxis;
+    end
+    else if FGizmoMode = gmScale then
+    begin
+      if CheckGizmoScaleHit(FItemSelected.Position, Vector3Create(HoverScaleX, HoverScaleY, HoverScaleZ), 0.25, HoverRay, HoverAxis) then
+        FGizmoHoverAxis := HoverAxis;
+    end;
+  end;
   for i := 0 to High(FItems) do
   begin
     if Assigned(FItems[i]) and (FItems[i].UserData <> nil) then
     begin
       if PItemData(FItems[i].UserData)^.IsProjectile then
         Continue;
-
       ItemVel := FItems[i].GetLinearVelocity;
       if (Abs(ItemVel.x) > 2.0) or (Abs(ItemVel.y) > 2.0) or (Abs(ItemVel.z) > 2.0) then
         PItemData(FItems[i].UserData)^.LastHitTime := GetTime();
-
       IsTeal := (GetTime() - PItemData(FItems[i].UserData)^.LastHitTime) < 0.3;
       FItems[i].TealGlow := IsTeal;
+    end;
+  end;
+
+  // Drag & Throw Force Update
+  if FDragging and Assigned(FItemSelected) and (FGizmoMode = gmNone) then
+  begin
+    Dir.x := FDragTargetPos.x - FItemSelected.Position.x;
+    Dir.y := 0; // Keep it flat on the XZ plane
+    Dir.z := FDragTargetPos.z - FItemSelected.Position.z;
+
+    Dist := Sqrt(Dir.x * Dir.x + Dir.z * Dir.z);
+    if Dist > 0.05 then
+    begin
+      // Object is far from the target: apply force to move it
+      FItemSelected.ActivateBody;
+
+      NewVel.x := Dir.x * 10.0;
+      NewVel.y := FItemSelected.GetLinearVelocity.y; // Keep gravity/fall speed
+      NewVel.z := Dir.z * 10.0;
+      FItemSelected.SetLinearVelocity(NewVel);
+
+      // Dampen angular velocity (spinning) while dragging
+      NewVel := FItemSelected.GetAngularVelocity;
+      NewVel.x := NewVel.x * 0.9;
+      NewVel.y := NewVel.y * 0.9;
+      NewVel.z := NewVel.z * 0.9;
+      FItemSelected.SetAngularVelocity(NewVel);
+    end
+    else
+    begin
+      // Object is at the target: stop X/Z movement so it doesn't jitter
+      NewVel := FItemSelected.GetLinearVelocity;
+      NewVel.x := 0;
+      NewVel.z := 0;
+      FItemSelected.SetLinearVelocity(NewVel);
     end;
   end;
 
@@ -1440,6 +1725,9 @@ begin
   ClearBackground(BLACK);
   Render3DScene;
   DrawGUI;
+
+  DrawNativePopup;
+
   EndDrawing();
   if FRaylibWnd <> 0 then
     RedrawWindow(FRaylibWnd, nil, 0, RDW_INVALIDATE or RDW_UPDATENOW);
@@ -1457,6 +1745,8 @@ var
   Pos: TVector3;
   ShadowPos: TVector3;
   dt: Single;
+
+  // Helper function to get the color based on actor type and glow state
 
   function GetActorColor(A: TBy3DComponent): TColorB;
   const
@@ -1478,6 +1768,12 @@ var
     b: 217;
     A: 255
   );
+    COL_CAPSULE: TColorB = (
+    r: 0;
+    g: 168;
+    b: 150;
+    A: 255
+  );
     COL_TEAL: TColorB = (
     r: 64;
     g: 224;
@@ -1494,6 +1790,8 @@ var
         Exit(COL_PYRAMID);
       stSphere:
         Exit(COL_SPHERE);
+      stCapsule:
+        Exit(COL_CAPSULE);
     else
       Exit(WHITE);
     end;
@@ -1502,6 +1800,7 @@ var
 begin
   BeginMode3D(FCamera);
 
+  // Draw Floor
   BeginShaderMode(FLightShader);
   if FWallpaperTex.id > 0 then
     DrawModel(FWallpaperModel, Vector3Create(0, 0.05, 0), 1.0, WHITE)
@@ -1509,6 +1808,7 @@ begin
     DrawPlane(Vector3Create(0, 0.05, 0), Vector2Create(100, 100), DARKGRAY);
   EndShaderMode();
 
+  // Draw Walls and their shadows
   for i := 0 to 3 do
   begin
     ShadowPos := FWalls[i].position;
@@ -1530,6 +1830,7 @@ begin
   MaxDist := 120.0;
   CamForward := Vector3Normalize(Vector3Subtract(FCamera.target, FCamera.position));
 
+  // Render all actors in the engine
   for i := 0 to FEngine.Count - 1 do
   begin
     Actor := FEngine.Items[i];
@@ -1537,6 +1838,8 @@ begin
     begin
       if (Actor.UserData <> nil) and PItemData(Actor.UserData)^.IsProjectile then
         Continue;
+
+      // Culling: Distance and View Frustum check
       Dist := Vector3Distance(Actor.Position, FCamera.position);
       if Dist > MaxDist then
         Continue;
@@ -1546,29 +1849,42 @@ begin
       if DotP < 0.5 then
         Continue;
 
+      // Draw Fake 2D Shadows on the ground plane
       if Actor.ShapeType = stSphere then
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.6 - (Actor.Position.y * 0.15), 0.1, 0.6), EnsureRange(0.6 - (Actor.Position.y * 0.15), 0.1, 0.6), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)))
-      else if Actor.ShapeType = stPyramid then
+      else if (Actor.ShapeType = stPyramid) or (Actor.ShapeType = stCapsule) then
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.7 - (Actor.Position.y * 0.15), 0.1, 0.7), EnsureRange(0.7 - (Actor.Position.y * 0.15), 0.1, 0.7), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)))
       else
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.8 - (Actor.Position.y * 0.15), 0.1, 0.8), EnsureRange(0.8 - (Actor.Position.y * 0.15), 0.1, 0.8), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)));
 
+      // Draw 3D Object
       BeginShaderMode(FLightShader);
       rlPushMatrix();
+
       Pos := Actor.Position;
-      Pos.y := Pos.y + 0.07;
+      Pos.y := Pos.y + 0.07; // Slight offset to prevent z-fighting with the floor
       if Actor.ShapeType = stSphere then
         Pos.y := Pos.y + 0.3;
+
       rlTranslatef(Pos.x, Pos.y, Pos.z);
+
       Axis := Vector3Create(1, 1, 1);
       Angle := 0;
       if Actor.Quaternion.w < 1.0 then
         QuaternionToAxisAngle(Actor.Quaternion, @Axis, @Angle);
       rlRotatef(Angle * RAD2DEG, Axis.x, Axis.y, Axis.z);
 
+      // Render specific shapes perfectly aligned to physics center (0,0,0)
       if Actor.ShapeType = stSphere then
       begin
         DrawSphere(Vector3Create(0, 0, 0), Actor.Scale.x * 0.5, GetActorColor(Actor));
+      end
+      else if Actor.ShapeType = stCapsule then
+      begin
+        // Capsule is drawn centered around the Jolt physics origin (0,0,0)
+        // Scale.y is the total height, Scale.x is the diameter (so radius is * 0.5)
+        DrawCylinderEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), Actor.Scale.x * 0.5, Actor.Scale.x * 0.5, 24, GetActorColor(Actor));
+        DrawCylinderWiresEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), Actor.Scale.x * 0.5, Actor.Scale.x * 0.5, 24, BLACK);
       end
       else if Actor.ShapeType = stPyramid then
       begin
@@ -1581,26 +1897,30 @@ begin
         DrawCube(Vector3Create(0, 0, 0), Actor.Scale.x, Actor.Scale.y, Actor.Scale.z, GetActorColor(Actor));
         DrawCubeWires(Vector3Create(0, 0, 0), Actor.Scale.x, Actor.Scale.y, Actor.Scale.z, BLACK);
       end;
+
       rlPopMatrix();
       EndShaderMode();
     end;
   end;
 
+  // Render Selected Actor Outline (Yellow Wireframe)
   if Assigned(FItemSelected) and FItemSelected.Visible then
   begin
     if FItemSelected.ShapeType = stSphere then
       DrawCylinderEx(Vector3Create(FItemSelected.Position.x, 0.06, FItemSelected.Position.z), Vector3Create(FItemSelected.Position.x, 0.05, FItemSelected.Position.z), EnsureRange(0.6 - (FItemSelected.Position.y * 0.15), 0.1, 0.6), EnsureRange(0.6 - (FItemSelected.Position.y * 0.15), 0.1, 0.6), 24, Fade(BLACK, EnsureRange(0.5 - (FItemSelected.Position.y * 0.02), 0, 0.5)))
-    else if FItemSelected.ShapeType = stPyramid then
+    else if (FItemSelected.ShapeType = stPyramid) or (FItemSelected.ShapeType = stCapsule) then
       DrawCylinderEx(Vector3Create(FItemSelected.Position.x, 0.06, FItemSelected.Position.z), Vector3Create(FItemSelected.Position.x, 0.05, FItemSelected.Position.z), EnsureRange(0.7 - (FItemSelected.Position.y * 0.15), 0.1, 0.7), EnsureRange(0.7 - (FItemSelected.Position.y * 0.15), 0.1, 0.7), 24, Fade(BLACK, EnsureRange(0.5 - (FItemSelected.Position.y * 0.02), 0, 0.5)))
     else
       DrawCylinderEx(Vector3Create(FItemSelected.Position.x, 0.06, FItemSelected.Position.z), Vector3Create(FItemSelected.Position.x, 0.05, FItemSelected.Position.z), EnsureRange(0.8 - (FItemSelected.Position.y * 0.15), 0.1, 0.8), EnsureRange(0.8 - (FItemSelected.Position.y * 0.15), 0.1, 0.8), 24, Fade(BLACK, EnsureRange(0.5 - (FItemSelected.Position.y * 0.02), 0, 0.5)));
 
     BeginShaderMode(FLightShader);
     rlPushMatrix();
+
     Pos := FItemSelected.Position;
     Pos.y := Pos.y + 0.07;
     if FItemSelected.ShapeType = stSphere then
       Pos.y := Pos.y + 0.3;
+
     rlTranslatef(Pos.x, Pos.y, Pos.z);
     Axis := Vector3Create(1, 1, 1);
     Angle := 0;
@@ -1611,6 +1931,12 @@ begin
     if FItemSelected.ShapeType = stSphere then
     begin
       DrawSphere(Vector3Create(0, 0, 0), FItemSelected.Scale.x * 0.5, GetActorColor(FItemSelected));
+    end
+    else if FItemSelected.ShapeType = stCapsule then
+    begin
+      // Draw selected capsule perfectly centered
+      DrawCylinderEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), FItemSelected.Scale.x * 0.5, FItemSelected.Scale.x * 0.5, 24, GetActorColor(FItemSelected));
+      DrawCylinderWiresEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), FItemSelected.Scale.x * 0.5, FItemSelected.Scale.x * 0.5, 24, YELLOW);
     end
     else if FItemSelected.ShapeType = stPyramid then
     begin
@@ -1623,15 +1949,16 @@ begin
       DrawCube(Vector3Create(0, 0, 0), FItemSelected.Scale.x, FItemSelected.Scale.y, FItemSelected.Scale.z, GetActorColor(FItemSelected));
       DrawCubeWires(Vector3Create(0, 0, 0), FItemSelected.Scale.x + 0.05, FItemSelected.Scale.y + 0.05, FItemSelected.Scale.z + 0.05, YELLOW);
     end;
+
     rlPopMatrix();
     EndShaderMode();
   end;
 
+  // Render Ghost (Brush Preview)
   if FIsBrushActive and FGhostVisible then
   begin
     rlPushMatrix();
     var SurfaceY: Single := FGhostPos.y + 0.1;
-
     if FBrushShape = stBox then
     begin
       rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
@@ -1644,65 +1971,31 @@ begin
       DrawSphere(Vector3Create(0, 0.5, 0), 0.5, Fade(WHITE, 0.4));
       DrawSphereWires(Vector3Create(0, 0.5, 0), 0.5, 16, 16, YELLOW);
     end
+    else if FBrushShape = stCapsule then
+    begin
+      // Draw ghost capsule exactly as the real one, perfectly resting on the surface
+      rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
+      DrawCylinderEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.5, 0.5, 24, Fade(WHITE, 0.4));
+      DrawCylinderWiresEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.5, 0.5, 24, YELLOW);
+    end
     else if FBrushShape = stPyramid then
     begin
       rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
       DrawCylinderEx(Vector3Create(0, 1.5, 0), Vector3Create(0, 0, 0), 0.0, 0.5, 4, Fade(WHITE, 0.4));
       DrawCylinderWiresEx(Vector3Create(0, 1.5, 0), Vector3Create(0, 0, 0), 0.0, 0.5, 4, YELLOW);
     end;
-
     rlPopMatrix();
   end;
 
-  if Assigned(FItemSelected) and not FIsBrushActive then
+  // Draw Gizmo if applicable
+  if Assigned(FItemSelected) and not FIsBrushActive and (FGizmoMode <> gmNone) then
     DrawGizmo;
 
+  // Update and draw projectiles
   dt := GetFrameTime();
   UpdateProjectiles(dt);
+
   EndMode3D();
-end;
-
-procedure TRaylibSandbox.DrawThickRing(Axis: Integer; Radius, Thickness: Single; Color: TColorB);
-var
-  i: Integer;
-  Segments: Integer;
-  Angle: Single;
-  V1, V2: TVector3;
-begin
-  Segments := 32;
-  for i := 0 to Segments - 1 do
-  begin
-    Angle := (i / Segments) * 2.0 * PI;
-    V1 := Vector3Create(0, 0, 0);
-    V2 := Vector3Create(0, 0, 0);
-
-    if Axis = 1 then // X-Axis
-    begin
-      V1.y := Cos(Angle) * Radius;
-      V1.z := Sin(Angle) * Radius;
-      Angle := ((i + 1) / Segments) * 2.0 * PI;
-      V2.y := Cos(Angle) * Radius;
-      V2.z := Sin(Angle) * Radius;
-    end
-    else if Axis = 2 then // Y-Axis
-    begin
-      V1.x := Cos(Angle) * Radius;
-      V1.z := Sin(Angle) * Radius;
-      Angle := ((i + 1) / Segments) * 2.0 * PI;
-      V2.x := Cos(Angle) * Radius;
-      V2.z := Sin(Angle) * Radius;
-    end
-    else if Axis = 3 then // Z-Axis
-    begin
-      V1.x := Cos(Angle) * Radius;
-      V1.y := Sin(Angle) * Radius;
-      Angle := ((i + 1) / Segments) * 2.0 * PI;
-      V2.x := Cos(Angle) * Radius;
-      V2.y := Sin(Angle) * Radius;
-    end;
-
-    DrawCylinderEx(V1, V2, Thickness, Thickness, 6, Color);
-  end;
 end;
 
 procedure TRaylibSandbox.DrawGizmo;
@@ -1710,21 +2003,22 @@ var
   Pos: TVector3;
   ScaleX, ScaleY, ScaleZ: Single;
   ColX, ColY, ColZ: TColorB;
-  MatLoc: TMatrix;
+  AxisX, AxisY, AxisZ: TVector3;
+  EndX, EndY, EndZ: TVector3;
+  TipX, TipY, TipZ: TVector3;
+  ArrowRadius, HandleSize: Single;
 begin
   Pos := FItemSelected.Position;
-
-  // Calculate gizmo length per axis based on the object's actual scale.
-  // This ensures the arrow sticks out exactly relative to the object's size on that axis.
   ScaleX := EnsureRange(FItemSelected.Scale.x + 1.0, 1.0, 20.0);
   ScaleY := EnsureRange(FItemSelected.Scale.y + 1.0, 1.0, 20.0);
   ScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 20.0);
+  ArrowRadius := EnsureRange(Max(ScaleX, Max(ScaleY, ScaleZ)) * 0.02, 0.05, 0.5);
+  HandleSize := ArrowRadius * 2.5;
 
   ColX := RED;
   ColY := GREEN;
   ColZ := BLUE;
 
-  // Highlight the active axis yellow while dragging
   if FGizmoDragging then
   begin
     if FGizmoAxis = 1 then
@@ -1733,51 +2027,112 @@ begin
       ColY := YELLOW
     else if FGizmoAxis = 3 then
       ColZ := YELLOW;
+  end
+  else if FGizmoHoverAxis > 0 then
+  begin
+    if FGizmoHoverAxis = 1 then
+      ColX := YELLOW
+    else if FGizmoHoverAxis = 2 then
+      ColY := YELLOW
+    else if FGizmoHoverAxis = 3 then
+      ColZ := YELLOW;
   end;
 
-  rlPushMatrix();
-  rlTranslatef(Pos.x, Pos.y, Pos.z);
+  AxisX := Vector3RotateByQuaternion(Vector3Create(1, 0, 0), FItemSelected.Quaternion);
+  AxisY := Vector3RotateByQuaternion(Vector3Create(0, 1, 0), FItemSelected.Quaternion);
+  AxisZ := Vector3RotateByQuaternion(Vector3Create(0, 0, 1), FItemSelected.Quaternion);
 
-  // Apply the item's rotation so the gizmo aligns with the object's local axes
-  MatLoc := QuaternionToMatrix(FItemSelected.Quaternion);
-  rlMultMatrixf(@MatLoc);
+  EndX := Vector3Add(Pos, Vector3Scale(AxisX, ScaleX));
+  EndY := Vector3Add(Pos, Vector3Scale(AxisY, ScaleY));
+  EndZ := Vector3Add(Pos, Vector3Scale(AxisZ, ScaleZ));
+
+  TipX := Vector3Add(Pos, Vector3Scale(AxisX, ScaleX + (ArrowRadius * 3)));
+  TipY := Vector3Add(Pos, Vector3Scale(AxisY, ScaleY + (ArrowRadius * 3)));
+  TipZ := Vector3Add(Pos, Vector3Scale(AxisZ, ScaleZ + (ArrowRadius * 3)));
 
   if FGizmoMode = gmTranslate then
   begin
-    // Draw axes lines (cylinders)
-    DrawCylinderEx(Vector3Create(0, 0, 0), Vector3Create(ScaleX, 0, 0), 0.08, 0.08, 8, ColX);
-    DrawCylinderEx(Vector3Create(0, 0, 0), Vector3Create(0, ScaleY, 0), 0.08, 0.08, 8, ColY);
-    DrawCylinderEx(Vector3Create(0, 0, 0), Vector3Create(0, 0, ScaleZ), 0.08, 0.08, 8, ColZ);
-
-    // Draw arrow tips (cones)
-    DrawCylinderEx(Vector3Create(ScaleX, 0, 0), Vector3Create(ScaleX + 0.3, 0, 0), 0.2, 0.0, 8, ColX);
-    DrawCylinderEx(Vector3Create(0, ScaleY, 0), Vector3Create(0, ScaleY + 0.3, 0), 0.2, 0.0, 8, ColY);
-    DrawCylinderEx(Vector3Create(0, 0, ScaleZ), Vector3Create(0, 0, ScaleZ + 0.3), 0.2, 0.0, 8, ColZ);
+    DrawCylinderEx(Pos, EndX, ArrowRadius, ArrowRadius, 8, ColX);
+    DrawCylinderEx(Pos, EndY, ArrowRadius, ArrowRadius, 8, ColY);
+    DrawCylinderEx(Pos, EndZ, ArrowRadius, ArrowRadius, 8, ColZ);
+    DrawCylinderEx(EndX, TipX, ArrowRadius * 2, 0.0, 8, ColX);
+    DrawCylinderEx(EndY, TipY, ArrowRadius * 2, 0.0, 8, ColY);
+    DrawCylinderEx(EndZ, TipZ, ArrowRadius * 2, 0.0, 8, ColZ);
   end
   else if FGizmoMode = gmRotate then
   begin
-    // Draw rotation rings
-    DrawThickRing(1, ScaleX, 0.06, ColX);
-    DrawThickRing(2, ScaleY, 0.06, ColY);
-    DrawThickRing(3, ScaleZ, 0.06, ColZ);
+    DrawThickRingAt(Pos, AxisX, ScaleX, ArrowRadius * 0.8, ColX);
+    DrawThickRingAt(Pos, AxisY, ScaleY, ArrowRadius * 0.8, ColY);
+    DrawThickRingAt(Pos, AxisZ, ScaleZ, ArrowRadius * 0.8, ColZ);
   end
   else if FGizmoMode = gmScale then
   begin
-    // Draw axes lines (cylinders)
-    DrawCylinderEx(Vector3Create(0, 0, 0), Vector3Create(ScaleX, 0, 0), 0.08, 0.08, 8, ColX);
-    DrawCylinderEx(Vector3Create(0, 0, 0), Vector3Create(0, ScaleY, 0), 0.08, 0.08, 8, ColY);
-    DrawCylinderEx(Vector3Create(0, 0, 0), Vector3Create(0, 0, ScaleZ), 0.08, 0.08, 8, ColZ);
-
-    // Draw scale handles (cubes) at the ends
-    DrawCube(Vector3Create(ScaleX, 0, 0), 0.2, 0.2, 0.2, ColX);
-    DrawCube(Vector3Create(0, ScaleY, 0), 0.2, 0.2, 0.2, ColY);
-    DrawCube(Vector3Create(0, 0, ScaleZ), 0.2, 0.2, 0.2, ColZ);
-
-    // Draw center cube
-    DrawCube(Vector3Create(0, 0, 0), 0.2, 0.2, 0.2, WHITE);
+    DrawCylinderEx(Pos, EndX, ArrowRadius, ArrowRadius, 8, ColX);
+    DrawCylinderEx(Pos, EndY, ArrowRadius, ArrowRadius, 8, ColY);
+    DrawCylinderEx(Pos, EndZ, ArrowRadius, ArrowRadius, 8, ColZ);
+    DrawCube(EndX, HandleSize, HandleSize, HandleSize, ColX);
+    DrawCube(EndY, HandleSize, HandleSize, HandleSize, ColY);
+    DrawCube(EndZ, HandleSize, HandleSize, HandleSize, ColZ);
+    DrawCube(Pos, HandleSize, HandleSize, HandleSize, WHITE);
   end;
+end;
 
-  rlPopMatrix();
+procedure TRaylibSandbox.DrawThickRingAt(Center, NormalAxis: TVector3; Radius, Thickness: Single; Color: TColorB);
+var
+  I: Integer;
+  Segments: Integer;
+  Angle: Single;
+  LocalV, V1, V2: TVector3;
+  OrthoAxis: TVector3;
+begin
+  Segments := 32;
+  if Abs(NormalAxis.y) < 0.9 then
+    OrthoAxis := Vector3Normalize(Vector3CrossProduct(NormalAxis, Vector3Create(0, 1, 0)))
+  else
+    OrthoAxis := Vector3Normalize(Vector3CrossProduct(NormalAxis, Vector3Create(1, 0, 0)));
+
+  for I := 0 to Segments - 1 do
+  begin
+    Angle := (I / Segments) * 2.0 * PI;
+    LocalV := Vector3Add(Vector3Scale(OrthoAxis, Cos(Angle) * Radius), Vector3Scale(Vector3CrossProduct(NormalAxis, OrthoAxis), Sin(Angle) * Radius));
+    V1 := Vector3Add(Center, LocalV);
+    Angle := ((I + 1) / Segments) * 2.0 * PI;
+    LocalV := Vector3Add(Vector3Scale(OrthoAxis, Cos(Angle) * Radius), Vector3Scale(Vector3CrossProduct(NormalAxis, OrthoAxis), Sin(Angle) * Radius));
+    V2 := Vector3Add(Center, LocalV);
+    DrawCylinderEx(V1, V2, Thickness, Thickness, 6, Color);
+  end;
+end;
+
+procedure TRaylibSandbox.DrawNativePopup;
+var
+  I: Integer;
+  Rect: TRectangle;
+  BgColor, BorderColor, TextColor: TColorB;
+begin
+  if not FPopupOpen then
+    Exit;
+  for I := 0 to High(FPopupSegments) do
+  begin
+    Rect.x := FPopupPos.x;
+    Rect.y := FPopupPos.y + (I * 40);
+    Rect.width := 150;
+    Rect.height := 38;
+    if I = FPopupHoverIndex then
+    begin
+      BgColor := Fade(BLUE, 0.8);
+      BorderColor := SKYBLUE;
+      TextColor := WHITE;
+    end
+    else
+    begin
+      BgColor := Fade(BLACK, 0.8);
+      BorderColor := GRAY;
+      TextColor := RAYWHITE;
+    end;
+    DrawRectangleRec(Rect, BgColor);
+    DrawRectangleLinesEx(Rect, 2, BorderColor);
+    DrawText(PAnsiChar(AnsiString(FPopupSegments[I])), Round(Rect.x + 15), Round(Rect.y + 10), 20, TextColor);
+  end;
 end;
 
 procedure TRaylibSandbox.DrawGUI;
@@ -1797,6 +2152,7 @@ begin
   DrawRectangleLines(115, 15 + YOffset, 30, 30, RAYWHITE);
   DrawCircle(130, 30 + YOffset, 10, Fade(GREEN, 0.8));
   DrawRectangleLines(165, 15 + YOffset, 30, 30, RAYWHITE);
+
   DrawTriangle(Vector2Create(175, 42 + YOffset), Vector2Create(185, 42 + YOffset), Vector2Create(180, 18 + YOffset), Fade(PURPLE, 0.8));
   DrawTriangleLines(Vector2Create(175, 42 + YOffset), Vector2Create(185, 42 + YOffset), Vector2Create(180, 18 + YOffset), PURPLE);
 
@@ -1816,10 +2172,11 @@ begin
     gmScale:
       ModeStr := 'Mode: Scale (Resize)';
   else
-    ModeStr := 'Mode: None';
+    ModeStr := 'Mode: Drag & Throw (Test Tool)';
   end;
   DrawText(PAnsiChar(ModeStr), 10, GetScreenHeight() - 90, 20, RAYWHITE);
 end;
+
 
 { Event Dispatchers }
 

@@ -1,10 +1,10 @@
-object Form1: TForm1
+object btnSpawnCapsules: TbtnSpawnCapsules
   Left = 0
   Top = 0
   Caption = 'MRX Engine Editor - Prototype'
   ClientHeight = 642
   ClientWidth = 1100
-  Color = clBtnFace
+  Color = 4276545
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -12
@@ -13,6 +13,7 @@ object Form1: TForm1
   Position = poScreenCenter
   OnCreate = FormCreate
   OnDestroy = FormDestroy
+  OnKeyDown = FormKeyDown
   TextHeight = 15
   object Splitter1: TSplitter
     Left = 200
@@ -38,6 +39,8 @@ object Form1: TForm1
       Height = 8
       Cursor = crVSplit
       Align = alTop
+      Color = clTeal
+      ParentColor = False
     end
     object tvSceneHierarchy: TTreeView
       Left = 1
@@ -45,7 +48,14 @@ object Form1: TForm1
       Width = 198
       Height = 288
       Align = alTop
+      Color = clBlack
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clSilver
+      Font.Height = -12
+      Font.Name = 'Segoe UI'
+      Font.Style = []
       Indent = 19
+      ParentFont = False
       TabOrder = 0
       OnChange = tvSceneHierarchyChange
     end
@@ -64,7 +74,13 @@ object Form1: TForm1
         Width = 196
         Height = 300
         Align = alClient
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clBlack
+        Font.Height = -12
+        Font.Name = 'Segoe UI'
+        Font.Style = []
         Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goFixedRowDefAlign]
+        ParentFont = False
         TabOrder = 0
         OnSelectCell = StringGrid1SelectCell
         OnSetEditText = StringGrid1SetEditText
@@ -79,17 +95,27 @@ object Form1: TForm1
     Height = 42
     Align = alBottom
     BevelOuter = bvNone
+    Color = clBlack
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clSilver
+    Font.Height = -12
+    Font.Name = 'Segoe UI'
+    Font.Style = []
+    ParentBackground = False
+    ParentFont = False
     TabOrder = 1
-    ExplicitTop = 599
-    ExplicitWidth = 1096
+    ExplicitTop = 604
     DesignSize = (
       1100
       42)
     object lblInfo: TLabel
-      Left = 410
-      Top = 13
-      Width = 3
-      Height = 15
+      Left = 546
+      Top = 8
+      Width = 346
+      Height = 33
+      AutoSize = False
+      Caption = 'loading...'
+      WordWrap = True
     end
     object btnSpawnCubes: TButton
       Left = 10
@@ -119,7 +145,7 @@ object Form1: TForm1
       OnClick = btnSpawnPyramidsClick
     end
     object btnClearScene: TButton
-      Left = 298
+      Left = 434
       Top = 8
       Width = 90
       Height = 25
@@ -138,18 +164,24 @@ object Form1: TForm1
       OnClick = btnPlayPauseClick
       ExplicitLeft = 1006
     end
-  end
-  object PopupMenu1: TPopupMenu
-    OnPopup = PopupMenu1Popup
-    Left = 240
-    Top = 32
-    object miDelete: TMenuItem
-      Caption = 'Delete selected'
-      OnClick = miDeleteClick
+    object btnToolDragThrow: TButton
+      Left = 898
+      Top = 8
+      Width = 90
+      Height = 25
+      Anchors = [akTop, akRight]
+      Caption = 'Drag n Throw'
+      TabOrder = 5
+      OnClick = btnToolDragThrowClick
     end
-    object miDuplicate: TMenuItem
-      Caption = 'Duplicate selected'
-      OnClick = miDuplicateClick
+    object btnSpawnCapsules: TButton
+      Left = 298
+      Top = 8
+      Width = 90
+      Height = 25
+      Caption = 'Spawn Capsule'
+      TabOrder = 6
+      OnClick = btnSpawnCapsulesClick
     end
   end
 end

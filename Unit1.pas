@@ -1,6 +1,5 @@
 unit Unit1;
 
-
 {==============================================================================*
  *  Mainform of raylib sandobox & jolt phsics
  *------------------------------------------------------------------------------
@@ -36,7 +35,7 @@ uses
   JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus;
 
 type
-  TForm1 = class(TForm)
+  TbtnSpawnCapsules = class(TForm)
     pnlLeft: TPanel;
     tvSceneHierarchy: TTreeView;
     Splitter1: TSplitter;
@@ -50,9 +49,8 @@ type
     Splitter2: TSplitter;
     Panel1: TPanel;
     StringGrid1: TStringGrid;
-    PopupMenu1: TPopupMenu;
-    miDelete: TMenuItem;
-    miDuplicate: TMenuItem;
+    btnToolDragThrow: TButton;
+    btnSpawnCapsules: TButton; // Der einzige neue Button
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
@@ -64,9 +62,8 @@ type
     procedure StringGrid1SetEditText(Sender: TObject; ACol, ARow: Integer; const Value: string);
     procedure StringGrid1SelectCell(Sender: TObject; ACol, ARow: Integer; var CanSelect: Boolean);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure PopupMenu1Popup(Sender: TObject);
-    procedure miDeleteClick(Sender: TObject);
-    procedure miDuplicateClick(Sender: TObject);
+    procedure btnToolDragThrowClick(Sender: TObject);
+    procedure btnSpawnCapsulesClick(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TBy3DComponent;
@@ -87,13 +84,10 @@ type
   end;
 
 var
-  Form1: TForm1;
+  btnSpawnCapsules: TbtnSpawnCapsules;
 
 implementation
 {$R *.dfm}
-
-/// Parses a string formatted as "x, y, z" into a TVector3.
-/// Handles both dot and comma decimal separators.
 
 function StrToVector3(const S: string; Default: TVector3): TVector3;
 var
@@ -104,7 +98,6 @@ begin
   Result := Default;
   TempStr := StringReplace(S, ' ', '', [rfReplaceAll]);
   TempStr := StringReplace(TempStr, '.', ',', [rfReplaceAll]);
-
   Parts := TempStr.Split([',']);
   if Length(Parts) >= 1 then
     if TryStrToFloat(Trim(Parts[0]), v) then
@@ -117,14 +110,12 @@ begin
       Result.z := v;
 end;
 
-/// Converts a TVector3 to a formatted string "x, y, z".
-
 function Vector3ToStr(const V: TVector3): string;
 begin
   Result := Format('%.2f, %.2f, %.2f', [V.x, V.y, V.z], TFormatSettings.Create('en-US'));
 end;
 
-procedure TForm1.FormCreate(Sender: TObject);
+procedure TbtnSpawnCapsules.FormCreate(Sender: TObject);
 begin
   Caption := 'RaylibSandbox & JoltPhysics - Prototype';
   Width := 1200;
@@ -150,134 +141,91 @@ begin
   FSandbox.OnEngineException := HandleEngineException;
   FSandbox.OnObjectSelected := HandleObjectSelected;
   FSandbox.OnViewportRightClick := HandleViewportRightClick;
-
-  FSandbox.PopupMenu := PopupMenu1;
 end;
 
-procedure TForm1.FormDestroy(Sender: TObject);
+procedure TbtnSpawnCapsules.FormDestroy(Sender: TObject);
 begin
   // Sandbox is owned by Self and destroyed automatically
 end;
 
-procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+procedure TbtnSpawnCapsules.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
   if Key = VK_DELETE then
   begin
-    miDeleteClick(nil);
-    Key := 0;
-  end;
-end;
-
-procedure TForm1.PopupMenu1Popup(Sender: TObject);
-begin
-  miDelete.Enabled := Assigned(FSelectedComponent);
-  miDuplicate.Enabled := Assigned(FSelectedComponent);
-end;
-
-procedure TForm1.HandleViewportRightClick(Sender: TObject);
-var
-  Pt: TPoint;
-begin
-  if Assigned(PopupMenu1) then
-  begin
-    if Assigned(FSandbox) then
-      FSandbox.Tag := 1; // Blocks sandbox click processing while menu is open
-
-    GetCursorPos(Pt);
-    PopupMenu1.Popup(Pt.X, Pt.Y);
-  end;
-end;
-
-procedure TForm1.miDeleteClick(Sender: TObject);
-var
-  SelectedIdx, i: Integer;
-begin
-  if not Assigned(FSelectedComponent) then
-    Exit;
-
-  SelectedIdx := -1;
-  for i := 0 to FSandbox.ItemCount - 1 do
-  begin
-    if FSandbox.FItems[i] = FSelectedComponent then
+    if Assigned(FSelectedComponent) then
     begin
-      SelectedIdx := i;
-      Break;
+      FSandbox.DeleteSelectedActor;
+      Key := 0;
     end;
   end;
-
-  if SelectedIdx >= 0 then
-  begin
-    FSelectedComponent.Visible := False;
-    FSelectedComponent.Free;
-
-    for i := SelectedIdx to FSandbox.ItemCount - 2 do
-      FSandbox.FItems[i] := FSandbox.FItems[i + 1];
-    SetLength(FSandbox.FItems, Length(FSandbox.FItems) - 1);
-
-    FSelectedComponent := nil;
-    FSandbox.SetSelectedActor(nil);
-    SelectActorInUI(nil);
-    RefreshHierarchy;
-    lblInfo.Caption := 'Object deleted.';
-  end;
 end;
 
-procedure TForm1.miDuplicateClick(Sender: TObject);
-var
-  NewActor: TBy3DComponent;
-  NewPos: TVector3;
-  NewRot: JPH_Quat;
-  NewSize: TVector3;
-  NewData: PItemData;
-  oldLen: Integer;
+procedure TbtnSpawnCapsules.HandleViewportRightClick(Sender: TObject);
 begin
-  if not Assigned(FSelectedComponent) then
-    Exit;
-
-  oldLen := FSandbox.ItemCount;
-  SetLength(FSandbox.FItems, oldLen + 1);
-
-  NewPos.x := FSelectedComponent.Position.x + 1.0;
-  NewPos.y := FSelectedComponent.Position.y;
-  NewPos.z := FSelectedComponent.Position.z;
-
-  NewRot.x := FSelectedComponent.Quaternion.x;
-  NewRot.y := FSelectedComponent.Quaternion.y;
-  NewRot.z := FSelectedComponent.Quaternion.z;
-  NewRot.w := FSelectedComponent.Quaternion.w;
-
-  NewSize := FSelectedComponent.Scale;
-
-  NewActor := TBy3DComponent.Create('', FSandbox.Engine, FSelectedComponent.ShapeType, NewSize, False, @NewPos, @NewRot);
-  NewActor.Friction := FSelectedComponent.Friction;
-  NewActor.Restitution := FSelectedComponent.Restitution;
-  NewActor.TargetColor := FSelectedComponent.TargetColor;
-
-  New(NewData);
-  FillChar(NewData^, SizeOf(TItemData), 0);
-  NewData^.SpawnTime := GetTime();
-  NewData^.IsProjectile := False;
-  case NewActor.ShapeType of
-    stBox:
-      NewData^.Name := 'Cube_' + IntToStr(oldLen);
-    stSphere:
-      NewData^.Name := 'Sphere_' + IntToStr(oldLen);
-    stPyramid:
-      NewData^.Name := 'Pyramid_' + IntToStr(oldLen);
-  end;
-  NewActor.UserData := NewData;
-  NewActor.Visible := True;
-
-  FSandbox.FItems[oldLen] := NewActor;
-
-  tvSceneHierarchy.Items.AddChild(nil, Format('%s (%s)', [NewData^.Name, GetEnumName(TypeInfo(TShapeType), Ord(NewActor.ShapeType))]));
-
-  SelectActorInUI(NewActor);
-  lblInfo.Caption := 'Object duplicated.';
+  // Empty. Context menu is fully handled internally.
 end;
+
+procedure TbtnSpawnCapsules.btnToolDragThrowClick(Sender: TObject);
+begin
+  // Activate Drag & Throw Tool (Gizmo Mode None)
+  FSandbox.SetGizmoMode(gmNone);
+  lblInfo.Caption := 'Tool: Drag & Throw Active.';
+end;
+
+procedure TbtnSpawnCapsules.btnSpawnCapsulesClick(Sender: TObject);
+begin
+  FSandbox.SetBrush(stCapsule);
+  lblInfo.Caption := 'Brush: Capsule Selected.';
+end;
+
+procedure TbtnSpawnCapsules.btnSpawnCubesClick(Sender: TObject);
+begin
+  FSandbox.SetBrush(stBox);
+  // Spawning a brush automatically reverts to Gizmo Mode (Move)
+  FSandbox.SetGizmoMode(gmTranslate);
+  lblInfo.Caption := 'Brush: Cube Selected.';
+end;
+
+procedure TbtnSpawnCapsules.btnSpawnSpheresClick(Sender: TObject);
+begin
+  FSandbox.SetBrush(stSphere);
+  FSandbox.SetGizmoMode(gmTranslate);
+  lblInfo.Caption := 'Brush: Sphere Selected.';
+end;
+
+procedure TbtnSpawnCapsules.btnSpawnPyramidsClick(Sender: TObject);
+begin
+  FSandbox.SetBrush(stPyramid);
+  FSandbox.SetGizmoMode(gmTranslate);
+  lblInfo.Caption := 'Brush: Pyramid Selected.';
+end;
+
+procedure TbtnSpawnCapsules.btnClearSceneClick(Sender: TObject);
+begin
+  FSandbox.ClearItems;
+  FSandbox.SetBrush(TShapeType(-1));
+  lblInfo.Caption := 'Scene Cleared.';
+end;
+
+procedure TbtnSpawnCapsules.btnPlayPauseClick(Sender: TObject);
+begin
+  if FSandbox.GetSimulationRunning then
+  begin
+    FSandbox.SetSimulationRunning(False);
+    btnPlayPause.Caption := 'PLAY';
+    lblInfo.Caption := 'Editor Mode (Paused). Place objects freely.';
+  end
+  else
+  begin
+    FSandbox.SetSimulationRunning(True);
+    btnPlayPause.Caption := 'PAUSE';
+    lblInfo.Caption := 'Simulation Running.';
+  end;
+end;
+
 // === Object Inspector Logic ===
 
-procedure TForm1.LoadPropertiesIntoGrid(AComponent: TBy3DComponent);
+procedure TbtnSpawnCapsules.LoadPropertiesIntoGrid(AComponent: TBy3DComponent);
 var
   PropList: PPropList;
   Count, i: Integer;
@@ -301,7 +249,6 @@ begin
     GetMem(PropList, Count * SizeOf(Pointer));
     try
       GetPropList(AComponent.ClassInfo, tkAny, PropList);
-
       StringGrid1.RowCount := Count + 1;
       StringGrid1.Cells[0, 0] := 'Property';
       StringGrid1.Cells[1, 0] := 'Value';
@@ -357,12 +304,12 @@ begin
   end;
 end;
 
-procedure TForm1.StringGrid1SelectCell(Sender: TObject; ACol, ARow: Integer; var CanSelect: Boolean);
+procedure TbtnSpawnCapsules.StringGrid1SelectCell(Sender: TObject; ACol, ARow: Integer; var CanSelect: Boolean);
 begin
   CanSelect := (ACol = 1) and (ARow > 0) and Assigned(FSelectedComponent);
 end;
 
-procedure TForm1.StringGrid1SetEditText(Sender: TObject; ACol, ARow: Integer; const Value: string);
+procedure TbtnSpawnCapsules.StringGrid1SetEditText(Sender: TObject; ACol, ARow: Integer; const Value: string);
 var
   PropName: string;
   PropInfo: PPropInfo;
@@ -377,7 +324,6 @@ var
 begin
   if FIsUpdatingGrid or (ARow = 0) or not Assigned(FSelectedComponent) then
     Exit;
-
   PropName := StringGrid1.Cells[0, ARow];
   PropInfo := GetPropInfo(FSelectedComponent, PropName);
   if not Assigned(PropInfo) then
@@ -420,7 +366,7 @@ begin
       SR := Sin(Rz * 0.5);
       CYCP := CY * CP;
       SYSP := SY * SP;
-      CYSP := CY * SP;
+      CYSP := CY * CP;
       SYCP := SY * CP;
       FSelectedComponent.Quaternion := Vector4Create(CYCP * SR - SYSP * CR, CYSP * CR + SYCP * SR, SYCP * CR - CYSP * SR, CYCP * CR + SYSP * SR);
     end
@@ -451,16 +397,18 @@ begin
   end;
 end;
 
-procedure TForm1.HandleObjectSelected(Sender: TObject; Actor: TBy3DComponent);
+procedure TbtnSpawnCapsules.HandleObjectSelected(Sender: TObject; Actor: TBy3DComponent);
 begin
   TThread.Queue(nil,
     procedure
     begin
       SelectActorInUI(Actor);
+      if Assigned(Actor) then
+        FSandbox.SetSelectedActor(Actor);
     end);
 end;
 
-procedure TForm1.SelectActorInUI(AActor: TBy3DComponent);
+procedure TbtnSpawnCapsules.SelectActorInUI(AActor: TBy3DComponent);
 var
   Idx: Integer;
 begin
@@ -471,11 +419,8 @@ begin
   begin
     Idx := -1;
     for Idx := 0 to FSandbox.ItemCount - 1 do
-    begin
       if FSandbox.FItems[Idx] = AActor then
         Break;
-    end;
-
     if (Idx >= 0) and (Idx < tvSceneHierarchy.Items.Count) then
     begin
       tvSceneHierarchy.OnChange := nil;
@@ -499,15 +444,14 @@ begin
     end;
   end;
 end;
-// === Engine Events ===
 
-procedure TForm1.HandleViewportReady(Sender: TObject);
+procedure TbtnSpawnCapsules.HandleViewportReady(Sender: TObject);
 begin
   lblInfo.Caption := 'Engine Viewport Ready.';
   btnPlayPause.Caption := 'PAUSE';
 end;
 
-procedure TForm1.HandleActorSpawned(Sender: TObject; const Args: TActorEventArgs);
+procedure TbtnSpawnCapsules.HandleActorSpawned(Sender: TObject; const Args: TActorEventArgs);
 var
   Data: PItemData;
   NodeText: string;
@@ -523,66 +467,24 @@ begin
   end;
 end;
 
-procedure TForm1.HandleSceneCleared(Sender: TObject);
+procedure TbtnSpawnCapsules.HandleSceneCleared(Sender: TObject);
 begin
   tvSceneHierarchy.Items.Clear;
   lblInfo.Caption := 'Scene Cleared.';
   LoadPropertiesIntoGrid(nil);
 end;
 
-procedure TForm1.HandleEngineException(Sender: TObject; const Args: TEngineExceptionEventArgs);
+procedure TbtnSpawnCapsules.HandleEngineException(Sender: TObject; const Args: TEngineExceptionEventArgs);
 begin
   lblInfo.Caption := Format('ERR [%s]: %s', [Args.Context, Args.Message]);
 end;
-// === Buttons & UI ===
 
-procedure TForm1.btnSpawnCubesClick(Sender: TObject);
-begin
-  FSandbox.SetBrush(stBox);
-  lblInfo.Caption := 'Brush: Cube Selected. Click in 3D View to place.';
-end;
-
-procedure TForm1.btnSpawnSpheresClick(Sender: TObject);
-begin
-  FSandbox.SetBrush(stSphere);
-  lblInfo.Caption := 'Brush: Sphere Selected. Click in 3D View to place.';
-end;
-
-procedure TForm1.btnSpawnPyramidsClick(Sender: TObject);
-begin
-  FSandbox.SetBrush(stPyramid);
-  lblInfo.Caption := 'Brush: Pyramid Selected. Click in 3D View to place.';
-end;
-
-procedure TForm1.btnClearSceneClick(Sender: TObject);
-begin
-  FSandbox.ClearItems;
-  FSandbox.SetBrush(TShapeType(-1));
-  lblInfo.Caption := 'Scene Cleared.';
-end;
-
-procedure TForm1.btnPlayPauseClick(Sender: TObject);
-begin
-  if FSandbox.GetSimulationRunning then
-  begin
-    FSandbox.SetSimulationRunning(False);
-    btnPlayPause.Caption := 'PLAY';
-    lblInfo.Caption := 'Editor Mode (Paused). Place objects freely.';
-  end
-  else
-  begin
-    FSandbox.SetSimulationRunning(True);
-    btnPlayPause.Caption := 'PAUSE';
-    lblInfo.Caption := 'Simulation Running.';
-  end;
-end;
-
-procedure TForm1.tvSceneHierarchyChange(Sender: TObject; Node: TTreeNode);
+procedure TbtnSpawnCapsules.tvSceneHierarchyChange(Sender: TObject; Node: TTreeNode);
 begin
   ProcessEditorSelection;
 end;
 
-procedure TForm1.RefreshHierarchy;
+procedure TbtnSpawnCapsules.RefreshHierarchy;
 var
   i: Integer;
   Actor: TBy3DComponent;
@@ -605,7 +507,7 @@ begin
   end;
 end;
 
-procedure TForm1.ProcessEditorSelection;
+procedure TbtnSpawnCapsules.ProcessEditorSelection;
 var
   SelectedIndex: Integer;
   Actor: TBy3DComponent;
@@ -627,7 +529,6 @@ begin
       Actor.TealGlow := True;
       FSandbox.SetSelectedActor(Actor);
       SelectActorInUI(Actor);
-
       lblInfo.Caption := Format('Selected: %s | Pos: %.1f, %.1f, %.1f', [GetEnumName(TypeInfo(TShapeType), Ord(Actor.ShapeType)), Actor.Position.x, Actor.Position.y, Actor.Position.z]);
     end;
   end

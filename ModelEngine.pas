@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine v0.4 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.5 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -37,8 +37,6 @@
  *      and destroy that body (or be safely detached) before the Delphi
  *      object is freed.
  *==============================================================================}
-
-
 
 
 {$POINTERMATH ON}
@@ -180,7 +178,6 @@ type
   end;
 
 implementation
-
 { TModelEngine }
 
 constructor TModelEngine.Create;
@@ -352,7 +349,6 @@ begin
     FreeMem(HitResult);
   end;
 end;
-
 { TBy3DComponent }
 
 constructor TBy3DComponent.Create(AOwner: TComponent);
@@ -401,7 +397,7 @@ begin
       end;
     stCapsule:
       begin
-        ShapeSettings := JPH_CapsuleShapeSettings_Create(ASize.y * 0.5, ASize.x);
+        ShapeSettings := JPH_CapsuleShapeSettings_Create(ASize.y * 0.5, ASize.x * 0.5);
         FShape := JPH_CapsuleShapeSettings_CreateShape(ShapeSettings);
       end;
     stPyramid:
@@ -498,11 +494,6 @@ begin
     FQuaternion.y := JRot.y;
     FQuaternion.z := JRot.z;
     FQuaternion.w := JRot.w;
-
-    FRotation := QuaternionToEuler(FQuaternion);
-    FRotation.x := FRotation.x * RAD2DEG;
-    FRotation.y := FRotation.y * RAD2DEG;
-    FRotation.z := FRotation.z * RAD2DEG;
 
     UpdateModelTransform;
   end;
@@ -688,7 +679,8 @@ begin
       end;
     stCapsule:
       begin
-        ShapeSettings := JPH_CapsuleShapeSettings_Create(FScale.y * 0.5, FScale.x);
+        // Jolt Capsule: HalfHeight, Radius
+        ShapeSettings := JPH_CapsuleShapeSettings_Create(FScale.y * 0.5, FScale.x * 0.5);
         FShape := JPH_CapsuleShapeSettings_CreateShape(ShapeSettings);
       end;
     stPyramid:
