@@ -3,11 +3,11 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
     
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaMitaOne/JoltPhysics4Delphi)    
       
-<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/88e2edb7-d2ee-4b25-940f-a92356f68f8b" />
+<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/7dfae6cc-5054-4ec0-a5f6-12a32e6fb891" />
            
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.5)     
+   Status: Work in Progress (Alpha v0.51)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features    
@@ -54,7 +54,16 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:    
+    
+ v0.51:    
      
+    Corrected spawn and phantom (ghost preview) positions for all shapes to rest accurately on the ground.   
+    Added Prism shape (stPrism).    
+    Implemented an icon bar at the top of the popup menu for quick spawning.   
+    Added new right side pagecontrol with scene / engine tab.    
+    Added checkboxes for Frustum/Distance Culling.     
+    Added FPS Combobox.    
+        
  v0.5:    
      
      Native Context Popup: Replaced VCL PopupMenu with a fully native Raylib 2D popup ("Delete" / "Duplicate") rendered directly inside the 3D viewport.
