@@ -9,23 +9,7 @@ unit Unit1;
  *    This unit represents the main VCL interface for the 3D Engine Editor.
  *    It hosts the TRaylibSandbox viewport and wires the editor controls
  *    to the background physics and rendering thread.
- *
- *  Architecture & Features:
- *    - Viewport Hosting: Embeds the multi-threaded Raylib window directly
- *      into a VCL TPanel structure.
- *    - Scene Hierarchy: A TTreeView synced with the engine's actor list.
- *      Allows selection, deletion, and duplication of 3D objects.
- *    - Object Inspector: Utilizes Delphi RTTI (Run-Time Type Information)
- *      to dynamically read and write published properties of TBy3DComponent
- *      actors (Position, Scale, Rotation, Physics settings) into a TStringGrid.
- *    - Thread-Safe UI Updates: Intercepts events from the background render
- *      thread via TThread.Queue to safely update VCL components (selection
- *      highlights, spawn events, exception logging).
- *    - Editor Tools: Toolbar buttons for spawning primitives (Cubes, Spheres,
- *      Pyramids), pausing/playing the simulation, and a right-click context
- *      menu for quick object manipulation.
  *==============================================================================}
-
 interface
 
 uses
@@ -40,17 +24,31 @@ type
     tvSceneHierarchy: TTreeView;
     Splitter1: TSplitter;
     pnlBottom: TPanel;
-    btnSpawnCubes: TButton;
-    btnSpawnSpheres: TButton;
-    btnSpawnPyramids: TButton;
-    btnClearScene: TButton;
     lblInfo: TLabel;
-    btnPlayPause: TButton;
     Splitter2: TSplitter;
     Panel1: TPanel;
     StringGrid1: TStringGrid;
     btnToolDragThrow: TButton;
-    btnSpawnCapsules: TButton; // Der einzige neue Button
+    Panel2: TPanel;
+    PageControl1: TPageControl;
+    tsScene: TTabSheet;
+    tsEngine: TTabSheet;
+    Splitter3: TSplitter;
+    btnClearScene: TButton;
+    btnSpawnCubes: TButton;
+    btnSpawnSpheres: TButton;
+    btnSpawnPyramids: TButton;
+    btnSpawnCapsules: TButton;
+    btnSceneSave: TButton;
+    btnSceneLoad: TButton;
+    cbFPS: TComboBox;
+    Label1: TLabel;
+    btnPlayPause: TButton;
+    Shape1: TShape;
+    btnSpawn3DModel: TButton;
+    chkDistanceCulling: TCheckBox;
+    cbFrustumCulling: TCheckBox;
+    btnSpawnPrisms: TButton;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
@@ -64,11 +62,18 @@ type
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure btnToolDragThrowClick(Sender: TObject);
     procedure btnSpawnCapsulesClick(Sender: TObject);
+    procedure cbFPSChange(Sender: TObject);
+    procedure btnSceneSaveClick(Sender: TObject);
+    procedure btnSceneLoadClick(Sender: TObject);
+    procedure tvSceneHierarchyClick(Sender: TObject);
+    procedure btnSpawn3DModelClick(Sender: TObject);
+    procedure chkDistanceCullingClick(Sender: TObject);
+    procedure cbFrustumCullingClick(Sender: TObject);
+    procedure btnSpawnPrismsClick(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TBy3DComponent;
     FIsUpdatingGrid: Boolean;
-
     procedure RefreshHierarchy;
     procedure ProcessEditorSelection;
     procedure HandleViewportReady(Sender: TObject);
@@ -120,7 +125,6 @@ begin
   Caption := 'RaylibSandbox & JoltPhysics - Prototype';
   Width := 1200;
   Height := 800;
-
   StringGrid1.FixedCols := 1;
   StringGrid1.FixedRows := 1;
   StringGrid1.ColCount := 2;
@@ -129,12 +133,10 @@ begin
   StringGrid1.Cells[1, 0] := 'Value';
   StringGrid1.Options := StringGrid1.Options + [goEditing, goAlwaysShowEditor];
   StringGrid1.ColWidths[0] := 120;
-
   FSandbox := TRaylibSandbox.Create(Self);
   FSandbox.Parent := Self;
   FSandbox.Align := alClient;
   FSandbox.Active := True;
-
   FSandbox.OnViewportReady := HandleViewportReady;
   FSandbox.OnActorSpawned := HandleActorSpawned;
   FSandbox.OnSceneCleared := HandleSceneCleared;
@@ -172,6 +174,37 @@ begin
   lblInfo.Caption := 'Tool: Drag & Throw Active.';
 end;
 
+procedure TbtnSpawnCapsules.cbFPSChange(Sender: TObject);
+begin
+  // TargetFPS is just an indicator, real limit is removed in RaylibSandbox to allow 144+ FPS if VSync is off
+  FSandbox.TargetFPS := StrToInt(cbFPS.Items[cbFPS.ItemIndex]);
+end;
+
+procedure TbtnSpawnCapsules.cbFrustumCullingClick(Sender: TObject);
+begin
+  FSandbox.FrustumCulling := cbFrustumCulling.Checked;
+end;
+
+procedure TbtnSpawnCapsules.chkDistanceCullingClick(Sender: TObject);
+begin
+  FSandbox.DistanceCulling := chkDistanceCulling.Checked;
+end;
+
+procedure TbtnSpawnCapsules.btnSceneLoadClick(Sender: TObject);
+begin
+ //
+end;
+
+procedure TbtnSpawnCapsules.btnSceneSaveClick(Sender: TObject);
+begin
+  //
+end;
+
+procedure TbtnSpawnCapsules.btnSpawn3DModelClick(Sender: TObject);
+begin
+  //
+end;
+
 procedure TbtnSpawnCapsules.btnSpawnCapsulesClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stCapsule);
@@ -181,7 +214,6 @@ end;
 procedure TbtnSpawnCapsules.btnSpawnCubesClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stBox);
-  // Spawning a brush automatically reverts to Gizmo Mode (Move)
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Cube Selected.';
 end;
@@ -198,6 +230,13 @@ begin
   FSandbox.SetBrush(stPyramid);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Pyramid Selected.';
+end;
+
+procedure TbtnSpawnCapsules.btnSpawnPrismsClick(Sender: TObject);
+begin
+  FSandbox.SetBrush(stPrism);
+  FSandbox.SetGizmoMode(gmTranslate);
+  lblInfo.Caption := 'Brush: Prism Selected.';
 end;
 
 procedure TbtnSpawnCapsules.btnClearSceneClick(Sender: TObject);
@@ -222,7 +261,6 @@ begin
     lblInfo.Caption := 'Simulation Running.';
   end;
 end;
-
 // === Object Inspector Logic ===
 
 procedure TbtnSpawnCapsules.LoadPropertiesIntoGrid(AComponent: TBy3DComponent);
@@ -244,7 +282,6 @@ begin
       StringGrid1.Cells[1, 1] := '';
       Exit;
     end;
-
     Count := GetPropList(AComponent.ClassInfo, tkAny, nil);
     GetMem(PropList, Count * SizeOf(Pointer));
     try
@@ -252,13 +289,11 @@ begin
       StringGrid1.RowCount := Count + 1;
       StringGrid1.Cells[0, 0] := 'Property';
       StringGrid1.Cells[1, 0] := 'Value';
-
       for i := 0 to Count - 1 do
       begin
         PropInfo := PropList^[i];
         PropName := string(PropInfo^.Name);
         StringGrid1.Cells[0, i + 1] := PropName;
-
         if PropName = 'ActColor' then
         begin
           ColorVal := AComponent.ActColor;
@@ -328,7 +363,6 @@ begin
   PropInfo := GetPropInfo(FSelectedComponent, PropName);
   if not Assigned(PropInfo) then
     Exit;
-
   try
     if PropName = 'ActColor' then
     begin
@@ -414,7 +448,6 @@ var
 begin
   FSelectedComponent := AActor;
   LoadPropertiesIntoGrid(AActor);
-
   if Assigned(AActor) then
   begin
     Idx := -1;
@@ -484,6 +517,11 @@ begin
   ProcessEditorSelection;
 end;
 
+procedure TbtnSpawnCapsules.tvSceneHierarchyClick(Sender: TObject);
+begin
+  //slected in tree
+end;
+
 procedure TbtnSpawnCapsules.RefreshHierarchy;
 var
   i: Integer;
@@ -516,11 +554,9 @@ begin
   if tvSceneHierarchy.Selected = nil then
     Exit;
   SelectedIndex := tvSceneHierarchy.Selected.Index;
-
   for i := 0 to FSandbox.ItemCount - 1 do
     if Assigned(FSandbox.FItems[i]) then
       FSandbox.FItems[i].TealGlow := False;
-
   if (SelectedIndex >= 0) and (SelectedIndex < FSandbox.ItemCount) then
   begin
     Actor := FSandbox.FItems[SelectedIndex];

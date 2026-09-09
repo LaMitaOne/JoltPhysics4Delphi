@@ -23,6 +23,15 @@ object btnSpawnCapsules: TbtnSpawnCapsules
     ExplicitLeft = 201
     ExplicitHeight = 441
   end
+  object Splitter3: TSplitter
+    Left = 895
+    Top = 0
+    Width = 5
+    Height = 600
+    Align = alRight
+    ExplicitLeft = 208
+    ExplicitTop = 8
+  end
   object pnlLeft: TPanel
     Left = 0
     Top = 0
@@ -48,7 +57,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
       Width = 198
       Height = 288
       Align = alTop
-      Color = clBlack
+      Color = 4539717
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clSilver
       Font.Height = -12
@@ -58,6 +67,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
       ParentFont = False
       TabOrder = 0
       OnChange = tvSceneHierarchyChange
+      OnClick = tvSceneHierarchyClick
     end
     object Panel1: TPanel
       Left = 1
@@ -104,84 +114,252 @@ object btnSpawnCapsules: TbtnSpawnCapsules
     ParentBackground = False
     ParentFont = False
     TabOrder = 1
-    ExplicitTop = 604
+    ExplicitTop = 599
+    ExplicitWidth = 1096
     DesignSize = (
       1100
       42)
     object lblInfo: TLabel
-      Left = 546
-      Top = 8
-      Width = 346
+      Left = 7
+      Top = 6
+      Width = 887
       Height = 33
       AutoSize = False
       Caption = 'loading...'
       WordWrap = True
     end
-    object btnSpawnCubes: TButton
-      Left = 10
-      Top = 8
-      Width = 90
-      Height = 25
-      Caption = 'Spawn Cubes'
-      TabOrder = 0
-      OnClick = btnSpawnCubesClick
-    end
-    object btnSpawnSpheres: TButton
-      Left = 106
-      Top = 8
-      Width = 90
-      Height = 25
-      Caption = 'Spawn Spheres'
-      TabOrder = 1
-      OnClick = btnSpawnSpheresClick
-    end
-    object btnSpawnPyramids: TButton
-      Left = 202
-      Top = 8
-      Width = 90
-      Height = 25
-      Caption = 'Spawn Pyramids'
-      TabOrder = 2
-      OnClick = btnSpawnPyramidsClick
-    end
-    object btnClearScene: TButton
-      Left = 434
-      Top = 8
-      Width = 90
-      Height = 25
-      Caption = 'Clear Scene'
-      TabOrder = 3
-      OnClick = btnClearSceneClick
-    end
-    object btnPlayPause: TButton
-      Left = 1010
-      Top = 8
-      Width = 90
-      Height = 25
-      Anchors = [akTop, akRight]
-      Caption = 'play/pause'
-      TabOrder = 4
-      OnClick = btnPlayPauseClick
-      ExplicitLeft = 1006
-    end
     object btnToolDragThrow: TButton
-      Left = 898
-      Top = 8
+      Left = 909
+      Top = 6
       Width = 90
       Height = 25
       Anchors = [akTop, akRight]
       Caption = 'Drag n Throw'
-      TabOrder = 5
+      TabOrder = 0
       OnClick = btnToolDragThrowClick
+      ExplicitLeft = 905
     end
-    object btnSpawnCapsules: TButton
-      Left = 298
-      Top = 8
+    object btnPlayPause: TButton
+      Left = 1005
+      Top = 6
       Width = 90
       Height = 25
-      Caption = 'Spawn Capsule'
-      TabOrder = 6
-      OnClick = btnSpawnCapsulesClick
+      Anchors = [akTop, akRight]
+      Caption = 'play/pause'
+      TabOrder = 1
+      OnClick = btnPlayPauseClick
+      ExplicitLeft = 1001
+    end
+  end
+  object Panel2: TPanel
+    Left = 900
+    Top = 0
+    Width = 200
+    Height = 600
+    Align = alRight
+    Caption = 'pnlRight'
+    TabOrder = 2
+    ExplicitLeft = 896
+    ExplicitHeight = 599
+    object PageControl1: TPageControl
+      Left = 1
+      Top = 1
+      Width = 198
+      Height = 598
+      ActivePage = tsScene
+      Align = alClient
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clSilver
+      Font.Height = -12
+      Font.Name = 'Segoe UI'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 0
+      ExplicitHeight = 597
+      object tsScene: TTabSheet
+        Caption = 'Scene'
+        object Shape1: TShape
+          Left = 0
+          Top = 0
+          Width = 190
+          Height = 568
+          Align = alClient
+          Brush.Color = clBlack
+          ExplicitLeft = 88
+          ExplicitTop = 232
+          ExplicitWidth = 65
+          ExplicitHeight = 65
+        end
+        object btnClearScene: TButton
+          Left = 13
+          Top = 31
+          Width = 90
+          Height = 25
+          Caption = 'Clear Scene'
+          TabOrder = 0
+          OnClick = btnClearSceneClick
+        end
+        object btnSpawnCubes: TButton
+          Left = 13
+          Top = 97
+          Width = 119
+          Height = 25
+          Caption = 'Spawn Cubes'
+          TabOrder = 1
+          OnClick = btnSpawnCubesClick
+        end
+        object btnSpawnSpheres: TButton
+          Left = 13
+          Top = 126
+          Width = 119
+          Height = 25
+          Caption = 'Spawn Spheres'
+          TabOrder = 2
+          OnClick = btnSpawnSpheresClick
+        end
+        object btnSpawnPyramids: TButton
+          Left = 13
+          Top = 155
+          Width = 119
+          Height = 25
+          Caption = 'Spawn Pyramids'
+          TabOrder = 3
+          OnClick = btnSpawnPyramidsClick
+        end
+        object btnSpawnCapsules: TButton
+          Left = 13
+          Top = 184
+          Width = 119
+          Height = 25
+          Caption = 'Spawn Capsule'
+          TabOrder = 4
+          OnClick = btnSpawnCapsulesClick
+        end
+        object btnSceneSave: TButton
+          Left = 13
+          Top = 359
+          Width = 90
+          Height = 25
+          Caption = 'Save'
+          TabOrder = 5
+          OnClick = btnSceneSaveClick
+        end
+        object btnSceneLoad: TButton
+          Left = 13
+          Top = 390
+          Width = 90
+          Height = 25
+          Caption = 'Load'
+          TabOrder = 6
+          OnClick = btnSceneLoadClick
+        end
+        object btnSpawn3DModel: TButton
+          Left = 13
+          Top = 303
+          Width = 119
+          Height = 25
+          Caption = 'Spawn 3d model'
+          TabOrder = 7
+          OnClick = btnSpawn3DModelClick
+        end
+        object btnSpawnPrisms: TButton
+          Left = 13
+          Top = 215
+          Width = 119
+          Height = 25
+          Caption = 'Spawn Prism'
+          TabOrder = 8
+          OnClick = btnSpawnPrismsClick
+        end
+      end
+      object tsEngine: TTabSheet
+        Caption = 'Engine'
+        ImageIndex = 1
+        object Label1: TLabel
+          Left = 16
+          Top = 56
+          Width = 22
+          Height = 15
+          Caption = 'FPS:'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentFont = False
+        end
+        object cbFPS: TComboBox
+          Left = 16
+          Top = 77
+          Width = 145
+          Height = 23
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ItemIndex = 3
+          ParentFont = False
+          TabOrder = 0
+          Text = '60'
+          OnChange = cbFPSChange
+          Items.Strings = (
+            '10'
+            '20'
+            '30'
+            '60'
+            '90'
+            '120'
+            '144'
+            '160'
+            '200'
+            '240'
+            '320'
+            '500'
+            '1000'
+            '5000')
+        end
+        object chkDistanceCulling: TCheckBox
+          Left = 16
+          Top = 157
+          Width = 105
+          Height = 17
+          Caption = 'Distance culling'
+          Checked = True
+          Color = clBlack
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentColor = False
+          ParentFont = False
+          State = cbChecked
+          TabOrder = 1
+          StyleElements = [seClient, seBorder]
+          OnClick = chkDistanceCullingClick
+        end
+        object cbFrustumCulling: TCheckBox
+          Left = 16
+          Top = 186
+          Width = 129
+          Height = 17
+          Caption = 'Frustum culling'
+          Checked = True
+          Color = clBlack
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentColor = False
+          ParentFont = False
+          State = cbChecked
+          TabOrder = 2
+          StyleElements = [seClient, seBorder]
+          OnClick = cbFrustumCullingClick
+        end
+      end
     end
   end
 end

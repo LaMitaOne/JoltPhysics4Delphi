@@ -1084,7 +1084,7 @@ procedure JPH_BodyInterface_DeactivateBody(bodyInterface: JPH_BodyInterface; bod
 
 function JPH_BodyInterface_GetShape(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID): JPH_Shape; cdecl; external JOLT_LIB;
 
-procedure JPH_BodyInterface_SetShape(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; shape: JPH_Shape; updateMassProperties: JPH_Bool; 
+procedure JPH_BodyInterface_SetShape(bodyInterface: JPH_BodyInterface; bodyID: JPH_BodyID; shape: JPH_Shape; updateMassProperties: JPH_Bool;
 
 activationMode: JPH_Activation); cdecl; external JOLT_LIB;
 

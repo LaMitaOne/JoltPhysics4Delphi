@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine v0.5 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.51 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -38,9 +38,7 @@
  *      object is freed.
  *==============================================================================}
 
-
 {$POINTERMATH ON}
-
 interface
 
 uses
@@ -48,7 +46,7 @@ uses
   JoltPhysics, r3ddelphi, TypInfo;
 
 type
-  TShapeType = (stBox, stSphere, stCapsule, stPyramid);
+  TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism);
 
   TBy3DComponent = class;
 
@@ -79,9 +77,7 @@ type
     procedure Update(DeltaTime: single);
     procedure Render;
     procedure Clear;
-
     function RayCast(const Origin, Direction: TVector3; out HitBodyID: JPH_BodyID; out HitPoint: TVector3): Boolean;
-
     property Items[const Index: integer]: TBy3DComponent read GetComponent; default;
     property Count: integer read GetCount;
     property CollideAllLayer: JPH_ObjectLayer read FCollideAllLayer;
@@ -114,13 +110,11 @@ type
     FUserData: Pointer;
     FOnCollision: TCollisionEvent;
     FTealGlow: Boolean;
-
     FActColor: TColorB;
     FTargetColor: TColorB;
     FActAlpha: Single;
     FTargetAlpha: Single;
     FLerpSpeed: Single;
-
     procedure UpdateModelTransform;
     procedure UpdateLerp(DeltaTime: Single);
   public
@@ -128,10 +122,8 @@ type
     constructor Create(AOwner: TComponent); overload; override;
     constructor Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean = False; APos: PJPH_RVec3 = nil; ARot: PJPH_Quat = nil); reintroduce; overload;
     destructor Destroy; override;
-
     procedure Update(DeltaTime: single); virtual;
     procedure Draw; virtual;
-
     procedure SetPosition(APosition: TVector3);
     procedure SetRotation(AQuaternion: TQuaternion);
     procedure SetLinearVelocity(AVelocity: TVector3);
@@ -143,25 +135,20 @@ type
     procedure AddForce(AForce: TVector3);
     procedure ActivateBody;
     procedure DeactivateBody;
-
     // Editor helpers to detach/reatach from physics simulation safely
     procedure DetachFromPhysics;
     procedure ReattachToPhysics;
-
     property BodyID: JPH_BodyID read FBodyID;
     property UserData: Pointer read FUserData write FUserData;
   published
     property ShapeType: TShapeType read FShapeType write FShapeType;
-
     property Position: TVector3 read FPosition write SetPosition;
     property Quaternion: TQuaternion read FQuaternion write SetRotation;
     property Scale: TVector3 read FScale write SetScale;
     property Rotation: TVector3 read FRotation write FRotation;
-
     property Mass: Single read FMass write SetMass;
     property Friction: Single read FFriction write SetFriction;
     property Restitution: Single read FRestitution write SetRestitution;
-
     property Visible: boolean read FVisible write FVisible;
     property TealGlow: Boolean read FTealGlow write FTealGlow;
     property ActColor: TColorB read FActColor write FActColor;
@@ -169,7 +156,6 @@ type
     property ActAlpha: Single read FActAlpha write FActAlpha;
     property TargetAlpha: Single read FTargetAlpha write FTargetAlpha;
     property LerpSpeed: Single read FLerpSpeed write FLerpSpeed;
-
     property OnCollision: TCollisionEvent read FOnCollision write FOnCollision;
   end;
 
@@ -196,7 +182,6 @@ begin
   FObjectLayerPairFilter := JPH_ObjectLayerPairFilterMask_Create;
   FObjectVsBroadPhaseLayerFilter := JPH_ObjectVsBroadPhaseLayerFilterMask_Create(FBroadPhaseLayerInterface);
   FCollideAllLayer := JPH_ObjectLayerPairFilterMask_GetObjectLayer(1, $FFFFFFFF);
-
   FillChar(Settings, SizeOf(Settings), 0);
   Settings.maxBodies := 10240;
   Settings.numBodyMutexes := 2;
@@ -205,22 +190,17 @@ begin
   Settings.broadPhaseLayerInterface := FBroadPhaseLayerInterface;
   Settings.objectLayerPairFilter := FObjectLayerPairFilter;
   Settings.objectVsBroadPhaseLayerFilter := FObjectVsBroadPhaseLayerFilter;
-
   FPhysicsSystem := JPH_PhysicsSystem_Create(@Settings);
   FBodyInterface := JPH_PhysicsSystem_GetBodyInterface(FPhysicsSystem);
-
   JobConfig.maxJobs := JPH_MAX_PHYSICS_JOBS;
   JobConfig.maxBarriers := JPH_MAX_PHYSICS_BARRIERS;
   JobConfig.numThreads := -1;
   FJobSystem := JPH_JobSystemThreadPool_Create(@JobConfig);
-
   FTempAllocator := JPH_TempAllocatorMalloc_Create;
-
   GravVec.x := 0;
   GravVec.y := -9.81;
   GravVec.z := 0;
   JPH_PhysicsSystem_SetGravity(FPhysicsSystem, @GravVec);
-
   FillChar(BPLProcs, SizeOf(BPLProcs), 0);
   FBroadPhaseLayerFilter := JPH_BroadPhaseLayerFilter_Create(nil, @BPLProcs);
   FillChar(OLProcs, SizeOf(OLProcs), 0);
@@ -266,10 +246,8 @@ var
 begin
   if FPhysicsSystem = nil then
     Exit;
-
   try
     JPH_PhysicsSystem_Update2(FPhysicsSystem, DeltaTime, 1, FTempAllocator, FJobSystem);
-
     for i := FActorList.Count - 1 downto 0 do
     begin
       try
@@ -319,24 +297,20 @@ begin
   HitPoint := Vector3Zero;
   if FPhysicsSystem = nil then
     Exit;
-
   Query := JPH_PhysicsSystem_GetNarrowPhaseQuery(FPhysicsSystem);
   if Query = nil then
     Exit;
-
   JOrigin.x := Origin.x;
   JOrigin.y := Origin.y;
   JOrigin.z := Origin.z;
   JDir.x := Direction.x;
   JDir.y := Direction.y;
   JDir.z := Direction.z;
-
   SafeSize := SizeOf(JPH_RayCastResult) + 32;
   GetMem(HitResult, SafeSize);
   try
     FillChar(HitResult^, SafeSize, 0);
     RetVal := JPH_NarrowPhaseQuery_CastRay(Query, @JOrigin, @JDir, HitResult, FBroadPhaseLayerFilter, FObjectLayerFilter, FBodyFilter, FShapeFilter);
-
     if RetVal <> 0 then
     begin
       Result := True;
@@ -376,35 +350,36 @@ var
   CreationSettings: JPH_BodyCreationSettings;
 begin
   Create(nil);
-
   FEngine := AParent;
   FPosition := Vector3Create(0, 0, 0);
   FScale := ASize;
   FQuaternion := QuaternionIdentity;
   FModelTransform := MatrixIdentity();
   FShapeType := AShapeType;
-
   if IsStatic then
     MotionType := JPH_MotionType_Static
   else
     MotionType := JPH_MotionType_Dynamic;
-
   case AShapeType of
     stSphere:
       begin
-        ShapeSettings := JPH_SphereShapeSettings_Create(ASize.x * 0.5);
+        // Use max axis for sphere radius to ensure it visually matches standard scale
+        ShapeSettings := JPH_SphereShapeSettings_Create(Max(ASize.x, Max(ASize.y, ASize.z)) * 0.5);
         FShape := JPH_SphereShapeSettings_CreateShape(ShapeSettings);
       end;
     stCapsule:
       begin
-        ShapeSettings := JPH_CapsuleShapeSettings_Create(ASize.y * 0.5, ASize.x * 0.5);
+        // Jolt Capsule: HalfHeightOfCylinderPart, Radius
+        ShapeSettings := JPH_CapsuleShapeSettings_Create((FScale.y - FScale.x) * 0.5, FScale.x * 0.5);
         FShape := JPH_CapsuleShapeSettings_CreateShape(ShapeSettings);
+        FScale := Vector3Create(ASize.x, ASize.y, ASize.z);
       end;
-    stPyramid:
+    stPyramid, stPrism:
       begin
-        ShapeSettings := JPH_CylinderShapeSettings_Create(0.75, ASize.x, JPH_DEFAULT_CONVEX_RADIUS);
+        // Use cylinder shape with 4 sides for pyramid/prism. Top radius 0 for pyramid, >0 for prism
+        ShapeSettings := JPH_CylinderShapeSettings_Create(ASize.y * 0.5, ASize.x * 0.5, JPH_DEFAULT_CONVEX_RADIUS);
         FShape := JPH_CylinderShapeSettings_CreateShape(ShapeSettings);
-        FScale := Vector3Create(ASize.x, ASize.z, ASize.y);
+        FScale := Vector3Create(ASize.x, ASize.y, ASize.z);
       end;
   else
     begin
@@ -415,7 +390,6 @@ begin
       FShape := JPH_BoxShapeSettings_CreateShape(ShapeSettings);
     end;
   end;
-
   if APos <> nil then
     Pos := APos^
   else
@@ -424,7 +398,6 @@ begin
     Pos.y := 0;
     Pos.z := 0;
   end;
-
   if ARot <> nil then
     Rot := ARot^
   else
@@ -434,19 +407,14 @@ begin
     Rot.z := 0;
     Rot.w := 1;
   end;
-
   CreationSettings := JPH_BodyCreationSettings_Create3(FShape, @Pos, @Rot, MotionType, FEngine.CollideAllLayer);
-
   if IsStatic then
     FBodyID := JPH_BodyInterface_CreateAndAddBody(FEngine.BodyInterface, CreationSettings, JPH_Activation_DontActivate)
   else
     FBodyID := JPH_BodyInterface_CreateAndAddBody(FEngine.BodyInterface, CreationSettings, JPH_Activation_Activate);
-
   JPH_ShapeSettings_Destroy(ShapeSettings);
-
   JPH_BodyInterface_SetFriction(FEngine.BodyInterface, FBodyID, FFriction);
   JPH_BodyInterface_SetRestitution(FEngine.BodyInterface, FBodyID, FRestitution);
-
   if Assigned(FEngine) then
     FEngine.Add(Self);
 end;
@@ -466,12 +434,10 @@ var
   LerpFactor: Single;
 begin
   LerpFactor := EnsureRange(DeltaTime * FLerpSpeed, 0.0, 1.0);
-
   FActColor.r := Round(FActColor.r + (FTargetColor.r - FActColor.r) * LerpFactor);
   FActColor.g := Round(FActColor.g + (FTargetColor.g - FActColor.g) * LerpFactor);
   FActColor.b := Round(FActColor.b + (FTargetColor.b - FActColor.b) * LerpFactor);
   FActColor.a := Round(FActColor.a + (FTargetColor.a - FActColor.a) * LerpFactor);
-
   FActAlpha := FActAlpha + (FTargetAlpha - FActAlpha) * LerpFactor;
 end;
 
@@ -481,20 +447,17 @@ var
   JRot: JPH_Quat;
 begin
   UpdateLerp(DeltaTime);
-
   if FBodyID <> 0 then
   begin
     JPH_BodyInterface_GetCenterOfMassPosition(FEngine.BodyInterface, FBodyID, @JPos);
     FPosition.x := JPos.x;
     FPosition.y := JPos.y;
     FPosition.z := JPos.z;
-
     JPH_BodyInterface_GetRotation(FEngine.BodyInterface, FBodyID, @JRot);
     FQuaternion.x := JRot.x;
     FQuaternion.y := JRot.y;
     FQuaternion.z := JRot.z;
     FQuaternion.w := JRot.w;
-
     UpdateModelTransform;
   end;
 end;
@@ -641,12 +604,10 @@ begin
     Pos.x := FPosition.x;
     Pos.y := FPosition.y;
     Pos.z := FPosition.z;
-
     Rot.x := FQuaternion.x;
     Rot.y := FQuaternion.y;
     Rot.z := FQuaternion.z;
     Rot.w := FQuaternion.w;
-
     CreationSettings := JPH_BodyCreationSettings_Create3(FShape, @Pos, @Rot, JPH_MotionType_Dynamic, FEngine.CollideAllLayer);
     FBodyID := JPH_BodyInterface_CreateAndAddBody(FEngine.BodyInterface, CreationSettings, JPH_Activation_Activate);
     JPH_BodyInterface_SetFriction(FEngine.BodyInterface, FBodyID, FFriction);
@@ -661,31 +622,28 @@ var
   ConvexRadius: Single;
 begin
   FScale := Value;
-
   // Clean up old shape
   if FShape <> nil then
     JPH_Shape_Destroy(FShape);
-
   // Determine safe convex radius to prevent Jolt crashes on tiny objects
   ConvexRadius := JPH_DEFAULT_CONVEX_RADIUS;
   if (FScale.x < 0.2) or (FScale.y < 0.2) or (FScale.z < 0.2) then
     ConvexRadius := 0.0;
-
   case FShapeType of
     stSphere:
       begin
-        ShapeSettings := JPH_SphereShapeSettings_Create(FScale.x * 0.5);
+        // Use max axis for sphere radius to ensure it visually matches standard scale
+        ShapeSettings := JPH_SphereShapeSettings_Create(Max(FScale.x, Max(FScale.y, FScale.z)) * 0.5);
         FShape := JPH_SphereShapeSettings_CreateShape(ShapeSettings);
       end;
     stCapsule:
       begin
-        // Jolt Capsule: HalfHeight, Radius
-        ShapeSettings := JPH_CapsuleShapeSettings_Create(FScale.y * 0.5, FScale.x * 0.5);
+        ShapeSettings := JPH_CapsuleShapeSettings_Create((FScale.y - FScale.x) * 0.5, FScale.x * 0.5);
         FShape := JPH_CapsuleShapeSettings_CreateShape(ShapeSettings);
       end;
-    stPyramid:
+    stPyramid, stPrism:
       begin
-        ShapeSettings := JPH_CylinderShapeSettings_Create(0.75, FScale.x, ConvexRadius);
+        ShapeSettings := JPH_CylinderShapeSettings_Create(FScale.y * 0.5, FScale.x * 0.5, ConvexRadius);
         FShape := JPH_CylinderShapeSettings_CreateShape(ShapeSettings);
       end;
   else
@@ -698,7 +656,6 @@ begin
     end;
   end;
   JPH_ShapeSettings_Destroy(ShapeSettings);
-
   UpdateModelTransform;
 end;
 
