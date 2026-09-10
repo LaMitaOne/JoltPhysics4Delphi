@@ -11,7 +11,7 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.51)     
+   Status: Work in Progress (Alpha v0.52)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features    
@@ -57,7 +57,17 @@ Since the original C API is massive, there is still a lot to cover. Here is what
 
   Exe and sample project included    
 
-  Latest Changes:    
+  Latest Changes:        
+     
+ v0.52:    
+     
+    Fix: Pause Mode Spawn Position – Objects spawned via mouse click while the simulation was paused previously appeared at the world origin (0,0,0) and only "jumped" to their correct location when Play was pressed.    
+    The transform matrix is now explicitly updated immediately upon creation.      
+    Fix: Mass Spawn Overload – Clicking the mass spawn buttons in the HUD often spawned 120+ objects because the click was registered across multiple frames.     
+    Added proper edge-detection (mouse down/up state tracking) so exactly the requested amount (30) is queued.      
+    Add: Highlight Collision Option – Integrated a UI checkbox to toggle collision highlighting on and off.     
+    Add: Live Engine Stats Dashboard – Prepared a TMemo as a live monitor.    
+    A timer safely reads statistics from the background thread (like active physics bodies and physics update duration) and displays them without causing cross-thread UI conflicts.    
     
  v0.51:    
      
