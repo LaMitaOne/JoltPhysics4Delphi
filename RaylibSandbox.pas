@@ -865,6 +865,7 @@ begin
   Winapi.Windows.ScreenToClient(FRaylibWnd, p);
   FMousePos := Vector2Create(p.x, p.y);
   FMouseLeftPressed := (GetAsyncKeyState(VK_LBUTTON) and $8000) <> 0;
+
   if (GetAsyncKeyState(VK_CONTROL) and $8000) <> 0 then
   begin
     if not FCtrlWasPressed then
@@ -874,12 +875,15 @@ begin
       else if FGizmoMode = gmRotate then
         FGizmoMode := gmScale
       else if FGizmoMode = gmScale then
-        FGizmoMode := gmTranslate;
+        FGizmoMode := gmNone // <-- Neu: Wechsel zurück zu Drag & Throw
+      else if FGizmoMode = gmNone then
+        FGizmoMode := gmTranslate; // <-- Neu: Von Drag wieder zu Translate
       FCtrlWasPressed := True;
     end;
   end
   else
     FCtrlWasPressed := False;
+
   // Intercept native popup input
   if FPopupOpen then
   begin
@@ -1454,31 +1458,48 @@ function TRaylibSandbox.CheckGizmoAxisHit(Pos, Scale: TVector3; RayRadius: Singl
 var
   Box: TBoundingBox;
   Hit: TRayCollision;
+  InvRot: TQuaternion;
+  LocalRay: TRay;
+  LocalDir: TVector3;
 begin
   Result := False;
   Axis := 0;
-  // Bidirectional axis checks: Bounding box spans both positive and negative directions
-  Box.min := Vector3Create(Pos.x - Scale.x - RayRadius, Pos.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + Scale.x + RayRadius, Pos.y + RayRadius, Pos.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // To accurately detect hover/click on rotated axes, we transform the world ray
+  // into the local space of the actor. This allows using simple axis-aligned
+  // bounding boxes (AABB) that perfectly align with the visual gizmo,
+  // regardless of the object's rotation.
+  InvRot := QuaternionInvert(FItemSelected.Quaternion);
+  LocalRay.position := Vector3RotateByQuaternion(Vector3Subtract(Ray.position, Pos), InvRot);
+  LocalDir := Vector3RotateByQuaternion(Ray.direction, InvRot);
+  LocalRay.direction := Vector3Normalize(LocalDir);
+
+  // Check X-Axis (bidirectional)
+  Box.min := Vector3Create(-Scale.x - RayRadius, -RayRadius, -RayRadius);
+  Box.max := Vector3Create(Scale.x + RayRadius, RayRadius, RayRadius);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
     Axis := 1;
     Exit;
   end;
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - Scale.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + Scale.y + RayRadius, Pos.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // Check Y-Axis (bidirectional)
+  Box.min := Vector3Create(-RayRadius, -Scale.y - RayRadius, -RayRadius);
+  Box.max := Vector3Create(RayRadius, Scale.y + RayRadius, RayRadius);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
     Axis := 2;
     Exit;
   end;
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, Pos.z - Scale.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + RayRadius, Pos.z + Scale.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // Check Z-Axis (bidirectional)
+  Box.min := Vector3Create(-RayRadius, -RayRadius, -Scale.z - RayRadius);
+  Box.max := Vector3Create(RayRadius, RayRadius, Scale.z + RayRadius);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
@@ -1491,31 +1512,46 @@ function TRaylibSandbox.CheckGizmoRingHit(Pos, Scale: TVector3; RayRadius: Singl
 var
   Box: TBoundingBox;
   Hit: TRayCollision;
+  InvRot: TQuaternion;
+  LocalRay: TRay;
+  LocalDir: TVector3;
 begin
   Result := False;
   Axis := 0;
-  // Bidirectional axis checks: Bounding box spans both positive and negative directions
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - Scale.y, Pos.z - Scale.z);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + Scale.y, Pos.z + Scale.z);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // Transform the ray into the actor's local space to ensure the invisible
+  // picking boxes align perfectly with the rotated rotation rings.
+  InvRot := QuaternionInvert(FItemSelected.Quaternion);
+  LocalRay.position := Vector3RotateByQuaternion(Vector3Subtract(Ray.position, Pos), InvRot);
+  LocalDir := Vector3RotateByQuaternion(Ray.direction, InvRot);
+  LocalRay.direction := Vector3Normalize(LocalDir);
+
+  // Check X-Axis Ring (flattened box around YZ plane)
+  Box.min := Vector3Create(-RayRadius, -Scale.y, -Scale.z);
+  Box.max := Vector3Create(RayRadius, Scale.y, Scale.z);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
     Axis := 1;
     Exit;
   end;
-  Box.min := Vector3Create(Pos.x - Scale.x, Pos.y - RayRadius, Pos.z - Scale.z);
-  Box.max := Vector3Create(Pos.x + Scale.x, Pos.y + RayRadius, Pos.z + Scale.z);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // Check Y-Axis Ring (flattened box around XZ plane)
+  Box.min := Vector3Create(-Scale.x, -RayRadius, -Scale.z);
+  Box.max := Vector3Create(Scale.x, RayRadius, Scale.z);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
     Axis := 2;
     Exit;
   end;
-  Box.min := Vector3Create(Pos.x - Scale.x, Pos.y - Scale.y, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + Scale.x, Pos.y + Scale.y, Pos.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // Check Z-Axis Ring (flattened box around XY plane)
+  Box.min := Vector3Create(-Scale.x, -Scale.y, -RayRadius);
+  Box.max := Vector3Create(Scale.x, Scale.y, RayRadius);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
@@ -1528,58 +1564,46 @@ function TRaylibSandbox.CheckGizmoScaleHit(Pos, Scale: TVector3; RayRadius: Sing
 var
   Box: TBoundingBox;
   Hit: TRayCollision;
+  InvRot: TQuaternion;
+  LocalRay: TRay;
+  LocalDir: TVector3;
 begin
   Result := False;
   Axis := 0;
-  // Bidirectional axis checks: Bounding box spans both positive and negative directions
-  Box.min := Vector3Create(Pos.x + Scale.x - RayRadius, Pos.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + Scale.x + RayRadius, Pos.y + RayRadius, Pos.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // Transform the ray into the actor's local space so the scale handle boxes
+  // are accurately checked at the exact tips of the arrows.
+  InvRot := QuaternionInvert(FItemSelected.Quaternion);
+  LocalRay.position := Vector3RotateByQuaternion(Vector3Subtract(Ray.position, Pos), InvRot);
+  LocalDir := Vector3RotateByQuaternion(Ray.direction, InvRot);
+  LocalRay.direction := Vector3Normalize(LocalDir);
+
+  // Check positive X-Axis Scale Handle
+  Box.min := Vector3Create(Scale.x - RayRadius, -RayRadius, -RayRadius);
+  Box.max := Vector3Create(Scale.x + RayRadius, RayRadius, RayRadius);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
     Axis := 1;
     Exit;
   end;
-  Box.min := Vector3Create(Pos.x - Scale.x - RayRadius, Pos.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x - Scale.x + RayRadius, Pos.y + RayRadius, Pos.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
-  if Hit.hit then
-  begin
-    Result := True;
-    Axis := 1;
-    Exit;
-  end;
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y + Scale.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + Scale.y + RayRadius, Pos.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // Check positive Y-Axis Scale Handle
+  Box.min := Vector3Create(-RayRadius, Scale.y - RayRadius, -RayRadius);
+  Box.max := Vector3Create(RayRadius, Scale.y + RayRadius, RayRadius);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
     Axis := 2;
     Exit;
   end;
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - Scale.y - RayRadius, Pos.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y - Scale.y + RayRadius, Pos.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
-  if Hit.hit then
-  begin
-    Result := True;
-    Axis := 2;
-    Exit;
-  end;
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, Pos.z + Scale.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + RayRadius, Pos.z + Scale.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
-  if Hit.hit then
-  begin
-    Result := True;
-    Axis := 3;
-    Exit;
-  end;
-  Box.min := Vector3Create(Pos.x - RayRadius, Pos.y - RayRadius, Pos.z - Scale.z - RayRadius);
-  Box.max := Vector3Create(Pos.x + RayRadius, Pos.y + RayRadius, Pos.z - Scale.z + RayRadius);
-  Hit := GetRayCollisionBox(Ray, Box);
+
+  // Check positive Z-Axis Scale Handle
+  Box.min := Vector3Create(-RayRadius, -RayRadius, Scale.z - RayRadius);
+  Box.max := Vector3Create(RayRadius, RayRadius, Scale.z + RayRadius);
+  Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
     Result := True;
