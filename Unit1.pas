@@ -49,6 +49,9 @@ type
     chkDistanceCulling: TCheckBox;
     cbFrustumCulling: TCheckBox;
     btnSpawnPrisms: TButton;
+    chkHightlightCollision: TCheckBox;
+    Memo1: TMemo;
+    tmrStatsUpdater: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
@@ -70,9 +73,12 @@ type
     procedure chkDistanceCullingClick(Sender: TObject);
     procedure cbFrustumCullingClick(Sender: TObject);
     procedure btnSpawnPrismsClick(Sender: TObject);
+    procedure chkHightlightCollisionClick(Sender: TObject);
+    procedure tmrStatsUpdaterTimer(Sender: TObject);
+    procedure FormShow(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
-    FSelectedComponent: TBy3DComponent;
+    FSelectedComponent: TA3DComponent;
     FIsUpdatingGrid: Boolean;
     procedure RefreshHierarchy;
     procedure ProcessEditorSelection;
@@ -80,9 +86,9 @@ type
     procedure HandleActorSpawned(Sender: TObject; const Args: TActorEventArgs);
     procedure HandleSceneCleared(Sender: TObject);
     procedure HandleEngineException(Sender: TObject; const Args: TEngineExceptionEventArgs);
-    procedure LoadPropertiesIntoGrid(AComponent: TBy3DComponent);
-    procedure SelectActorInUI(AActor: TBy3DComponent);
-    procedure HandleObjectSelected(Sender: TObject; Actor: TBy3DComponent);
+    procedure LoadPropertiesIntoGrid(AComponent: TA3DComponent);
+    procedure SelectActorInUI(AActor: TA3DComponent);
+    procedure HandleObjectSelected(Sender: TObject; Actor: TA3DComponent);
     procedure HandleViewportRightClick(Sender: TObject);
   public
     { Public declarations }
@@ -162,6 +168,11 @@ begin
   end;
 end;
 
+procedure TbtnSpawnCapsules.FormShow(Sender: TObject);
+begin
+  tmrStatsUpdater.Enabled := True;
+end;
+
 procedure TbtnSpawnCapsules.HandleViewportRightClick(Sender: TObject);
 begin
   // Empty. Context menu is fully handled internally.
@@ -188,6 +199,11 @@ end;
 procedure TbtnSpawnCapsules.chkDistanceCullingClick(Sender: TObject);
 begin
   FSandbox.DistanceCulling := chkDistanceCulling.Checked;
+end;
+
+procedure TbtnSpawnCapsules.chkHightlightCollisionClick(Sender: TObject);
+begin
+  FSandbox.HighlightCollision := chkHightlightCollision.Checked;
 end;
 
 procedure TbtnSpawnCapsules.btnSceneLoadClick(Sender: TObject);
@@ -263,7 +279,7 @@ begin
 end;
 // === Object Inspector Logic ===
 
-procedure TbtnSpawnCapsules.LoadPropertiesIntoGrid(AComponent: TBy3DComponent);
+procedure TbtnSpawnCapsules.LoadPropertiesIntoGrid(AComponent: TA3DComponent);
 var
   PropList: PPropList;
   Count, i: Integer;
@@ -431,7 +447,7 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.HandleObjectSelected(Sender: TObject; Actor: TBy3DComponent);
+procedure TbtnSpawnCapsules.HandleObjectSelected(Sender: TObject; Actor: TA3DComponent);
 begin
   TThread.Queue(nil,
     procedure
@@ -442,7 +458,7 @@ begin
     end);
 end;
 
-procedure TbtnSpawnCapsules.SelectActorInUI(AActor: TBy3DComponent);
+procedure TbtnSpawnCapsules.SelectActorInUI(AActor: TA3DComponent);
 var
   Idx: Integer;
 begin
@@ -512,6 +528,44 @@ begin
   lblInfo.Caption := Format('ERR [%s]: %s', [Args.Context, Args.Message]);
 end;
 
+procedure TbtnSpawnCapsules.tmrStatsUpdaterTimer(Sender: TObject);
+var
+  TotalObjects, Projectiles: Integer;
+  SimStatus: string;
+  SelectedInfo: string;
+begin
+  if not Assigned(FSandbox) then
+    Exit;
+
+  TotalObjects := FSandbox.ItemCount;
+
+  if FSandbox.GetSimulationRunning then
+    SimStatus := 'Running'
+  else
+    SimStatus := 'Paused';
+
+  SelectedInfo := 'None';
+  if Assigned(FSelectedComponent) then
+    SelectedInfo := Format('%s (ID: %d)', [GetEnumName(TypeInfo(TShapeType), Ord(FSelectedComponent.ShapeType)), FSelectedComponent.BodyID]);
+
+  Memo1.Lines.BeginUpdate;
+  try
+    Memo1.Lines.Clear;
+    Memo1.Lines.Add('=== ENGINE STATS ===');
+    Memo1.Lines.Add(Format('State:      %s', [SimStatus]));
+    Memo1.Lines.Add(Format('FPS:         %d', [GetFPS()])); // Raylib GetFPS()
+    Memo1.Lines.Add('-------------------');
+    Memo1.Lines.Add(Format('Objects:     %d', [TotalObjects]));
+    Memo1.Lines.Add(Format('In movement:    %d', [FSandbox.ActiveBodies]));
+    Memo1.Lines.Add('-------------------');
+    Memo1.Lines.Add(Format('Physic-Time: %.2f ms', [FSandbox.LastPhysicsTime]));
+    Memo1.Lines.Add('-------------------');
+    Memo1.Lines.Add(Format('Selected:     %s', [SelectedInfo]));
+  finally
+    Memo1.Lines.EndUpdate;
+  end;
+end;
+
 procedure TbtnSpawnCapsules.tvSceneHierarchyChange(Sender: TObject; Node: TTreeNode);
 begin
   ProcessEditorSelection;
@@ -525,7 +579,7 @@ end;
 procedure TbtnSpawnCapsules.RefreshHierarchy;
 var
   i: Integer;
-  Actor: TBy3DComponent;
+  Actor: TA3DComponent;
   NodeText: string;
 begin
   tvSceneHierarchy.Items.BeginUpdate;
@@ -548,7 +602,7 @@ end;
 procedure TbtnSpawnCapsules.ProcessEditorSelection;
 var
   SelectedIndex: Integer;
-  Actor: TBy3DComponent;
+  Actor: TA3DComponent;
   i: Integer;
 begin
   if tvSceneHierarchy.Selected = nil then

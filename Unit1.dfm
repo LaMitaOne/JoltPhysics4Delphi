@@ -14,6 +14,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown
+  OnShow = FormShow
   TextHeight = 15
   object Splitter1: TSplitter
     Left = 200
@@ -178,6 +179,9 @@ object btnSpawnCapsules: TbtnSpawnCapsules
       ExplicitHeight = 597
       object tsScene: TTabSheet
         Caption = 'Scene'
+        DesignSize = (
+          190
+          568)
         object Shape1: TShape
           Left = 0
           Top = 0
@@ -237,17 +241,17 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         end
         object btnSceneSave: TButton
           Left = 13
-          Top = 359
-          Width = 90
+          Top = 327
+          Width = 52
           Height = 25
           Caption = 'Save'
           TabOrder = 5
           OnClick = btnSceneSaveClick
         end
         object btnSceneLoad: TButton
-          Left = 13
-          Top = 390
-          Width = 90
+          Left = 77
+          Top = 327
+          Width = 52
           Height = 25
           Caption = 'Load'
           TabOrder = 6
@@ -255,7 +259,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         end
         object btnSpawn3DModel: TButton
           Left = 13
-          Top = 303
+          Top = 261
           Width = 119
           Height = 25
           Caption = 'Spawn 3d model'
@@ -270,6 +274,25 @@ object btnSpawnCapsules: TbtnSpawnCapsules
           Caption = 'Spawn Prism'
           TabOrder = 8
           OnClick = btnSpawnPrismsClick
+        end
+        object Memo1: TMemo
+          Left = 16
+          Top = 376
+          Width = 161
+          Height = 177
+          Anchors = [akLeft, akBottom]
+          BevelInner = bvNone
+          BevelOuter = bvNone
+          BorderStyle = bsNone
+          Color = clBlack
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clSilver
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentFont = False
+          ReadOnly = True
+          TabOrder = 9
         end
       end
       object tsEngine: TTabSheet
@@ -359,7 +382,23 @@ object btnSpawnCapsules: TbtnSpawnCapsules
           StyleElements = [seClient, seBorder]
           OnClick = cbFrustumCullingClick
         end
+        object chkHightlightCollision: TCheckBox
+          Left = 16
+          Top = 336
+          Width = 145
+          Height = 17
+          Caption = 'Hightlight Collision'
+          TabOrder = 3
+          OnClick = chkHightlightCollisionClick
+        end
       end
     end
+  end
+  object tmrStatsUpdater: TTimer
+    Enabled = False
+    Interval = 500
+    OnTimer = tmrStatsUpdaterTimer
+    Left = 1065
+    Top = 411
   end
 end

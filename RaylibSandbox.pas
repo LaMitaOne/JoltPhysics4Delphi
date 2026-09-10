@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.51 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.52 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -63,7 +63,7 @@ uses
 type
   PItemData = ^TItemData;
 
-  TObjectSelectedEvent = procedure(Sender: TObject; Actor: TBy3DComponent) of object;
+  TObjectSelectedEvent = procedure(Sender: TObject; Actor: TA3DComponent) of object;
 
   TItemData = record
     SpawnTime: Double;
@@ -75,7 +75,7 @@ type
   TRaylibSandbox = class;
 
   TActorEventArgs = record
-    Actor: TBy3DComponent;
+    Actor: TA3DComponent;
     Index: Integer;
   end;
 
@@ -104,11 +104,11 @@ type
     FRaylibWnd: HWND;
     FInitialized: Boolean;
     FEngine: TModelEngine;
-    FFloorActor: TBy3DComponent;
-    FWalls: array[0..3] of TBy3DComponent;
+    FFloorActor: TA3DComponent;
+    FWalls: array[0..3] of TA3DComponent;
     FWallpaperModel: TModel;
     FWallpaperTex: TTexture2D;
-    FItemSelected: TBy3DComponent;
+    FItemSelected: TA3DComponent;
     FDragging: Boolean;
     FDragTargetPos: TVector3;
     FMousePos: TVector2;
@@ -131,7 +131,7 @@ type
     FCameraMoved: Boolean;
     FLightAngle: Single;
     FLightSpeed: Single;
-    FProjectiles: TArray<TBy3DComponent>;
+    FProjectiles: TArray<TA3DComponent>;
     FShootCooldown: Single;
     FRightClickWasPressed: Boolean;
     FOnViewportReady: TNotifyEngineEvent;
@@ -154,6 +154,14 @@ type
     FGizmoStartQuat: TQuaternion;
     FCtrlWasPressed: Boolean;
     FMouseLeftPressed: Boolean;
+    FHighlightCollision: Boolean;
+    FActiveBodies: Integer;
+    FLastPhysicsTime: Single;
+    FSpawnButton1WasDown: Boolean;
+    FSpawnButton2WasDown: Boolean;
+    FSpawnButton3WasDown: Boolean;
+    FSpawnButton4WasDown: Boolean;
+    FSpawnButton5WasDown: Boolean;
     // Render Settings
     FFrustumCulling: Boolean;
     FDistanceCulling: Boolean;
@@ -183,13 +191,14 @@ type
     function CheckButton(x, y, w, h: Integer): Boolean;
     procedure SetActive(const Value: Boolean);
     procedure SetTargetFPS(const Value: Integer);
+    procedure SetHighlightCollision(const Value: Boolean);
     procedure StartThread;
     procedure StopThread;
     procedure DoViewportReady;
-    procedure DoActorSpawned(Actor: TBy3DComponent; Index: Integer);
+    procedure DoActorSpawned(Actor: TA3DComponent; Index: Integer);
     procedure DoSceneCleared;
     procedure DoEngineException(const Msg, Context: string);
-    procedure DoObjectSelected(Actor: TBy3DComponent);
+    procedure DoObjectSelected(Actor: TA3DComponent);
     procedure DoViewportRightClick;
     procedure DrawNativePopup;
     procedure HandlePopupInput;
@@ -201,7 +210,7 @@ type
     procedure CreateWindowHandle(const Params: TCreateParams); override;
     procedure DestroyWindowHandle; override;
   public
-    FItems: TArray<TBy3DComponent>;
+    FItems: TArray<TA3DComponent>;
     FMouseLeftHandled: Boolean;
     function ItemCount: Integer;
     procedure ClearItems;
@@ -219,7 +228,7 @@ type
     property OnEngineException: TEngineExceptionEvent read FOnEngineException write FOnEngineException;
     property OnObjectSelected: TObjectSelectedEvent read FOnObjectSelected write FOnObjectSelected;
     property OnViewportRightClick: TNotifyEngineEvent read FOnViewportRightClick write FOnViewportRightClick;
-    procedure SetSelectedActor(AActor: TBy3DComponent);
+    procedure SetSelectedActor(AActor: TA3DComponent);
     procedure SetGizmoMode(AMode: TGizmoMode);
     property Engine: TModelEngine read FEngine;
     property FrustumCulling: Boolean read FFrustumCulling write SetFrustumCulling;
@@ -230,6 +239,9 @@ type
     property Visible;
     property Active: Boolean read FActive write SetActive default False;
     property TargetFPS: Integer read FTargetFPS write SetTargetFPS default 60;
+    property HighlightCollision: Boolean read FHighlightCollision write SetHighlightCollision;
+    property ActiveBodies: Integer read FActiveBodies;
+    property LastPhysicsTime: Single read FLastPhysicsTime;
   end;
 
 implementation
@@ -293,6 +305,7 @@ begin
   FPaused := True;
   FActive := False;
   FTargetFPS := 60;
+  FHighlightCollision := False;
   Width := 800;
   Height := 600;
   FInitialized := False;
@@ -365,6 +378,12 @@ procedure TRaylibSandbox.SetTargetFPS(const Value: Integer);
 begin
   if FTargetFPS <> Value then
     FTargetFPS := Value;
+end;
+
+procedure TRaylibSandbox.SetHighlightCollision(const Value: Boolean);
+begin
+  if FHighlightCollision <> Value then
+    FHighlightCollision := Value;
 end;
 
 procedure TRaylibSandbox.SetBrush(AShape: TShapeType);
@@ -554,20 +573,20 @@ end;
 
 procedure TRaylibSandbox.InitScene;
 begin
-  FFloorActor := TBy3DComponent.Create('', FEngine, stBox, Vector3Create(100, 1, 100), True);
+  FFloorActor := TA3DComponent.Create('', FEngine, stBox, Vector3Create(100, 1, 100), True);
   FFloorActor.SetPosition(Vector3Create(0, -0.5, 0));
   FFloorActor.Visible := False;
   FFloorActor.Friction := 0.5;
-  FWalls[0] := TBy3DComponent.Create('', FEngine, stBox, Vector3Create(100, 20, 1), True);
+  FWalls[0] := TA3DComponent.Create('', FEngine, stBox, Vector3Create(100, 20, 1), True);
   FWalls[0].SetPosition(Vector3Create(0, 10, -50));
   FWalls[0].Visible := False;
-  FWalls[1] := TBy3DComponent.Create('', FEngine, stBox, Vector3Create(100, 20, 1), True);
+  FWalls[1] := TA3DComponent.Create('', FEngine, stBox, Vector3Create(100, 20, 1), True);
   FWalls[1].SetPosition(Vector3Create(0, 10, 50));
   FWalls[1].Visible := False;
-  FWalls[2] := TBy3DComponent.Create('', FEngine, stBox, Vector3Create(1, 20, 100), True);
+  FWalls[2] := TA3DComponent.Create('', FEngine, stBox, Vector3Create(1, 20, 100), True);
   FWalls[2].SetPosition(Vector3Create(-50, 10, 0));
   FWalls[2].Visible := False;
-  FWalls[3] := TBy3DComponent.Create('', FEngine, stBox, Vector3Create(1, 20, 100), True);
+  FWalls[3] := TA3DComponent.Create('', FEngine, stBox, Vector3Create(1, 20, 100), True);
   FWalls[3].SetPosition(Vector3Create(50, 10, 0));
   FWalls[3].Visible := False;
   FItems := nil;
@@ -602,7 +621,7 @@ end;
 
 procedure TRaylibSandbox.ProcessSpawnQueue(dt: Single);
 var
-  Obj: TBy3DComponent;
+  Obj: TA3DComponent;
   oldLen: Integer;
   Data: PItemData;
   Size: TVector3;
@@ -657,7 +676,7 @@ begin
   JRot.y := RandQuat.y;
   JRot.z := RandQuat.z;
   JRot.w := RandQuat.w;
-  Obj := TBy3DComponent.Create('', FEngine, FSpawnShape, Size, False, @JPos, @JRot);
+  Obj := TA3DComponent.Create('', FEngine, FSpawnShape, Size, False, @JPos, @JRot);
   Obj.Friction := 0.2;
   Obj.Restitution := 0.2;
   Obj.UserData := Data;
@@ -750,7 +769,7 @@ end;
 
 procedure TRaylibSandbox.ShootBall;
 var
-  Obj: TBy3DComponent;
+  Obj: TA3DComponent;
   oldLen: Integer;
   Data: PItemData;
   Size: TVector3;
@@ -769,7 +788,7 @@ begin
   JRot.y := 0;
   JRot.z := 0;
   JRot.w := 1;
-  Obj := TBy3DComponent.Create('', FEngine, stSphere, Size, False, @JPos, @JRot);
+  Obj := TA3DComponent.Create('', FEngine, stSphere, Size, False, @JPos, @JRot);
   Obj.Mass := 1.0;
   Obj.Friction := 0.2;
   Obj.Restitution := 0.2;
@@ -790,7 +809,7 @@ end;
 procedure TRaylibSandbox.UpdateProjectiles(dt: Single);
 var
   i: Integer;
-  Actor: TBy3DComponent;
+  Actor: TA3DComponent;
   Pos, ShadowPos: TVector3;
   Rad, Alpha: Single;
 begin
@@ -933,8 +952,6 @@ begin
     begin
       if FMouseLeftPressed then
       begin
-        // Highlight the dragged object so the user sees what they grabbed
-        FItemSelected.TealGlow := True;
         if Abs(ray.direction.y) > 0.0001 then
         begin
           TargetY := FItemSelected.Position.y + 0.5;
@@ -948,7 +965,6 @@ begin
       end
       else
       begin
-        FItemSelected.TealGlow := False; // Turn off glow when released
         FDragging := False;
       end;
     end
@@ -973,7 +989,6 @@ begin
             FItemSelected := FItems[i];
             DoObjectSelected(FItemSelected);
           end;
-          FItemSelected.TealGlow := True; // Turn on glow when grabbed
           FItemSelected.ActivateBody;
           FDragging := True;
           Break;
@@ -1100,37 +1115,71 @@ begin
   end
   else
     FGhostVisible := False;
-  // Mass spawn buttons in HUD (Match exact order: Cube, Sphere, Capsule, Pyramid, Prism)
-  if CheckButton(10, 10, 40, 40) then
+  // Mass spawn buttons in HUD (Nur einmal pro Mausklick auslösen!)
+  if CheckButton(0, 10, 40, 40) then
   begin
-    SpawnObjects(30, stBox);
+    if not FSpawnButton1WasDown then
+    begin
+      SpawnObjects(30, stBox);
+      FSpawnButton1WasDown := True;
+    end;
     FMouseLeftHandled := True;
     Exit;
-  end;
-  if CheckButton(60, 10, 40, 40) then
+  end
+  else
+    FSpawnButton1WasDown := False;
+
+  if CheckButton(40, 10, 40, 40) then
   begin
-    SpawnObjects(30, stSphere);
+    if not FSpawnButton2WasDown then
+    begin
+      SpawnObjects(30, stSphere);
+      FSpawnButton2WasDown := True;
+    end;
     FMouseLeftHandled := True;
     Exit;
-  end;
-  if CheckButton(110, 10, 40, 40) then
+  end
+  else
+    FSpawnButton2WasDown := False;
+
+  if CheckButton(80, 10, 40, 40) then
   begin
-    SpawnObjects(30, stCapsule);
+    if not FSpawnButton3WasDown then
+    begin
+      SpawnObjects(30, stCapsule);
+      FSpawnButton3WasDown := True;
+    end;
     FMouseLeftHandled := True;
     Exit;
-  end;
+  end
+  else
+    FSpawnButton3WasDown := False;
+
+  if CheckButton(120, 10, 40, 40) then
+  begin
+    if not FSpawnButton4WasDown then
+    begin
+      SpawnObjects(30, stPyramid);
+      FSpawnButton4WasDown := True;
+    end;
+    FMouseLeftHandled := True;
+    Exit;
+  end
+  else
+    FSpawnButton4WasDown := False;
+
   if CheckButton(160, 10, 40, 40) then
   begin
-    SpawnObjects(30, stPyramid);
+    if not FSpawnButton5WasDown then
+    begin
+      SpawnObjects(30, stPrism);
+      FSpawnButton5WasDown := True;
+    end;
     FMouseLeftHandled := True;
     Exit;
-  end;
-  if CheckButton(210, 10, 40, 40) then
-  begin
-    SpawnObjects(30, stPrism);
-    FMouseLeftHandled := True;
-    Exit;
-  end;
+  end
+  else
+    FSpawnButton5WasDown := False;
   if FShootCooldown > 0 then
     Exit;
   // Object Selection (Nur in Gizmo Modes)
@@ -1235,7 +1284,7 @@ end;
 procedure TRaylibSandbox.ExecutePopupAction(Index: Integer);
 var
   SelectedIdx, I: Integer;
-  NewActor: TBy3DComponent;
+  NewActor: TA3DComponent;
   NewPos: TVector3;
   NewRot: JPH_Quat;
   NewSize: TVector3;
@@ -1294,7 +1343,7 @@ begin
     NewRot.z := FItemSelected.Quaternion.z;
     NewRot.w := FItemSelected.Quaternion.w;
     NewSize := FItemSelected.Scale;
-    NewActor := TBy3DComponent.Create('', FEngine, FItemSelected.ShapeType, NewSize, False, @NewPos, @NewRot);
+    NewActor := TA3DComponent.Create('', FEngine, FItemSelected.ShapeType, NewSize, False, @NewPos, @NewRot);
     NewActor.Friction := FItemSelected.Friction;
     NewActor.Restitution := FItemSelected.Restitution;
     NewActor.TargetColor := FItemSelected.TargetColor;
@@ -1539,14 +1588,14 @@ begin
   end;
 end;
 
-procedure TRaylibSandbox.SetSelectedActor(AActor: TBy3DComponent);
+procedure TRaylibSandbox.SetSelectedActor(AActor: TA3DComponent);
 begin
   FItemSelected := AActor;
 end;
 
 procedure TRaylibSandbox.SpawnAtMouse(Pos: TVector3);
 var
-  Obj: TBy3DComponent;
+  Obj: TA3DComponent;
   oldLen: Integer;
   Data: PItemData;
   Size: TVector3;
@@ -1572,26 +1621,32 @@ begin
     stPrism:
       Data^.Name := 'Prism_' + IntToStr(oldLen);
   end;
+
   // Base size 1.0 for standard visual parity
   Size := Vector3Create(1, 1, 1);
   if FBrushShape = stPrism then
     Size := Vector3Create(1, 1.5, 1)
   else if FBrushShape = stPyramid then
     Size := Vector3Create(1, 1.5, 1);
+
   JPos.x := Pos.x;
   YOffset := Size.y * 0.5;
-
   JPos.y := Pos.y + YOffset;
   JPos.z := Pos.z;
   JRot.x := 0;
   JRot.y := 0;
   JRot.z := 0;
   JRot.w := 1;
-  Obj := TBy3DComponent.Create('', FEngine, FBrushShape, Size, False, @JPos, @JRot);
+
+  Obj := TA3DComponent.Create('', FEngine, FBrushShape, Size, False, @JPos, @JRot);
   Obj.Friction := 1.0;
   Obj.Restitution := 0.0;
   Obj.UserData := Data;
   Obj.Visible := True;
+
+  Obj.SetPosition(Vector3Create(JPos.x, JPos.y, JPos.z));
+  Obj.SetRotation(QuaternionFromEuler(0, 0, 0));
+
   FItems[oldLen] := Obj;
   DoActorSpawned(Obj, oldLen);
 end;
@@ -1654,12 +1709,40 @@ begin
   if FSimulationRunning then
   begin
     try
+      // Wir messen die Zeit, die Jolt braucht
+      var StartTime: Int64;
+      QueryPerformanceCounter(StartTime);
+
       FEngine.Update(dt);
+
+      var EndTime: Int64;
+      QueryPerformanceCounter(EndTime);
+      var Freq: Int64;
+      QueryPerformanceFrequency(Freq);
+      FLastPhysicsTime := (EndTime - StartTime) * 1000.0 / Freq; // In Millisekunden
+
+      // Zählen, wie viele Objekte sich bewegen
+      FActiveBodies := 0;
+      for i := 0 to High(FItems) do
+      begin
+        if Assigned(FItems[i]) then
+        begin
+          var Vel := FItems[i].GetLinearVelocity;
+          if (Abs(Vel.x) > 0.1) or (Abs(Vel.y) > 0.1) or (Abs(Vel.z) > 0.1) then
+            Inc(FActiveBodies);
+        end;
+      end;
     except
       on E: Exception do
         DoEngineException(E.Message, 'PhysicsUpdate');
     end;
+  end
+  else
+  begin
+    FActiveBodies := 0;
+    FLastPhysicsTime := 0;
   end;
+
   if (FSceneStartTime > 0) and (GetTime() - FSceneStartTime > 1.0) then
     FSceneStartTime := 0;
   if (FSceneStartTime = 0) and (FHUDAnimY < 0) then
@@ -1693,19 +1776,21 @@ begin
         FGizmoHoverAxis := HoverAxis;
     end;
   end;
-  for i := 0 to High(FItems) do
-  begin
-    if Assigned(FItems[i]) and (FItems[i].UserData <> nil) then
+  //Highlight collision
+  if FHighlightCollision then
+    for i := 0 to High(FItems) do
     begin
-      if PItemData(FItems[i].UserData)^.IsProjectile then
-        Continue;
-      ItemVel := FItems[i].GetLinearVelocity;
-      if (Abs(ItemVel.x) > 2.0) or (Abs(ItemVel.y) > 2.0) or (Abs(ItemVel.z) > 2.0) then
-        PItemData(FItems[i].UserData)^.LastHitTime := GetTime();
-      IsTeal := (GetTime() - PItemData(FItems[i].UserData)^.LastHitTime) < 0.3;
-      FItems[i].TealGlow := IsTeal;
+      if Assigned(FItems[i]) and (FItems[i].UserData <> nil) then
+      begin
+        if PItemData(FItems[i].UserData)^.IsProjectile then
+          Continue;
+        ItemVel := FItems[i].GetLinearVelocity;
+        if (Abs(ItemVel.x) > 2.0) or (Abs(ItemVel.y) > 2.0) or (Abs(ItemVel.z) > 2.0) then
+          PItemData(FItems[i].UserData)^.LastHitTime := GetTime();
+        IsTeal := (GetTime() - PItemData(FItems[i].UserData)^.LastHitTime) < 0.3;
+        FItems[i].TealGlow := IsTeal;
+      end;
     end;
-  end;
   // Drag & Throw Force Update
   if FDragging and Assigned(FItemSelected) and (FGizmoMode = gmNone) then
   begin
@@ -1780,7 +1865,7 @@ end;
 procedure TRaylibSandbox.Render3DScene;
 var
   i: Integer;
-  Actor: TBy3DComponent;
+  Actor: TA3DComponent;
   Dist, MaxDist: Single;
   CamForward, ToActor, ToActorNorm: TVector3;
   Axis: TVector3;
@@ -1791,7 +1876,7 @@ var
   dt: Single;
   // Helper function to get the color based on actor type and glow state
 
-  function GetActorColor(A: TBy3DComponent): TColorB;
+  function GetActorColor(A: TA3DComponent): TColorB;
   const
     COL_CUBE: TColorB = (
     r: 230;
@@ -1888,6 +1973,7 @@ begin
       DotP := Vector3DotProduct(ToActorNorm, CamForward);
       if FFrustumCulling and (DotP < 0.5) then
         Continue;
+
       // Draw Fake 2D Shadows on the ground plane
       if Actor.ShapeType = stSphere then
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.6 - (Actor.Position.y * 0.15), 0.1, 0.6), EnsureRange(0.6 - (Actor.Position.y * 0.15), 0.1, 0.6), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)))
@@ -1895,6 +1981,7 @@ begin
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.7 - (Actor.Position.y * 0.15), 0.1, 0.7), EnsureRange(0.7 - (Actor.Position.y * 0.15), 0.1, 0.7), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)))
       else
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.8 - (Actor.Position.y * 0.15), 0.1, 0.8), EnsureRange(0.8 - (Actor.Position.y * 0.15), 0.1, 0.8), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)));
+
       // Draw 3D Object
       BeginShaderMode(FLightShader);
       rlPushMatrix();
@@ -2313,7 +2400,7 @@ begin
       end);
 end;
 
-procedure TRaylibSandbox.DoActorSpawned(Actor: TBy3DComponent; Index: Integer);
+procedure TRaylibSandbox.DoActorSpawned(Actor: TA3DComponent; Index: Integer);
 var
   Args: TActorEventArgs;
 begin
@@ -2358,7 +2445,7 @@ begin
     OutputDebugString(PChar('[' + Context + '] ' + Msg));
 end;
 
-procedure TRaylibSandbox.DoObjectSelected(Actor: TBy3DComponent);
+procedure TRaylibSandbox.DoObjectSelected(Actor: TA3DComponent);
 begin
   if Assigned(FOnObjectSelected) then
   begin

@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine v0.51 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.52 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -16,7 +16,7 @@
  *    - TModelEngine: Manages the Jolt PhysicsSystem, JobSystem, TempAllocator,
  *      and collision filters. It holds a list of actors and advances the
  *      simulation every frame.
- *    - TBy3DComponent: Represents a single rigid body in the physics world.
+ *    - TA3DComponent: Represents a single rigid body in the physics world.
  *      It wraps the creation of shapes (Box, Sphere, Capsule, Cylinder),
  *      manages properties (Mass, Friction, Restitution), and syncs the
  *      native physics transforms back to Delphi.
@@ -33,7 +33,7 @@
  *  Memory Management:
  *    - TModelEngine creates all native Jolt resources in the constructor and
  *      must destroy them in the destructor.
- *    - TBy3DComponent creates a native BodyID upon creation and MUST remove
+ *    - TA3DComponent creates a native BodyID upon creation and MUST remove
  *      and destroy that body (or be safely detached) before the Delphi
  *      object is freed.
  *==============================================================================}
@@ -48,9 +48,9 @@ uses
 type
   TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism);
 
-  TBy3DComponent = class;
+  TA3DComponent = class;
 
-  TCollisionEvent = procedure(Sender: TBy3DComponent; Other: TBy3DComponent; const ContactPoint: TVector3; const Normal: TVector3) of object;
+  TCollisionEvent = procedure(Sender: TA3DComponent; Other: TA3DComponent; const ContactPoint: TVector3; const Normal: TVector3) of object;
 
   TModelEngine = class
   private
@@ -68,24 +68,24 @@ type
     FBodyFilter: JPH_BodyFilter;
     FShapeFilter: JPH_ShapeFilter;
     function GetCount: integer;
-    function GetComponent(const Index: integer): TBy3DComponent;
+    function GetComponent(const Index: integer): TA3DComponent;
   public
     constructor Create;
     destructor Destroy; override;
-    procedure Add(const Component: TBy3DComponent);
-    procedure Remove(const Component: TBy3DComponent);
+    procedure Add(const Component: TA3DComponent);
+    procedure Remove(const Component: TA3DComponent);
     procedure Update(DeltaTime: single);
     procedure Render;
     procedure Clear;
     function RayCast(const Origin, Direction: TVector3; out HitBodyID: JPH_BodyID; out HitPoint: TVector3): Boolean;
-    property Items[const Index: integer]: TBy3DComponent read GetComponent; default;
+    property Items[const Index: integer]: TA3DComponent read GetComponent; default;
     property Count: integer read GetCount;
     property CollideAllLayer: JPH_ObjectLayer read FCollideAllLayer;
     property PhysicsSystem: JPH_PhysicsSystem read FPhysicsSystem;
     property BodyInterface: JPH_BodyInterface read FBodyInterface;
   end;
 
-  TBy3DComponent = class(TComponent)
+  TA3DComponent = class(TComponent)
   private
     FFriction: Single;
     FRestitution: Single;
@@ -229,12 +229,12 @@ begin
   inherited;
 end;
 
-procedure TModelEngine.Add(const Component: TBy3DComponent);
+procedure TModelEngine.Add(const Component: TA3DComponent);
 begin
   FActorList.Add(Component);
 end;
 
-procedure TModelEngine.Remove(const Component: TBy3DComponent);
+procedure TModelEngine.Remove(const Component: TA3DComponent);
 begin
   FActorList.Remove(Component);
 end;
@@ -242,7 +242,7 @@ end;
 procedure TModelEngine.Update(DeltaTime: single);
 var
   i: integer;
-  Comp: TBy3DComponent;
+  Comp: TA3DComponent;
 begin
   if FPhysicsSystem = nil then
     Exit;
@@ -251,7 +251,7 @@ begin
     for i := FActorList.Count - 1 downto 0 do
     begin
       try
-        Comp := TBy3DComponent(FActorList.Items[i]);
+        Comp := TA3DComponent(FActorList.Items[i]);
         if Assigned(Comp) and not Comp.FIsDead then
           Comp.Update(DeltaTime);
       except
@@ -279,9 +279,9 @@ begin
   Result := FActorList.Count;
 end;
 
-function TModelEngine.GetComponent(const Index: integer): TBy3DComponent;
+function TModelEngine.GetComponent(const Index: integer): TA3DComponent;
 begin
-  Result := TBy3DComponent(FActorList[Index]);
+  Result := TA3DComponent(FActorList[Index]);
 end;
 
 function TModelEngine.RayCast(const Origin, Direction: TVector3; out HitBodyID: JPH_BodyID; out HitPoint: TVector3): Boolean;
@@ -323,9 +323,9 @@ begin
     FreeMem(HitResult);
   end;
 end;
-{ TBy3DComponent }
+{ TA3DComponent }
 
-constructor TBy3DComponent.Create(AOwner: TComponent);
+constructor TA3DComponent.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FFriction := 0.6;
@@ -340,7 +340,7 @@ begin
   FTealGlow := False;
 end;
 
-constructor TBy3DComponent.Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean; APos: PJPH_RVec3; ARot: PJPH_Quat);
+constructor TA3DComponent.Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean; APos: PJPH_RVec3; ARot: PJPH_Quat);
 var
   ShapeSettings: JPH_ShapeSettings;
   HalfExtents: JPH_Vec3;
@@ -419,7 +419,7 @@ begin
     FEngine.Add(Self);
 end;
 
-destructor TBy3DComponent.Destroy;
+destructor TA3DComponent.Destroy;
 begin
   if Assigned(FEngine) and (FBodyID <> 0) then
   begin
@@ -429,7 +429,7 @@ begin
   inherited;
 end;
 
-procedure TBy3DComponent.UpdateLerp(DeltaTime: Single);
+procedure TA3DComponent.UpdateLerp(DeltaTime: Single);
 var
   LerpFactor: Single;
 begin
@@ -441,7 +441,7 @@ begin
   FActAlpha := FActAlpha + (FTargetAlpha - FActAlpha) * LerpFactor;
 end;
 
-procedure TBy3DComponent.Update(DeltaTime: single);
+procedure TA3DComponent.Update(DeltaTime: single);
 var
   JPos: JPH_Vec3;
   JRot: JPH_Quat;
@@ -462,7 +462,7 @@ begin
   end;
 end;
 
-procedure TBy3DComponent.UpdateModelTransform;
+procedure TA3DComponent.UpdateModelTransform;
 var
   ScaleMat, RotMat, TransMat: TMatrix;
 begin
@@ -472,7 +472,7 @@ begin
   FModelTransform := MatrixMultiply(MatrixMultiply(ScaleMat, RotMat), TransMat);
 end;
 
-procedure TBy3DComponent.SetPosition(APosition: TVector3);
+procedure TA3DComponent.SetPosition(APosition: TVector3);
 var
   JPos: JPH_RVec3;
 begin
@@ -487,7 +487,7 @@ begin
   UpdateModelTransform;
 end;
 
-procedure TBy3DComponent.SetRotation(AQuaternion: TQuaternion);
+procedure TA3DComponent.SetRotation(AQuaternion: TQuaternion);
 var
   JRot: JPH_Quat;
 begin
@@ -503,13 +503,13 @@ begin
   UpdateModelTransform;
 end;
 
-procedure TBy3DComponent.SetMotionType(AMotionType: JPH_MotionType);
+procedure TA3DComponent.SetMotionType(AMotionType: JPH_MotionType);
 begin
   if FBodyID <> 0 then
     JPH_BodyInterface_SetMotionType(FEngine.BodyInterface, FBodyID, AMotionType, JPH_Activation_Activate);
 end;
 
-procedure TBy3DComponent.SetLinearVelocity(AVelocity: TVector3);
+procedure TA3DComponent.SetLinearVelocity(AVelocity: TVector3);
 var
   JVel: JPH_Vec3;
 begin
@@ -522,7 +522,7 @@ begin
   end;
 end;
 
-function TBy3DComponent.GetLinearVelocity: TVector3;
+function TA3DComponent.GetLinearVelocity: TVector3;
 var
   JVel: JPH_Vec3;
 begin
@@ -537,7 +537,7 @@ begin
     Result := Vector3Zero;
 end;
 
-procedure TBy3DComponent.SetAngularVelocity(AVelocity: TVector3);
+procedure TA3DComponent.SetAngularVelocity(AVelocity: TVector3);
 var
   JVel: JPH_Vec3;
 begin
@@ -550,7 +550,7 @@ begin
   end;
 end;
 
-function TBy3DComponent.GetAngularVelocity: TVector3;
+function TA3DComponent.GetAngularVelocity: TVector3;
 var
   JVel: JPH_Vec3;
 begin
@@ -565,26 +565,26 @@ begin
     Result := Vector3Zero;
 end;
 
-procedure TBy3DComponent.SetMass(const Value: Single);
+procedure TA3DComponent.SetMass(const Value: Single);
 begin
   FMass := Value;
 end;
 
-procedure TBy3DComponent.SetFriction(const Value: Single);
+procedure TA3DComponent.SetFriction(const Value: Single);
 begin
   FFriction := Value;
   if FBodyID <> 0 then
     JPH_BodyInterface_SetFriction(FEngine.BodyInterface, FBodyID, Value);
 end;
 
-procedure TBy3DComponent.SetRestitution(const Value: Single);
+procedure TA3DComponent.SetRestitution(const Value: Single);
 begin
   FRestitution := Value;
   if FBodyID <> 0 then
     JPH_BodyInterface_SetRestitution(FEngine.BodyInterface, FBodyID, Value);
 end;
 
-procedure TBy3DComponent.DetachFromPhysics;
+procedure TA3DComponent.DetachFromPhysics;
 begin
   if (FBodyID <> 0) and Assigned(FEngine) then
   begin
@@ -593,7 +593,7 @@ begin
   end;
 end;
 
-procedure TBy3DComponent.ReattachToPhysics;
+procedure TA3DComponent.ReattachToPhysics;
 var
   Pos: JPH_RVec3;
   Rot: JPH_Quat;
@@ -615,7 +615,7 @@ begin
   end;
 end;
 
-procedure TBy3DComponent.SetScale(const Value: TVector3);
+procedure TA3DComponent.SetScale(const Value: TVector3);
 var
   ShapeSettings: JPH_ShapeSettings;
   HalfExtents: JPH_Vec3;
@@ -659,7 +659,7 @@ begin
   UpdateModelTransform;
 end;
 
-procedure TBy3DComponent.ApplyImpulse(AImpulse: TVector3);
+procedure TA3DComponent.ApplyImpulse(AImpulse: TVector3);
 var
   JImp: JPH_Vec3;
 begin
@@ -672,7 +672,7 @@ begin
   end;
 end;
 
-procedure TBy3DComponent.AddForce(AForce: TVector3);
+procedure TA3DComponent.AddForce(AForce: TVector3);
 var
   JForce: JPH_Vec3;
 begin
@@ -685,19 +685,19 @@ begin
   end;
 end;
 
-procedure TBy3DComponent.ActivateBody;
+procedure TA3DComponent.ActivateBody;
 begin
   if FBodyID <> 0 then
     JPH_BodyInterface_ActivateBody(FEngine.BodyInterface, FBodyID);
 end;
 
-procedure TBy3DComponent.DeactivateBody;
+procedure TA3DComponent.DeactivateBody;
 begin
   if FBodyID <> 0 then
     JPH_BodyInterface_DeactivateBody(FEngine.BodyInterface, FBodyID);
 end;
 
-procedure TBy3DComponent.Draw;
+procedure TA3DComponent.Draw;
 begin
   // Rendering is handled externally
 end;
