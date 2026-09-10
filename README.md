@@ -42,7 +42,7 @@ The repository consists of three main units:
     
     JoltPhysics.pas - The low-level header translation mapping the JoltC.dll C API to Delphi types and records.
     ModelEngine.pas - The Object-Oriented Delphi layer that manages the physics world and actors.
-    RaylibSandbox.pas - A VCL TWinControl that runs a threaded Raylib window, handling 3D rendering, camera input, and user interaction (dragging bodies with the mouse).
+    RaylibSandbox.pas - A VCL TWinControl that runs a threaded Raylib window, handling 3D rendering, camera input, and user interaction.
         
 🛠️ What's Missing? (Roadmap)     
       
