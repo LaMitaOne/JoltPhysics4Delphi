@@ -46,7 +46,7 @@ uses
   JoltPhysics, r3ddelphi, TypInfo;
 
 type
-  TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism);
+  TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism, stModel);
 
   TA3DComponent = class;
 
@@ -101,7 +101,6 @@ type
     FShapeType: TShapeType;
     FModel: TR3D_Model;
     FVisible: boolean;
-    FIsDead: boolean;
     FPosition: TVector3;
     FScale: TVector3;
     FRotation: TVector3;
@@ -118,6 +117,7 @@ type
     procedure UpdateModelTransform;
     procedure UpdateLerp(DeltaTime: Single);
   public
+    FIsDead: boolean;
     FModelTransform: TMatrix;
     constructor Create(AOwner: TComponent); overload; override;
     constructor Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean = False; APos: PJPH_RVec3 = nil; ARot: PJPH_Quat = nil); reintroduce; overload;
@@ -140,6 +140,7 @@ type
     procedure ReattachToPhysics;
     property BodyID: JPH_BodyID read FBodyID;
     property UserData: Pointer read FUserData write FUserData;
+    property TealGlow: Boolean read FTealGlow write FTealGlow;
   published
     property ShapeType: TShapeType read FShapeType write FShapeType;
     property Position: TVector3 read FPosition write SetPosition;
@@ -150,17 +151,12 @@ type
     property Friction: Single read FFriction write SetFriction;
     property Restitution: Single read FRestitution write SetRestitution;
     property Visible: boolean read FVisible write FVisible;
-    property TealGlow: Boolean read FTealGlow write FTealGlow;
     property ActColor: TColorB read FActColor write FActColor;
     property TargetColor: TColorB read FTargetColor write FTargetColor;
     property ActAlpha: Single read FActAlpha write FActAlpha;
     property TargetAlpha: Single read FTargetAlpha write FTargetAlpha;
     property LerpSpeed: Single read FLerpSpeed write FLerpSpeed;
     property OnCollision: TCollisionEvent read FOnCollision write FOnCollision;
-  end;
-
-  TR3D_Model = record
-    Dummy: Integer;
   end;
 
 implementation

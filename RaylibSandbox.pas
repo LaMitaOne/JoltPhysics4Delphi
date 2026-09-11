@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.52 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.53 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -27,7 +27,7 @@
  *    - Orbit camera (Middle Mouse Button), Zoom (Mouse Wheel), and WASD/Arrow
  *      key panning with world boundaries.
  *    - Shooting mechanic: Fire persistent blue cannonball projectiles using
- *      the Spacebar.
+ *      Button.
  *    - Custom GLSL Lighting System implementing basic ambient and diffuse
  *      shading.
  *    - Dynamic Fake Shadows: Flat shadows drawn under objects that scale
@@ -70,6 +70,7 @@ type
     LastHitTime: Double;
     IsProjectile: Boolean;
     Name: string;
+    OldVelocity: TVector3;
   end;
 
   TRaylibSandbox = class;
@@ -171,6 +172,10 @@ type
     FPopupSegments: array of string;
     FPopupHoverIndex: Integer;
     FPopupCloseLock: Boolean;
+    // Safe Model Loading Queue (Prevents OpenGL Cross-Thread Context crashes)
+    FLoadModelQueued: Boolean;
+    FQueuedModelPath: string;
+    procedure LoadModelInThread(const FilePath: string);
     procedure ShootBall;
     procedure UpdateProjectiles(dt: Single);
     procedure InitScene;
@@ -210,6 +215,7 @@ type
     procedure CreateWindowHandle(const Params: TCreateParams); override;
     procedure DestroyWindowHandle; override;
   public
+    FCustomModel: TModel;
     FItems: TArray<TA3DComponent>;
     FMouseLeftHandled: Boolean;
     function ItemCount: Integer;
@@ -218,6 +224,7 @@ type
     procedure SpawnObjects(Count: Integer; ShapeType: TShapeType);
     procedure SetBrush(AShape: TShapeType);
     procedure SetSimulationRunning(AValue: Boolean);
+    procedure LoadCustomModel(const FilePath: string);
     function GetSimulationRunning: Boolean;
     procedure SpawnAtMouse(Pos: TVector3);
     constructor Create(AOwner: TComponent); override;
@@ -230,6 +237,7 @@ type
     property OnViewportRightClick: TNotifyEngineEvent read FOnViewportRightClick write FOnViewportRightClick;
     procedure SetSelectedActor(AActor: TA3DComponent);
     procedure SetGizmoMode(AMode: TGizmoMode);
+    procedure PublicShootBall;
     property Engine: TModelEngine read FEngine;
     property FrustumCulling: Boolean read FFrustumCulling write SetFrustumCulling;
     property DistanceCulling: Boolean read FDistanceCulling write SetDistanceCulling;
@@ -331,6 +339,8 @@ begin
   FPopupOpen := False;
   FFrustumCulling := True;
   FDistanceCulling := True;
+  FLoadModelQueued := False;
+  FQueuedModelPath := '';
 end;
 
 destructor TRaylibSandbox.Destroy;
@@ -767,6 +777,11 @@ begin
   end;
 end;
 
+procedure TRaylibSandbox.PublicShootBall;
+begin
+  ShootBall;
+end;
+
 procedure TRaylibSandbox.ShootBall;
 var
   Obj: TA3DComponent;
@@ -812,17 +827,52 @@ var
   Actor: TA3DComponent;
   Pos, ShadowPos: TVector3;
   Rad, Alpha: Single;
+  CurrVel: TVector3;
 begin
-  for i := 0 to High(FProjectiles) do
+  for i := High(FProjectiles) downto 0 do
   begin
     if FProjectiles[i] = nil then
       Continue;
+
     Actor := FProjectiles[i];
+
+    if Actor.FIsDead then
+    begin
+      if Actor.UserData <> nil then
+        Dispose(PItemData(Actor.UserData));
+      Actor.Free;
+      FProjectiles[i] := nil;
+      Continue;
+    end;
+
+    if Actor.UserData <> nil then
+    begin
+      // Destroy projectile after 5 seconds
+      if GetTime() - PItemData(Actor.UserData)^.SpawnTime > 5.0 then
+      begin
+        Actor.FIsDead := True;
+        Continue;
+      end;
+
+      // Check for impact by comparing velocity drop between frames
+      CurrVel := Actor.GetLinearVelocity;
+
+      if (Abs(CurrVel.x) < Abs(PItemData(Actor.UserData)^.OldVelocity.x) * 0.5) or (Abs(CurrVel.y) < Abs(PItemData(Actor.UserData)^.OldVelocity.y) * 0.5) or (Abs(CurrVel.z) < Abs(PItemData(Actor.UserData)^.OldVelocity.z) * 0.5) then
+      begin
+        Actor.FIsDead := True;
+        Continue;
+      end;
+
+      // Store current velocity for the next frame's impact check
+      PItemData(Actor.UserData)^.OldVelocity := CurrVel;
+    end;
+
     Pos := Actor.Position;
     Rad := EnsureRange(0.4 - (Pos.y * 0.1), 0.05, 0.4);
     Alpha := EnsureRange(0.5 - (Pos.y * 0.02), 0, 0.5);
     ShadowPos := Vector3Create(Pos.x, 0.06, Pos.z);
     DrawCylinderEx(ShadowPos, Vector3Create(Pos.x, 0.05, Pos.z), Rad, Rad, 24, Fade(BLACK, Alpha));
+
     BeginShaderMode(FLightShader);
     rlPushMatrix();
     Pos.y := Pos.y + 0.3;
@@ -831,6 +881,21 @@ begin
     DrawSphere(Vector3Create(0, 0, 0), 1.0, SKYBLUE);
     rlPopMatrix();
     EndShaderMode();
+  end;
+
+  // Clean up dead projectiles and compact the array
+  if Length(FProjectiles) > 0 then
+  begin
+    var CurrIdx: Integer := 0;
+    for i := 0 to High(FProjectiles) do
+    begin
+      if FProjectiles[i] <> nil then
+      begin
+        FProjectiles[CurrIdx] := FProjectiles[i];
+        Inc(CurrIdx);
+      end;
+    end;
+    SetLength(FProjectiles, CurrIdx);
   end;
 end;
 
@@ -843,17 +908,21 @@ var
   dt: Single;
   groundBox: TBoundingBox;
   p: TPoint;
-  CanSpawn: Boolean;
   downRay: TRay;
   downHit: TRayCollision;
   topY: Single;
   HalfH, HalfX, HalfZ, HalfY: Single;
   GScaleX, GScaleY, GScaleZ: Single;
   TargetY, t: Single;
+  bIsModelBrush: Boolean;
+  // Edge-Detection for clean mouse clicks
+  bLeftMouseDown: Boolean;
+  bLeftMouseClicked: Boolean;
 begin
   dt := GetFrameTime();
   if FShootCooldown > 0 then
     FShootCooldown := FShootCooldown - dt;
+
   if Self.Tag = 1 then
   begin
     if ((GetAsyncKeyState(VK_LBUTTON) and $8000) <> 0) or ((GetAsyncKeyState(VK_RBUTTON) and $8000) <> 0) then
@@ -861,10 +930,15 @@ begin
     else
       Self.Tag := 0;
   end;
+
   GetCursorPos(p);
   Winapi.Windows.ScreenToClient(FRaylibWnd, p);
   FMousePos := Vector2Create(p.x, p.y);
-  FMouseLeftPressed := (GetAsyncKeyState(VK_LBUTTON) and $8000) <> 0;
+
+  // Robust Mouse Click Detection
+  bLeftMouseDown := (GetAsyncKeyState(VK_LBUTTON) and $8000) <> 0;
+  bLeftMouseClicked := bLeftMouseDown and not FMouseLeftPressed;
+  FMouseLeftPressed := bLeftMouseDown;
 
   if (GetAsyncKeyState(VK_CONTROL) and $8000) <> 0 then
   begin
@@ -875,32 +949,29 @@ begin
       else if FGizmoMode = gmRotate then
         FGizmoMode := gmScale
       else if FGizmoMode = gmScale then
-        FGizmoMode := gmNone // <-- Neu: Wechsel zurück zu Drag & Throw
+        FGizmoMode := gmNone
       else if FGizmoMode = gmNone then
-        FGizmoMode := gmTranslate; // <-- Neu: Von Drag wieder zu Translate
+        FGizmoMode := gmTranslate;
       FCtrlWasPressed := True;
     end;
   end
   else
     FCtrlWasPressed := False;
 
-  // Intercept native popup input
   if FPopupOpen then
   begin
     HandlePopupInput;
     Exit;
   end;
-  // Intercept right click for popup
+
   if (GetAsyncKeyState(VK_RBUTTON) and $8000) <> 0 then
   begin
     if not FRightClickWasPressed then
     begin
-      // Allow popup opening regardless of object selection if not in brush mode
       if not FIsBrushActive and (FGizmoMode <> gmNone) then
       begin
         FPopupOpen := True;
         FPopupPos := FMousePos;
-        // Calculate ground position before opening popup so spawned items land where clicked
         ray := GetScreenToWorldRay(FMousePos, FCamera);
         groundBox.min := Vector3Create(-1000, -0.1, -1000);
         groundBox.max := Vector3Create(1000, 0.1, 1000);
@@ -908,10 +979,9 @@ begin
         if hitInfo.hit then
         begin
           FGhostPos.x := hitInfo.point.x;
-          FGhostPos.y := 0; // Exact surface point
+          FGhostPos.y := 0;
           FGhostPos.z := hitInfo.point.z;
         end;
-        // Add edit actions only if an item is selected
         if Assigned(FItemSelected) then
         begin
           SetLength(FPopupSegments, 2);
@@ -930,31 +1000,21 @@ begin
   end
   else
     FRightClickWasPressed := False;
-  // Shooting logic (always allowed if sim is running)
-  if FSimulationRunning then
-  begin
-    if (GetAsyncKeyState(VK_SPACE) and $8000) <> 0 then
-    begin
-      if FShootCooldown <= 0 then
-      begin
-        ShootBall;
-        FShootCooldown := 0.25;
-      end;
-    end;
-  end;
+
   if (GetAsyncKeyState(VK_MBUTTON) and $8000) <> 0 then
   begin
     FGhostVisible := False;
     Exit;
   end;
+
   ray := GetScreenToWorldRay(FMousePos, FCamera);
+
   // --- DRAG & THROW MODE (Test Tool) ---
   if FGizmoMode = gmNone then
   begin
-    // If we are already dragging, keep the target updated
     if FDragging and Assigned(FItemSelected) then
     begin
-      if FMouseLeftPressed then
+      if bLeftMouseDown then
       begin
         if Abs(ray.direction.y) > 0.0001 then
         begin
@@ -972,14 +1032,12 @@ begin
         FDragging := False;
       end;
     end
-    // Only select a new object to drag if we are NOT already dragging
-    else if FMouseLeftPressed then
+    else if bLeftMouseDown then
     begin
       for i := 0 to High(FItems) do
       begin
         if FItems[i] = nil then
           Continue;
-        // Calculate ACTUAL bounding box based on scale
         HalfX := FItems[i].Scale.x * 0.5;
         HalfY := FItems[i].Scale.y * 0.5;
         HalfZ := FItems[i].Scale.z * 0.5;
@@ -999,13 +1057,14 @@ begin
         end;
       end;
     end;
-    Exit; // IMPORTANT: Skip the rest of the input handling completely!
+    Exit;
   end;
+
   // --- GIZMO MODE ---
   if FGizmoDragging then
   begin
     UpdateGizmoInteraction;
-    if not FMouseLeftPressed then
+    if not bLeftMouseDown then
     begin
       FGizmoDragging := False;
       FGizmoAxis := 0;
@@ -1027,11 +1086,11 @@ begin
     end;
     Exit;
   end;
+
   if Assigned(FItemSelected) and not FIsBrushActive then
   begin
-    if FMouseLeftPressed then
+    if bLeftMouseDown then
     begin
-      // Calculate dynamic scale for gizmo bounding boxes, matching object scale + offset so they stay grabbable
       GScaleX := EnsureRange(FItemSelected.Scale.x + 1.0, 1.0, 100.0);
       GScaleY := EnsureRange(FItemSelected.Scale.y + 1.0, 1.0, 100.0);
       GScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 100.0);
@@ -1076,6 +1135,10 @@ begin
       end;
     end;
   end;
+
+  // Determine if the model brush is explicitly selected
+  bIsModelBrush := FIsBrushActive and (FBrushShape = stModel);
+
   if FIsBrushActive then
   begin
     groundBox.min := Vector3Create(-1000, -0.1, -1000);
@@ -1100,11 +1163,16 @@ begin
           topY := itemBox.max.y;
       end;
       FGhostPos.x := hitInfo.point.x;
-      FGhostPos.y := topY;
+      if not bIsModelBrush then
+        FGhostPos.y := topY
+      else
+        FGhostPos.y := hitInfo.point.y;
+
       FGhostPos.z := hitInfo.point.z;
       FGhostVisible := True;
-      CanSpawn := FMouseLeftPressed;
-      if CanSpawn and (FShootCooldown <= 0) then
+
+      // We use bLeftMouseClicked instead of bLeftMouseDown to ensure a clean, single spawn
+      if bLeftMouseClicked and (FShootCooldown <= 0) then
       begin
         SpawnAtMouse(FGhostPos);
         FShootCooldown := 0.15;
@@ -1119,7 +1187,8 @@ begin
   end
   else
     FGhostVisible := False;
-  // Mass spawn buttons in HUD (Nur einmal pro Mausklick auslösen!)
+
+  // Mass spawn buttons in HUD
   if CheckButton(0, 10, 40, 40) then
   begin
     if not FSpawnButton1WasDown then
@@ -1184,10 +1253,11 @@ begin
   end
   else
     FSpawnButton5WasDown := False;
+
   if FShootCooldown > 0 then
     Exit;
-  // Object Selection (Nur in Gizmo Modes)
-  if FMouseLeftPressed then
+
+  if bLeftMouseDown then
   begin
     if not FDragging then
     begin
@@ -1464,7 +1534,6 @@ var
 begin
   Result := False;
   Axis := 0;
-
   // To accurately detect hover/click on rotated axes, we transform the world ray
   // into the local space of the actor. This allows using simple axis-aligned
   // bounding boxes (AABB) that perfectly align with the visual gizmo,
@@ -1473,7 +1542,6 @@ begin
   LocalRay.position := Vector3RotateByQuaternion(Vector3Subtract(Ray.position, Pos), InvRot);
   LocalDir := Vector3RotateByQuaternion(Ray.direction, InvRot);
   LocalRay.direction := Vector3Normalize(LocalDir);
-
   // Check X-Axis (bidirectional)
   Box.min := Vector3Create(-Scale.x - RayRadius, -RayRadius, -RayRadius);
   Box.max := Vector3Create(Scale.x + RayRadius, RayRadius, RayRadius);
@@ -1484,7 +1552,6 @@ begin
     Axis := 1;
     Exit;
   end;
-
   // Check Y-Axis (bidirectional)
   Box.min := Vector3Create(-RayRadius, -Scale.y - RayRadius, -RayRadius);
   Box.max := Vector3Create(RayRadius, Scale.y + RayRadius, RayRadius);
@@ -1495,7 +1562,6 @@ begin
     Axis := 2;
     Exit;
   end;
-
   // Check Z-Axis (bidirectional)
   Box.min := Vector3Create(-RayRadius, -RayRadius, -Scale.z - RayRadius);
   Box.max := Vector3Create(RayRadius, RayRadius, Scale.z + RayRadius);
@@ -1518,14 +1584,12 @@ var
 begin
   Result := False;
   Axis := 0;
-
   // Transform the ray into the actor's local space to ensure the invisible
   // picking boxes align perfectly with the rotated rotation rings.
   InvRot := QuaternionInvert(FItemSelected.Quaternion);
   LocalRay.position := Vector3RotateByQuaternion(Vector3Subtract(Ray.position, Pos), InvRot);
   LocalDir := Vector3RotateByQuaternion(Ray.direction, InvRot);
   LocalRay.direction := Vector3Normalize(LocalDir);
-
   // Check X-Axis Ring (flattened box around YZ plane)
   Box.min := Vector3Create(-RayRadius, -Scale.y, -Scale.z);
   Box.max := Vector3Create(RayRadius, Scale.y, Scale.z);
@@ -1536,7 +1600,6 @@ begin
     Axis := 1;
     Exit;
   end;
-
   // Check Y-Axis Ring (flattened box around XZ plane)
   Box.min := Vector3Create(-Scale.x, -RayRadius, -Scale.z);
   Box.max := Vector3Create(Scale.x, RayRadius, Scale.z);
@@ -1547,7 +1610,6 @@ begin
     Axis := 2;
     Exit;
   end;
-
   // Check Z-Axis Ring (flattened box around XY plane)
   Box.min := Vector3Create(-Scale.x, -Scale.y, -RayRadius);
   Box.max := Vector3Create(Scale.x, Scale.y, RayRadius);
@@ -1570,14 +1632,12 @@ var
 begin
   Result := False;
   Axis := 0;
-
   // Transform the ray into the actor's local space so the scale handle boxes
   // are accurately checked at the exact tips of the arrows.
   InvRot := QuaternionInvert(FItemSelected.Quaternion);
   LocalRay.position := Vector3RotateByQuaternion(Vector3Subtract(Ray.position, Pos), InvRot);
   LocalDir := Vector3RotateByQuaternion(Ray.direction, InvRot);
   LocalRay.direction := Vector3Normalize(LocalDir);
-
   // Check positive X-Axis Scale Handle
   Box.min := Vector3Create(Scale.x - RayRadius, -RayRadius, -RayRadius);
   Box.max := Vector3Create(Scale.x + RayRadius, RayRadius, RayRadius);
@@ -1588,7 +1648,6 @@ begin
     Axis := 1;
     Exit;
   end;
-
   // Check positive Y-Axis Scale Handle
   Box.min := Vector3Create(-RayRadius, Scale.y - RayRadius, -RayRadius);
   Box.max := Vector3Create(RayRadius, Scale.y + RayRadius, RayRadius);
@@ -1599,7 +1658,6 @@ begin
     Axis := 2;
     Exit;
   end;
-
   // Check positive Z-Axis Scale Handle
   Box.min := Vector3Create(-RayRadius, -RayRadius, Scale.z - RayRadius);
   Box.max := Vector3Create(RayRadius, RayRadius, Scale.z + RayRadius);
@@ -1626,6 +1684,8 @@ var
   JPos: JPH_RVec3;
   JRot: JPH_Quat;
   YOffset: Single;
+  BBox: TBoundingBox;
+  MeshSize: TVector3;
 begin
   oldLen := Length(FItems);
   SetLength(FItems, oldLen + 1);
@@ -1633,28 +1693,44 @@ begin
   FillChar(Data^, SizeOf(TItemData), 0);
   Data^.SpawnTime := GetTime();
   Data^.IsProjectile := False;
-  case FBrushShape of
-    stBox:
-      Data^.Name := 'Cube_' + IntToStr(oldLen);
-    stSphere:
-      Data^.Name := 'Sphere_' + IntToStr(oldLen);
-    stPyramid:
-      Data^.Name := 'Pyramid_' + IntToStr(oldLen);
-    stCapsule:
-      Data^.Name := 'Capsule_' + IntToStr(oldLen);
-    stPrism:
-      Data^.Name := 'Prism_' + IntToStr(oldLen);
+
+  if FBrushShape = stModel then
+    Data^.Name := 'Model_' + IntToStr(oldLen)
+  else
+  begin
+    case FBrushShape of
+      stBox:
+        Data^.Name := 'Cube_' + IntToStr(oldLen);
+      stSphere:
+        Data^.Name := 'Sphere_' + IntToStr(oldLen);
+      stPyramid:
+        Data^.Name := 'Pyramid_' + IntToStr(oldLen);
+      stCapsule:
+        Data^.Name := 'Capsule_' + IntToStr(oldLen);
+      stPrism:
+        Data^.Name := 'Prism_' + IntToStr(oldLen);
+    end;
   end;
 
-  // Base size 1.0 for standard visual parity
   Size := Vector3Create(1, 1, 1);
   if FBrushShape = stPrism then
     Size := Vector3Create(1, 1.5, 1)
   else if FBrushShape = stPyramid then
-    Size := Vector3Create(1, 1.5, 1);
+    Size := Vector3Create(1, 1.5, 1)
+  else if FBrushShape = stModel then
+  begin
+    BBox := GetModelBoundingBox(FCustomModel);
+    MeshSize := Vector3Create(BBox.max.x - BBox.min.x, BBox.max.y - BBox.min.y, BBox.max.z - BBox.min.z);
+    // Prevent crash on empty models
+    if (MeshSize.x > 0) and (MeshSize.y > 0) and (MeshSize.z > 0) then
+      Size := Vector3Create(1.0 / MeshSize.x, 1.0 / MeshSize.y, 1.0 / MeshSize.z);
+  end;
 
   JPos.x := Pos.x;
-  YOffset := Size.y * 0.5;
+  YOffset := 0.5;
+  if (FBrushShape <> stModel) and ((FBrushShape = stPyramid) or (FBrushShape = stPrism) or (FBrushShape = stCapsule)) then
+    YOffset := Size.y * 0.5;
+
   JPos.y := Pos.y + YOffset;
   JPos.z := Pos.z;
   JRot.x := 0;
@@ -1675,6 +1751,79 @@ begin
   DoActorSpawned(Obj, oldLen);
 end;
 
+{==============================================================================*
+ *  MODEL LOADING SYSTEM
+ *  LoadCustomModel: Called from VCL UI Thread. Just queues the path.
+ *  LoadModelInThread: Called from Raylib Thread inside UpdateGame to guarantee
+ *                     the OpenGL Context is active!
+ *==============================================================================}
+procedure TRaylibSandbox.LoadCustomModel(const FilePath: string);
+begin
+  FLock.Enter;
+  try
+    FQueuedModelPath := FilePath;
+    FLoadModelQueued := True;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+procedure TRaylibSandbox.LoadModelInThread(const FilePath: string);
+var
+  PathBuf: array[0..1023] of AnsiChar;
+  Ext: string;
+begin
+  // 1. Unload previous model if it exists using standard Raylib
+  if FCustomModel.meshes <> nil then
+    UnloadModel(FCustomModel);
+
+  // 2. Check if the file exists directly in the thread to avoid cross-thread issues
+  if not System.SysUtils.FileExists(FilePath) then
+  begin
+    DoEngineException('Model file not found: ' + FilePath, 'LoadModelInThread');
+    FIsBrushActive := False;
+    FGhostVisible := False;
+    Exit;
+  end;
+
+  // 3. Safely copy string to a null-terminated AnsiChar array for the C API
+  FillChar(PathBuf, SizeOf(PathBuf), 0);
+  StrPCopy(PathBuf, AnsiString(FilePath));
+
+  OutputDebugString(PChar('Loading model safely in Raylib-Thread: ' + FilePath));
+
+  // 4. Load the model using Raylib's standard LoadModel function
+  FCustomModel := LoadModel(PathBuf);
+
+  // 5. Validate if loading was successful
+  if FCustomModel.meshes <> nil then
+  begin
+    OutputDebugString('Model loaded successfully. Meshes assigned.');
+
+    // Apply the engine's lighting shader to the loaded model's first material
+    if (FCustomModel.materialCount > 0) and (FCustomModel.materials <> nil) then
+      FCustomModel.materials[0].shader := FLightShader;
+
+    // Ensure the brush is correctly set and active
+    FBrushShape := stModel;
+    FIsBrushActive := True;
+    FGhostVisible := True;
+  end
+  else
+  begin
+    Ext := LowerCase(ExtractFileExt(FilePath));
+    if (Ext = '.glb') or (Ext = '.gltf') then
+      DoEngineException('Model loading FAILED. Meshes are nil. (GLB/GLTF requires libstdc++-6.dll or 64-bit)', 'LoadModelInThread')
+    else if (Ext = '.obj') or (Ext = '.iqe') or (Ext = '.m3d') then
+      DoEngineException('Model loading FAILED. Meshes are nil. Check for missing texture paths or corrupt mesh data.', 'LoadModelInThread')
+    else
+      DoEngineException('Model loading FAILED. Meshes are nil. Unsupported format?', 'LoadModelInThread');
+
+    FIsBrushActive := False;
+    FGhostVisible := False;
+  end;
+end;
+
 procedure TRaylibSandbox.UpdateGame;
 var
   dt: single;
@@ -1691,7 +1840,20 @@ var
   Dir: TVector3;
   Dist: single;
   NewVel: TVector3;
+  StartTime, EndTime, Freq: Int64;
 begin
+  // Process the Model Loading Queue safely inside the Raylib Thread!
+  if FLoadModelQueued then
+  begin
+    FLock.Enter;
+    try
+      FLoadModelQueued := False;
+      LoadModelInThread(FQueuedModelPath);
+    finally
+      FLock.Leave;
+    end;
+  end;
+
   if FClearItemsQueued then
   begin
     FLock.Enter;
@@ -1733,19 +1895,12 @@ begin
   if FSimulationRunning then
   begin
     try
-      // Wir messen die Zeit, die Jolt braucht
-      var StartTime: Int64;
       QueryPerformanceCounter(StartTime);
-
       FEngine.Update(dt);
-
-      var EndTime: Int64;
       QueryPerformanceCounter(EndTime);
-      var Freq: Int64;
       QueryPerformanceFrequency(Freq);
-      FLastPhysicsTime := (EndTime - StartTime) * 1000.0 / Freq; // In Millisekunden
+      FLastPhysicsTime := (EndTime - StartTime) * 1000.0 / Freq;
 
-      // Zählen, wie viele Objekte sich bewegen
       FActiveBodies := 0;
       for i := 0 to High(FItems) do
       begin
@@ -1775,12 +1930,11 @@ begin
     if FHUDAnimY > -0.5 then
       FHUDAnimY := 0;
   end;
-            // Gizmo Hover Check
+
   FGizmoHoverAxis := 0;
   if FInitialized and Assigned(FItemSelected) and not FGizmoDragging and not FDragging and not FPopupOpen and (FGizmoMode <> gmNone) then
   begin
     HoverRay := GetScreenToWorldRay(FMousePos, FCamera);
-    // Calculate dynamic scale for gizmo hover bounding boxes, matching object scale + offset so they stay grabbable
     HoverScaleX := EnsureRange(FItemSelected.Scale.x + 1.0, 1.0, 100.0);
     HoverScaleY := EnsureRange(FItemSelected.Scale.y + 1.0, 1.0, 100.0);
     HoverScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 100.0);
@@ -1800,7 +1954,7 @@ begin
         FGizmoHoverAxis := HoverAxis;
     end;
   end;
-  //Highlight collision
+
   if FHighlightCollision then
     for i := 0 to High(FItems) do
     begin
@@ -1815,22 +1969,20 @@ begin
         FItems[i].TealGlow := IsTeal;
       end;
     end;
-  // Drag & Throw Force Update
+
   if FDragging and Assigned(FItemSelected) and (FGizmoMode = gmNone) then
   begin
     Dir.x := FDragTargetPos.x - FItemSelected.Position.x;
-    Dir.y := 0; // Keep it flat on the XZ plane
+    Dir.y := 0;
     Dir.z := FDragTargetPos.z - FItemSelected.Position.z;
     Dist := Sqrt(Dir.x * Dir.x + Dir.z * Dir.z);
     if Dist > 0.05 then
     begin
-      // Object is far from the target: apply force to move it
       FItemSelected.ActivateBody;
       NewVel.x := Dir.x * 10.0;
-      NewVel.y := FItemSelected.GetLinearVelocity.y; // Keep gravity/fall speed
+      NewVel.y := FItemSelected.GetLinearVelocity.y;
       NewVel.z := Dir.z * 10.0;
       FItemSelected.SetLinearVelocity(NewVel);
-      // Dampen angular velocity (spinning) while dragging
       NewVel := FItemSelected.GetAngularVelocity;
       NewVel.x := NewVel.x * 0.9;
       NewVel.y := NewVel.y * 0.9;
@@ -1839,13 +1991,13 @@ begin
     end
     else
     begin
-      // Object is at the target: stop X/Z movement so it doesn't jitter
       NewVel := FItemSelected.GetLinearVelocity;
       NewVel.x := 0;
       NewVel.z := 0;
       FItemSelected.SetLinearVelocity(NewVel);
     end;
   end;
+
   FLightAngle := FLightAngle + (FLightSpeed * dt);
   FLightPos.x := Cos(FLightAngle) * 50.0;
   FLightPos.y := 80.0;
@@ -1898,7 +2050,6 @@ var
   Pos: TVector3;
   ShadowPos: TVector3;
   dt: Single;
-  // Helper function to get the color based on actor type and glow state
 
   function GetActorColor(A: TA3DComponent): TColorB;
   const
@@ -1953,14 +2104,14 @@ var
 
 begin
   BeginMode3D(FCamera);
-  // Draw Floor
+
   BeginShaderMode(FLightShader);
   if FWallpaperTex.id > 0 then
     DrawModel(FWallpaperModel, Vector3Create(0, 0.05, 0), 1.0, WHITE)
   else
     DrawPlane(Vector3Create(0, 0.05, 0), Vector2Create(100, 100), DARKGRAY);
   EndShaderMode();
-  // Draw Walls and their shadows
+
   for i := 0 to 3 do
   begin
     ShadowPos := FWalls[i].position;
@@ -1978,9 +2129,10 @@ begin
       DrawCubeWires(FWalls[i].position, 1, 20, 100, BLACK);
     end;
   end;
+
   MaxDist := 120.0;
   CamForward := Vector3Normalize(Vector3Subtract(FCamera.target, FCamera.position));
-  // Render all actors in the engine
+
   for i := 0 to FEngine.Count - 1 do
   begin
     Actor := FEngine.Items[i];
@@ -1988,78 +2140,82 @@ begin
     begin
       if (Actor.UserData <> nil) and PItemData(Actor.UserData)^.IsProjectile then
         Continue;
-      // Culling: Distance and View Frustum check
+
       Dist := Vector3Distance(Actor.Position, FCamera.position);
       if FDistanceCulling and (Dist > MaxDist) then
         Continue;
+
       ToActor := Vector3Subtract(Actor.Position, FCamera.position);
       ToActorNorm := Vector3Normalize(ToActor);
       DotP := Vector3DotProduct(ToActorNorm, CamForward);
       if FFrustumCulling and (DotP < 0.5) then
         Continue;
 
-      // Draw Fake 2D Shadows on the ground plane
-      if Actor.ShapeType = stSphere then
+      if (Actor.ShapeType = stSphere) or (Actor.ShapeType = stModel) then
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.6 - (Actor.Position.y * 0.15), 0.1, 0.6), EnsureRange(0.6 - (Actor.Position.y * 0.15), 0.1, 0.6), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)))
       else if (Actor.ShapeType = stPyramid) or (Actor.ShapeType = stCapsule) or (Actor.ShapeType = stPrism) then
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.7 - (Actor.Position.y * 0.15), 0.1, 0.7), EnsureRange(0.7 - (Actor.Position.y * 0.15), 0.1, 0.7), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)))
       else
         DrawCylinderEx(Vector3Create(Actor.Position.x, 0.06, Actor.Position.z), Vector3Create(Actor.Position.x, 0.05, Actor.Position.z), EnsureRange(0.8 - (Actor.Position.y * 0.15), 0.1, 0.8), EnsureRange(0.8 - (Actor.Position.y * 0.15), 0.1, 0.8), 24, Fade(BLACK, EnsureRange(0.5 - (Actor.Position.y * 0.02), 0, 0.5)));
 
-      // Draw 3D Object
-      BeginShaderMode(FLightShader);
       rlPushMatrix();
       Pos := Actor.Position;
-      Pos.y := Pos.y + 0.07; // Slight offset to prevent z-fighting with the floor
+      Pos.y := Pos.y + 0.07;
       rlTranslatef(Pos.x, Pos.y, Pos.z);
       Axis := Vector3Create(1, 1, 1);
       Angle := 0;
       if Actor.Quaternion.w < 1.0 then
         QuaternionToAxisAngle(Actor.Quaternion, @Axis, @Angle);
       rlRotatef(Angle * RAD2DEG, Axis.x, Axis.y, Axis.z);
-      // Render specific shapes perfectly aligned to physics center (0,0,0)
-      if Actor.ShapeType = stSphere then
+
+      if Actor.ShapeType = stModel then
       begin
-        // Use max axis for sphere radius to ensure it visually matches standard scale
-        DrawSphere(Vector3Create(0, 0, 0), Max(Actor.Scale.x, Max(Actor.Scale.y, Actor.Scale.z)) * 0.5, GetActorColor(Actor));
-      end
-      else if Actor.ShapeType = stCapsule then
-      begin
-        // Capsule is drawn centered around the Jolt physics origin (0,0,0)
-        // Scale.y is the total height, Scale.x is the diameter (so radius is * 0.5)
-        DrawCylinderEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), Actor.Scale.x * 0.5, Actor.Scale.x * 0.5, 24, GetActorColor(Actor));
-        DrawCylinderWiresEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), Actor.Scale.x * 0.5, Actor.Scale.x * 0.5, 24, BLACK);
-      end
-      else if (Actor.ShapeType = stPyramid) or (Actor.ShapeType = stPrism) then
-      begin
-        var TopR: Single := 0.0;
-        if Actor.ShapeType = stPrism then
-          TopR := Actor.Scale.x * 0.5; // Flat top for prism
-        var Segs: Integer := 4;
-        if Actor.ShapeType = stPrism then
-          Segs := 3;
-        DrawCylinderEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), TopR, Actor.Scale.x * 0.5, Segs, GetActorColor(Actor));
-        DrawCylinderWiresEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), TopR, Actor.Scale.x * 0.5, Segs, BLACK);
+        // Render loaded model directly to bypass custom shader issues with GLB materials
+        DrawModel(FCustomModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
       end
       else
       begin
-        DrawCube(Vector3Create(0, 0, 0), Actor.Scale.x, Actor.Scale.y, Actor.Scale.z, GetActorColor(Actor));
-        DrawCubeWires(Vector3Create(0, 0, 0), Actor.Scale.x, Actor.Scale.y, Actor.Scale.z, BLACK);
+        BeginShaderMode(FLightShader);
+        if Actor.ShapeType = stSphere then
+        begin
+          DrawSphere(Vector3Create(0, 0, 0), Max(Actor.Scale.x, Max(Actor.Scale.y, Actor.Scale.z)) * 0.5, GetActorColor(Actor));
+        end
+        else if Actor.ShapeType = stCapsule then
+        begin
+          DrawCylinderEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), Actor.Scale.x * 0.5, Actor.Scale.x * 0.5, 24, GetActorColor(Actor));
+          DrawCylinderWiresEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), Actor.Scale.x * 0.5, Actor.Scale.x * 0.5, 24, BLACK);
+        end
+        else if (Actor.ShapeType = stPyramid) or (Actor.ShapeType = stPrism) then
+        begin
+          var TopR: Single := 0.0;
+          if Actor.ShapeType = stPrism then
+            TopR := Actor.Scale.x * 0.5;
+          var Segs: Integer := 4;
+          if Actor.ShapeType = stPrism then
+            Segs := 3;
+          DrawCylinderEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), TopR, Actor.Scale.x * 0.5, Segs, GetActorColor(Actor));
+          DrawCylinderWiresEx(Vector3Create(0, Actor.Scale.y * 0.5, 0), Vector3Create(0, -Actor.Scale.y * 0.5, 0), TopR, Actor.Scale.x * 0.5, Segs, BLACK);
+        end
+        else
+        begin
+          DrawCube(Vector3Create(0, 0, 0), Actor.Scale.x, Actor.Scale.y, Actor.Scale.z, GetActorColor(Actor));
+          DrawCubeWires(Vector3Create(0, 0, 0), Actor.Scale.x, Actor.Scale.y, Actor.Scale.z, BLACK);
+        end;
+        EndShaderMode();
       end;
       rlPopMatrix();
-      EndShaderMode();
     end;
   end;
-  // Render Selected Actor Outline (Yellow Wireframe)
+
   if Assigned(FItemSelected) and FItemSelected.Visible then
   begin
-    if FItemSelected.ShapeType = stSphere then
+    if (FItemSelected.ShapeType = stSphere) or (FItemSelected.ShapeType = stModel) then
       DrawCylinderEx(Vector3Create(FItemSelected.Position.x, 0.06, FItemSelected.Position.z), Vector3Create(FItemSelected.Position.x, 0.05, FItemSelected.Position.z), EnsureRange(0.6 - (FItemSelected.Position.y * 0.15), 0.1, 0.6), EnsureRange(0.6 - (FItemSelected.Position.y * 0.15), 0.1, 0.6), 24, Fade(BLACK, EnsureRange(0.5 - (FItemSelected.Position.y * 0.02), 0, 0.5)))
     else if (FItemSelected.ShapeType = stPyramid) or (FItemSelected.ShapeType = stCapsule) or (FItemSelected.ShapeType = stPrism) then
       DrawCylinderEx(Vector3Create(FItemSelected.Position.x, 0.06, FItemSelected.Position.z), Vector3Create(FItemSelected.Position.x, 0.05, FItemSelected.Position.z), EnsureRange(0.7 - (FItemSelected.Position.y * 0.15), 0.1, 0.7), EnsureRange(0.7 - (FItemSelected.Position.y * 0.15), 0.1, 0.7), 24, Fade(BLACK, EnsureRange(0.5 - (FItemSelected.Position.y * 0.02), 0, 0.5)))
     else
       DrawCylinderEx(Vector3Create(FItemSelected.Position.x, 0.06, FItemSelected.Position.z), Vector3Create(FItemSelected.Position.x, 0.05, FItemSelected.Position.z), EnsureRange(0.8 - (FItemSelected.Position.y * 0.15), 0.1, 0.8), EnsureRange(0.8 - (FItemSelected.Position.y * 0.15), 0.1, 0.8), 24, Fade(BLACK, EnsureRange(0.5 - (FItemSelected.Position.y * 0.02), 0, 0.5)));
-    BeginShaderMode(FLightShader);
+
     rlPushMatrix();
     Pos := FItemSelected.Position;
     Pos.y := Pos.y + 0.07;
@@ -2069,43 +2225,48 @@ begin
     if FItemSelected.Quaternion.w < 1.0 then
       QuaternionToAxisAngle(FItemSelected.Quaternion, @Axis, @Angle);
     rlRotatef(Angle * RAD2DEG, Axis.x, Axis.y, Axis.z);
-    if FItemSelected.ShapeType = stSphere then
+
+    if FItemSelected.ShapeType = stModel then
     begin
-      // Use max axis for sphere radius to ensure it visually matches standard scale
-      DrawSphere(Vector3Create(0, 0, 0), Max(FItemSelected.Scale.x, Max(FItemSelected.Scale.y, FItemSelected.Scale.z)) * 0.5, GetActorColor(FItemSelected));
-    end
-    else if FItemSelected.ShapeType = stCapsule then
-    begin
-      // Draw selected capsule perfectly centered
-      DrawCylinderEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), FItemSelected.Scale.x * 0.5, FItemSelected.Scale.x * 0.5, 24, GetActorColor(FItemSelected));
-      DrawCylinderWiresEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), FItemSelected.Scale.x * 0.5, FItemSelected.Scale.x * 0.5, 24, YELLOW);
-    end
-    else if (FItemSelected.ShapeType = stPyramid) or (FItemSelected.ShapeType = stPrism) then
-    begin
-      var TopR: Single := 0.0;
-      if FItemSelected.ShapeType = stPrism then
-        TopR := FItemSelected.Scale.x * 0.5; // Flat top for prism
-      var Segs: Integer := 4;
-      if FItemSelected.ShapeType = stPrism then
-        Segs := 3;
-      DrawCylinderEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), TopR, FItemSelected.Scale.x * 0.5, Segs, GetActorColor(FItemSelected));
-      DrawCylinderWiresEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), TopR, FItemSelected.Scale.x * 0.5, Segs, YELLOW);
+      DrawModel(FCustomModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(FItemSelected));
+      DrawCubeWires(Vector3Create(0, 0, 0), FItemSelected.Scale.x + 0.05, FItemSelected.Scale.y + 0.05, FItemSelected.Scale.z + 0.05, YELLOW);
     end
     else
     begin
-      DrawCube(Vector3Create(0, 0, 0), FItemSelected.Scale.x, FItemSelected.Scale.y, FItemSelected.Scale.z, GetActorColor(FItemSelected));
-      DrawCubeWires(Vector3Create(0, 0, 0), FItemSelected.Scale.x + 0.05, FItemSelected.Scale.y + 0.05, FItemSelected.Scale.z + 0.05, YELLOW);
+      BeginShaderMode(FLightShader);
+      if FItemSelected.ShapeType = stSphere then
+      begin
+        DrawSphere(Vector3Create(0, 0, 0), Max(FItemSelected.Scale.x, Max(FItemSelected.Scale.y, FItemSelected.Scale.z)) * 0.5, GetActorColor(FItemSelected));
+      end
+      else if FItemSelected.ShapeType = stCapsule then
+      begin
+        DrawCylinderEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), FItemSelected.Scale.x * 0.5, FItemSelected.Scale.x * 0.5, 24, GetActorColor(FItemSelected));
+        DrawCylinderWiresEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), FItemSelected.Scale.x * 0.5, FItemSelected.Scale.x * 0.5, 24, YELLOW);
+      end
+      else if (FItemSelected.ShapeType = stPyramid) or (FItemSelected.ShapeType = stPrism) then
+      begin
+        var TopR: Single := 0.0;
+        if FItemSelected.ShapeType = stPrism then
+          TopR := FItemSelected.Scale.x * 0.5;
+        var Segs: Integer := 4;
+        if FItemSelected.ShapeType = stPrism then
+          Segs := 3;
+        DrawCylinderEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), TopR, FItemSelected.Scale.x * 0.5, Segs, GetActorColor(FItemSelected));
+        DrawCylinderWiresEx(Vector3Create(0, FItemSelected.Scale.y * 0.5, 0), Vector3Create(0, -FItemSelected.Scale.y * 0.5, 0), TopR, FItemSelected.Scale.x * 0.5, Segs, YELLOW);
+      end
+      else
+      begin
+        DrawCube(Vector3Create(0, 0, 0), FItemSelected.Scale.x, FItemSelected.Scale.y, FItemSelected.Scale.z, GetActorColor(FItemSelected));
+        DrawCubeWires(Vector3Create(0, 0, 0), FItemSelected.Scale.x + 0.05, FItemSelected.Scale.y + 0.05, FItemSelected.Scale.z + 0.05, YELLOW);
+      end;
+      EndShaderMode();
     end;
     rlPopMatrix();
-    EndShaderMode();
   end;
-  // Render Ghost (Brush Preview)
+
   if FIsBrushActive and FGhostVisible then
   begin
     rlPushMatrix();
-    // Sphere und Cube (Default) behalten ihren leichten 0.1 Offset (wie vorher).
-    // Für Capsule, Pyramid und Prism heben wir das Phantom um exakt Size.y * 0.5 + 0.1 an,
-    // damit das Phantom nicht im Boden steckt, sondern exakt da schwebt, wo dann auch gespawnt wird.
     var SurfaceY: Single := FGhostPos.y + 0.1;
     if (FBrushShape = stCapsule) or (FBrushShape = stPyramid) or (FBrushShape = stPrism) then
     begin
@@ -2128,7 +2289,6 @@ begin
     end
     else if FBrushShape = stCapsule then
     begin
-      // Draw ghost capsule exactly as the real one, perfectly resting on the surface
       rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
       DrawCylinderEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), 0.5, 0.5, 24, Fade(WHITE, 0.4));
       DrawCylinderWiresEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), 0.5, 0.5, 24, YELLOW);
@@ -2142,16 +2302,21 @@ begin
     else if FBrushShape = stPrism then
     begin
       rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
-      // Draw flat top for prism shape preview with 3 segments (Triangle)
       DrawCylinderEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.5, 0.5, 3, Fade(WHITE, 0.4));
       DrawCylinderWiresEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.5, 0.5, 3, YELLOW);
+    end
+    else if FBrushShape = stModel then
+    begin
+      rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
+      DrawModel(FCustomModel, Vector3Create(0, 0.5, 0), 1.0, Fade(WHITE, 0.4));
+      DrawCubeWires(Vector3Create(0, 0.5, 0), 1, 1, 1, YELLOW);
     end;
     rlPopMatrix();
   end;
-  // Draw Gizmo if applicable
+
   if Assigned(FItemSelected) and not FIsBrushActive and (FGizmoMode <> gmNone) then
     DrawGizmo;
-  // Update and draw projectiles
+
   dt := GetFrameTime();
   UpdateProjectiles(dt);
   EndMode3D();
@@ -2365,7 +2530,7 @@ begin
   // Adjust width to fit 5 spawn icons
   DrawRectangle(10, 10 + YOffset, 214, 50, Fade(BLACK, 0.8));
   DrawRectangleLines(10, 10 + YOffset, 214, 50, RAYWHITE);
-  // Draw Spawn Icons in HUD (matches popup icons exactly)
+  // Draw Spawn Icons in HUD
   for I := 0 to 4 do
   begin
     IconRect.x := 15 + (I * 40);
@@ -2494,4 +2659,3 @@ begin
 end;
 
 end.
-

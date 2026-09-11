@@ -52,6 +52,8 @@ type
     chkHightlightCollision: TCheckBox;
     Memo1: TMemo;
     tmrStatsUpdater: TTimer;
+    btnShoot: TButton;
+    OpenDialog1: TOpenDialog;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
@@ -76,6 +78,7 @@ type
     procedure chkHightlightCollisionClick(Sender: TObject);
     procedure tmrStatsUpdaterTimer(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure btnShootClick(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TA3DComponent;
@@ -216,9 +219,19 @@ begin
   //
 end;
 
+procedure TbtnSpawnCapsules.btnShootClick(Sender: TObject);
+begin
+  if Assigned(FSandbox) then
+    FSandbox.PublicShootBall;
+end;
+
 procedure TbtnSpawnCapsules.btnSpawn3DModelClick(Sender: TObject);
 begin
-  //
+  if OpenDialog1.Execute then
+  begin
+    FSandbox.LoadCustomModel(OpenDialog1.FileName);
+   // lblInfo.Caption := 'Brush: 3D Model Selected.';
+  end;
 end;
 
 procedure TbtnSpawnCapsules.btnSpawnCapsulesClick(Sender: TObject);
@@ -533,6 +546,7 @@ var
   TotalObjects, Projectiles: Integer;
   SimStatus: string;
   SelectedInfo: string;
+  i: Integer;
 begin
   if not Assigned(FSandbox) then
     Exit;
@@ -561,6 +575,13 @@ begin
     Memo1.Lines.Add(Format('Physic-Time: %.2f ms', [FSandbox.LastPhysicsTime]));
     Memo1.Lines.Add('-------------------');
     Memo1.Lines.Add(Format('Selected:     %s', [SelectedInfo]));
+    Memo1.Lines.Add('-------------------');
+    // Count models specifically
+    var ModelCount: Integer := 0;
+    for i := 0 to FSandbox.ItemCount - 1 do
+      if Assigned(FSandbox.FItems[i]) and (FSandbox.FItems[i].ShapeType = stModel) then
+        Inc(ModelCount);
+    Memo1.Lines.Add(Format('3D Models:   %d', [ModelCount]));
   finally
     Memo1.Lines.EndUpdate;
   end;
@@ -573,7 +594,7 @@ end;
 
 procedure TbtnSpawnCapsules.tvSceneHierarchyClick(Sender: TObject);
 begin
-  //slected in tree
+  //selected in tree
 end;
 
 procedure TbtnSpawnCapsules.RefreshHierarchy;

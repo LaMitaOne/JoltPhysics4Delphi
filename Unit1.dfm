@@ -123,7 +123,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
     object lblInfo: TLabel
       Left = 7
       Top = 6
-      Width = 887
+      Width = 770
       Height = 33
       AutoSize = False
       Caption = 'loading...'
@@ -150,6 +150,16 @@ object btnSpawnCapsules: TbtnSpawnCapsules
       TabOrder = 1
       OnClick = btnPlayPauseClick
       ExplicitLeft = 1001
+    end
+    object btnShoot: TButton
+      Left = 813
+      Top = 6
+      Width = 90
+      Height = 25
+      Anchors = [akTop, akRight]
+      Caption = 'Shoot'
+      TabOrder = 2
+      OnClick = btnShootClick
     end
   end
   object Panel2: TPanel
@@ -293,6 +303,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
           ParentFont = False
           ReadOnly = True
           TabOrder = 9
+          ExplicitTop = 375
         end
       end
       object tsEngine: TTabSheet
@@ -398,7 +409,11 @@ object btnSpawnCapsules: TbtnSpawnCapsules
     Enabled = False
     Interval = 500
     OnTimer = tmrStatsUpdaterTimer
-    Left = 1065
-    Top = 411
+    Left = 713
+    Top = 131
+  end
+  object OpenDialog1: TOpenDialog
+    Left = 808
+    Top = 168
   end
 end

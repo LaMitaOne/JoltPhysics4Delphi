@@ -313,20 +313,21 @@ const
        end;
 
      (* Model, meshes, materials and animation data *)
-     PModel = ^TModel;
-     TModel = record
-         transform        : TMatrix;    // Local transform matrix
-         meshCount        : Integer;    // Number of meshes
-         materialCount    : Integer;    // Number of materials
-         meshes           : PMesh;      // Meshes array
-         materials        : PMaterial;  // Materials array
-         meshMaterial     : PInteger;   // Mesh material number
-         // Animation data
-         skeleton         : TModelSkeleton ; // Skeleton for animation
-         // Runtime animation data (CPU/GPU skinning)
-         currentPose      : TModelAnimPose ; // Current animation pose (Transform[])
-         boneMatrices     : PMatrix;         // Bones animated transformation matrices
-       end;
+{$ALIGN 8}
+type
+  PModel = ^TModel;
+  TModel = record
+    transform        : TMatrix;    // 64 Bytes: Local transform matrix
+    meshCount        : Integer;    // 4 Bytes: Number of meshes
+    materialCount    : Integer;    // 4 Bytes: Number of materials
+    meshes           : PMesh;      // 8 Bytes (Pointer): Meshes array
+    materials        : PMaterial;  // 8 Bytes (Pointer): Materials array
+    meshMaterial     : PInteger;   // 8 Bytes (Pointer): Mesh material number
+    boneCount        : Integer;    // 4 Bytes: Anzahl der Knochen
+    bones            : Pointer;    // 8 Bytes (Pointer) auf BoneInfo-Array
+    bindPose         : Pointer;    // 8 Bytes (Pointer) auf Transform-Array
+  end;
+
 
      (* ModelAnimation, contains a full animation sequence *)
      PModelAnimation = ^TModelAnimation;
