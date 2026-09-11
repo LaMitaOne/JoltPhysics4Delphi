@@ -11,7 +11,7 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.52)     
+   Status: Work in Progress (Alpha v0.53)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features    
