@@ -60,7 +60,7 @@ Since the original C API is massive, there is still a lot to cover. Here is what
       
  v0.53:    
     
-     Added stModel shape type to support rendering custom loaded 3D models.    
+     Added stModel shape type to support rendering custom loaded 3D models (tried with glb from kenney.nl).    
      Implemented safe loading, assigning, and unloading of native Raylib TModel data into physics actors.   
      Added FMeshSize and FModelOffset properties to properly scale and align 3D models within their physics bounding boxes.    
      Added automatic memory management: Unloads the native Raylib model safely in the component's destructor to prevent memory leaks.    
