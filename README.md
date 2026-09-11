@@ -3,7 +3,7 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
     
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaMitaOne/JoltPhysics4Delphi)    
             
-<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/041c8cfa-06cf-4e5b-9adf-1d09d7616601" />
+<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/76c7e76e-0b8e-494a-ac0b-46d0d1035499" />
         
 <img width="360" height="202" alt="b0rb5q" src="https://github.com/user-attachments/assets/34ceeff9-129f-4173-ad6c-093e9a228f75" />    
         
@@ -57,8 +57,26 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:        
-     
- v0.52:    
+      
+ v0.53:    
+    
+     Added stModel shape type to support rendering custom loaded 3D models.    
+     Implemented safe loading, assigning, and unloading of native Raylib TModel data into physics actors.   
+     Added FMeshSize and FModelOffset properties to properly scale and align 3D models within their physics bounding boxes.    
+     Added automatic memory management: Unloads the native Raylib model safely in the component's destructor to prevent memory leaks.    
+     Updated SetScale to dynamically calculate box half-extents based on the original mesh dimensions multiplied by the current scale for stModel types. 
+     Added a procedural Skybox with custom GLSL shaders for infinite background rendering.    
+     Implemented a dynamic Day/Night cycle that dynamically updates lighting uniforms (sun position, ambient color, diffuse color).    
+     Implemented real-time Shadow Mapping (Shadow Pass) using an orthographic light camera.    
+     Added RenderShadowMap and DrawSceneShadows procedures to render scene depth from the sun's perspective.    
+     Removed boundary walls and expanded the floor to 1000x1000 units to properly showcase the new skybox and environment.    
+     Added DrawMeshBox and DrawMeshSphere helper functions to standardize primitive rendering.    
+     Updated 3D rendering loop to apply lighting shaders consistently to primitives and skybox.    
+     Integrated MiniAudio4Delphi for 3D audio engine support.    
+     Added PlayTestSound procedure which triggers a sound effect when firing projectiles.   
+     Exposed DayNightRhythmActive and DayNightTime as published properties, allowing control of the day/night cycle via the Object Inspector at runtime.
+    
+v0.52:    
      
     Fix: Pause Mode Spawn Position – Objects spawned via mouse click while the simulation was paused previously appeared at the world origin (0,0,0) and only "jumped" to their correct location when Play was pressed.    
     The transform matrix is now explicitly updated immediately upon creation.      
