@@ -33,7 +33,6 @@ This project provides a clean VCL-friendly implementation that bridges the nativ
    Ctrl to switch move/rotate/size    
    Middle click camera rotation    
    WASD move camera    
-   Space shoot    
    Mouse Wheel zoom in out      
       
 📦 Project Structure    
