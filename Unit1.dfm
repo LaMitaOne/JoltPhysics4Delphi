@@ -1,4 +1,4 @@
-object btnSpawnCapsules: TbtnSpawnCapsules
+object Form1: TForm1
   Left = 0
   Top = 0
   Caption = 'MRX Engine Editor - Prototype'
@@ -130,7 +130,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
       WordWrap = True
     end
     object btnToolDragThrow: TButton
-      Left = 909
+      Left = 905
       Top = 6
       Width = 90
       Height = 25
@@ -138,10 +138,10 @@ object btnSpawnCapsules: TbtnSpawnCapsules
       Caption = 'Drag n Throw'
       TabOrder = 0
       OnClick = btnToolDragThrowClick
-      ExplicitLeft = 905
+      ExplicitLeft = 901
     end
     object btnPlayPause: TButton
-      Left = 1005
+      Left = 1001
       Top = 6
       Width = 90
       Height = 25
@@ -149,10 +149,10 @@ object btnSpawnCapsules: TbtnSpawnCapsules
       Caption = 'play/pause'
       TabOrder = 1
       OnClick = btnPlayPauseClick
-      ExplicitLeft = 1001
+      ExplicitLeft = 997
     end
     object btnShoot: TButton
-      Left = 813
+      Left = 809
       Top = 6
       Width = 90
       Height = 25
@@ -160,6 +160,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
       Caption = 'Shoot'
       TabOrder = 2
       OnClick = btnShootClick
+      ExplicitLeft = 805
     end
   end
   object Panel2: TPanel
@@ -206,7 +207,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         end
         object btnClearScene: TButton
           Left = 13
-          Top = 31
+          Top = 15
           Width = 90
           Height = 25
           Caption = 'Clear Scene'
@@ -251,7 +252,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         end
         object btnSceneSave: TButton
           Left = 13
-          Top = 327
+          Top = 311
           Width = 52
           Height = 25
           Caption = 'Save'
@@ -260,7 +261,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         end
         object btnSceneLoad: TButton
           Left = 77
-          Top = 327
+          Top = 311
           Width = 52
           Height = 25
           Caption = 'Load'
@@ -287,9 +288,9 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         end
         object Memo1: TMemo
           Left = 16
-          Top = 376
+          Top = 352
           Width = 161
-          Height = 177
+          Height = 201
           Anchors = [akLeft, akBottom]
           BevelInner = bvNone
           BevelOuter = bvNone
@@ -303,7 +304,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
           ParentFont = False
           ReadOnly = True
           TabOrder = 9
-          ExplicitTop = 375
+          ExplicitTop = 351
         end
       end
       object tsEngine: TTabSheet
@@ -312,9 +313,9 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         object Label1: TLabel
           Left = 16
           Top = 56
-          Width = 22
+          Width = 58
           Height = 15
-          Caption = 'FPS:'
+          Caption = 'Target FPS:'
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clBlack
           Font.Height = -12
@@ -355,7 +356,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         end
         object chkDistanceCulling: TCheckBox
           Left = 16
-          Top = 157
+          Top = 117
           Width = 105
           Height = 17
           Caption = 'Distance culling'
@@ -375,7 +376,7 @@ object btnSpawnCapsules: TbtnSpawnCapsules
         end
         object cbFrustumCulling: TCheckBox
           Left = 16
-          Top = 186
+          Top = 146
           Width = 129
           Height = 17
           Caption = 'Frustum culling'
@@ -401,6 +402,41 @@ object btnSpawnCapsules: TbtnSpawnCapsules
           Caption = 'Hightlight Collision'
           TabOrder = 3
           OnClick = chkHightlightCollisionClick
+        end
+        object chkDayNightRythm: TCheckBox
+          Left = 16
+          Top = 294
+          Width = 105
+          Height = 17
+          Caption = 'DayNight rythm'
+          Checked = True
+          Color = clBlack
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clSilver
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentColor = False
+          ParentFont = False
+          State = cbChecked
+          TabOrder = 4
+          StyleElements = []
+          OnClick = chkDayNightRythmClick
+        end
+        object TimePicker1: TTimePicker
+          Left = 127
+          Top = 290
+          Width = 57
+          Height = 25
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clWindowText
+          Font.Height = -16
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          TabOrder = 5
+          Time = 0.583333333333333400
+          TimeFormat = 'hh:nn'
+          OnChange = TimePicker1Change
         end
       end
     end

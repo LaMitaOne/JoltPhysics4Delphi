@@ -16,10 +16,10 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Math,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, RaylibSandbox, ModelEngine, TypInfo,
-  JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus;
+  JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers;
 
 type
-  TbtnSpawnCapsules = class(TForm)
+  TForm1 = class(TForm)
     pnlLeft: TPanel;
     tvSceneHierarchy: TTreeView;
     Splitter1: TSplitter;
@@ -54,6 +54,8 @@ type
     tmrStatsUpdater: TTimer;
     btnShoot: TButton;
     OpenDialog1: TOpenDialog;
+    chkDayNightRythm: TCheckBox;
+    TimePicker1: TTimePicker;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
@@ -79,6 +81,8 @@ type
     procedure tmrStatsUpdaterTimer(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure btnShootClick(Sender: TObject);
+    procedure chkDayNightRythmClick(Sender: TObject);
+    procedure TimePicker1Change(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TA3DComponent;
@@ -98,7 +102,7 @@ type
   end;
 
 var
-  btnSpawnCapsules: TbtnSpawnCapsules;
+  Form1: TForm1;
 
 implementation
 {$R *.dfm}
@@ -129,7 +133,7 @@ begin
   Result := Format('%.2f, %.2f, %.2f', [V.x, V.y, V.z], TFormatSettings.Create('en-US'));
 end;
 
-procedure TbtnSpawnCapsules.FormCreate(Sender: TObject);
+procedure TForm1.FormCreate(Sender: TObject);
 begin
   Caption := 'RaylibSandbox & JoltPhysics - Prototype';
   Width := 1200;
@@ -154,12 +158,12 @@ begin
   FSandbox.OnViewportRightClick := HandleViewportRightClick;
 end;
 
-procedure TbtnSpawnCapsules.FormDestroy(Sender: TObject);
+procedure TForm1.FormDestroy(Sender: TObject);
 begin
   // Sandbox is owned by Self and destroyed automatically
 end;
 
-procedure TbtnSpawnCapsules.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
   if Key = VK_DELETE then
   begin
@@ -171,61 +175,66 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.FormShow(Sender: TObject);
+procedure TForm1.FormShow(Sender: TObject);
 begin
   tmrStatsUpdater.Enabled := True;
 end;
 
-procedure TbtnSpawnCapsules.HandleViewportRightClick(Sender: TObject);
+procedure TForm1.HandleViewportRightClick(Sender: TObject);
 begin
   // Empty. Context menu is fully handled internally.
 end;
 
-procedure TbtnSpawnCapsules.btnToolDragThrowClick(Sender: TObject);
+procedure TForm1.btnToolDragThrowClick(Sender: TObject);
 begin
   // Activate Drag & Throw Tool (Gizmo Mode None)
   FSandbox.SetGizmoMode(gmNone);
   lblInfo.Caption := 'Tool: Drag & Throw Active.';
 end;
 
-procedure TbtnSpawnCapsules.cbFPSChange(Sender: TObject);
+procedure TForm1.cbFPSChange(Sender: TObject);
 begin
   // TargetFPS is just an indicator, real limit is removed in RaylibSandbox to allow 144+ FPS if VSync is off
   FSandbox.TargetFPS := StrToInt(cbFPS.Items[cbFPS.ItemIndex]);
 end;
 
-procedure TbtnSpawnCapsules.cbFrustumCullingClick(Sender: TObject);
+procedure TForm1.cbFrustumCullingClick(Sender: TObject);
 begin
   FSandbox.FrustumCulling := cbFrustumCulling.Checked;
 end;
 
-procedure TbtnSpawnCapsules.chkDistanceCullingClick(Sender: TObject);
+procedure TForm1.chkDayNightRythmClick(Sender: TObject);
+begin
+  FSandbox.DayNightRhythmActive := chkDayNightRythm.Checked;
+end;
+
+procedure TForm1.chkDistanceCullingClick(Sender: TObject);
 begin
   FSandbox.DistanceCulling := chkDistanceCulling.Checked;
 end;
 
-procedure TbtnSpawnCapsules.chkHightlightCollisionClick(Sender: TObject);
+procedure TForm1.chkHightlightCollisionClick(Sender: TObject);
 begin
   FSandbox.HighlightCollision := chkHightlightCollision.Checked;
 end;
 
-procedure TbtnSpawnCapsules.btnSceneLoadClick(Sender: TObject);
+procedure TForm1.btnSceneLoadClick(Sender: TObject);
 begin
  //
 end;
 
-procedure TbtnSpawnCapsules.btnSceneSaveClick(Sender: TObject);
+procedure TForm1.btnSceneSaveClick(Sender: TObject);
 begin
   //
 end;
 
-procedure TbtnSpawnCapsules.btnShootClick(Sender: TObject);
+procedure TForm1.btnShootClick(Sender: TObject);
 begin
   if Assigned(FSandbox) then
     FSandbox.PublicShootBall;
 end;
 
-procedure TbtnSpawnCapsules.btnSpawn3DModelClick(Sender: TObject);
+procedure TForm1.btnSpawn3DModelClick(Sender: TObject);
 begin
   if OpenDialog1.Execute then
   begin
@@ -234,48 +243,48 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.btnSpawnCapsulesClick(Sender: TObject);
+procedure TForm1.btnSpawnCapsulesClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stCapsule);
   lblInfo.Caption := 'Brush: Capsule Selected.';
 end;
 
-procedure TbtnSpawnCapsules.btnSpawnCubesClick(Sender: TObject);
+procedure TForm1.btnSpawnCubesClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stBox);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Cube Selected.';
 end;
 
-procedure TbtnSpawnCapsules.btnSpawnSpheresClick(Sender: TObject);
+procedure TForm1.btnSpawnSpheresClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stSphere);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Sphere Selected.';
 end;
 
-procedure TbtnSpawnCapsules.btnSpawnPyramidsClick(Sender: TObject);
+procedure TForm1.btnSpawnPyramidsClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stPyramid);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Pyramid Selected.';
 end;
 
-procedure TbtnSpawnCapsules.btnSpawnPrismsClick(Sender: TObject);
+procedure TForm1.btnSpawnPrismsClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stPrism);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Prism Selected.';
 end;
 
-procedure TbtnSpawnCapsules.btnClearSceneClick(Sender: TObject);
+procedure TForm1.btnClearSceneClick(Sender: TObject);
 begin
   FSandbox.ClearItems;
   FSandbox.SetBrush(TShapeType(-1));
   lblInfo.Caption := 'Scene Cleared.';
 end;
 
-procedure TbtnSpawnCapsules.btnPlayPauseClick(Sender: TObject);
+procedure TForm1.btnPlayPauseClick(Sender: TObject);
 begin
   if FSandbox.GetSimulationRunning then
   begin
@@ -292,7 +301,7 @@ begin
 end;
 // === Object Inspector Logic ===
 
-procedure TbtnSpawnCapsules.LoadPropertiesIntoGrid(AComponent: TA3DComponent);
+procedure TForm1.LoadPropertiesIntoGrid(AComponent: TA3DComponent);
 var
   PropList: PPropList;
   Count, i: Integer;
@@ -368,12 +377,12 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.StringGrid1SelectCell(Sender: TObject; ACol, ARow: Integer; var CanSelect: Boolean);
+procedure TForm1.StringGrid1SelectCell(Sender: TObject; ACol, ARow: Integer; var CanSelect: Boolean);
 begin
   CanSelect := (ACol = 1) and (ARow > 0) and Assigned(FSelectedComponent);
 end;
 
-procedure TbtnSpawnCapsules.StringGrid1SetEditText(Sender: TObject; ACol, ARow: Integer; const Value: string);
+procedure TForm1.StringGrid1SetEditText(Sender: TObject; ACol, ARow: Integer; const Value: string);
 var
   PropName: string;
   PropInfo: PPropInfo;
@@ -460,7 +469,12 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.HandleObjectSelected(Sender: TObject; Actor: TA3DComponent);
+procedure TForm1.TimePicker1Change(Sender: TObject);
+begin
+  FSandbox.DayNightTime := TImepicker1.Time;
+end;
+
+procedure TForm1.HandleObjectSelected(Sender: TObject; Actor: TA3DComponent);
 begin
   TThread.Queue(nil,
     procedure
@@ -471,7 +485,7 @@ begin
     end);
 end;
 
-procedure TbtnSpawnCapsules.SelectActorInUI(AActor: TA3DComponent);
+procedure TForm1.SelectActorInUI(AActor: TA3DComponent);
 var
   Idx: Integer;
 begin
@@ -507,13 +521,13 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.HandleViewportReady(Sender: TObject);
+procedure TForm1.HandleViewportReady(Sender: TObject);
 begin
   lblInfo.Caption := 'Engine Viewport Ready.';
   btnPlayPause.Caption := 'PAUSE';
 end;
 
-procedure TbtnSpawnCapsules.HandleActorSpawned(Sender: TObject; const Args: TActorEventArgs);
+procedure TForm1.HandleActorSpawned(Sender: TObject; const Args: TActorEventArgs);
 var
   Data: PItemData;
   NodeText: string;
@@ -529,21 +543,21 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.HandleSceneCleared(Sender: TObject);
+procedure TForm1.HandleSceneCleared(Sender: TObject);
 begin
   tvSceneHierarchy.Items.Clear;
   lblInfo.Caption := 'Scene Cleared.';
   LoadPropertiesIntoGrid(nil);
 end;
 
-procedure TbtnSpawnCapsules.HandleEngineException(Sender: TObject; const Args: TEngineExceptionEventArgs);
+procedure TForm1.HandleEngineException(Sender: TObject; const Args: TEngineExceptionEventArgs);
 begin
   lblInfo.Caption := Format('ERR [%s]: %s', [Args.Context, Args.Message]);
 end;
 
-procedure TbtnSpawnCapsules.tmrStatsUpdaterTimer(Sender: TObject);
+procedure TForm1.tmrStatsUpdaterTimer(Sender: TObject);
 var
-  TotalObjects, Projectiles: Integer;
+  TotalObjects: Integer;
   SimStatus: string;
   SelectedInfo: string;
   i: Integer;
@@ -587,17 +601,17 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.tvSceneHierarchyChange(Sender: TObject; Node: TTreeNode);
+procedure TForm1.tvSceneHierarchyChange(Sender: TObject; Node: TTreeNode);
 begin
   ProcessEditorSelection;
 end;
 
-procedure TbtnSpawnCapsules.tvSceneHierarchyClick(Sender: TObject);
+procedure TForm1.tvSceneHierarchyClick(Sender: TObject);
 begin
   //selected in tree
 end;
 
-procedure TbtnSpawnCapsules.RefreshHierarchy;
+procedure TForm1.RefreshHierarchy;
 var
   i: Integer;
   Actor: TA3DComponent;
@@ -620,7 +634,7 @@ begin
   end;
 end;
 
-procedure TbtnSpawnCapsules.ProcessEditorSelection;
+procedure TForm1.ProcessEditorSelection;
 var
   SelectedIndex: Integer;
   Actor: TA3DComponent;

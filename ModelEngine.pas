@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine v0.52 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.53 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -39,11 +39,12 @@
  *==============================================================================}
 
 {$POINTERMATH ON}
+
 interface
 
 uses
-  Winapi.Windows, Raylib, rlgl, Classes, SysUtils, Contnrs, RayMath, Math,
-  JoltPhysics, r3ddelphi, TypInfo;
+  Winapi.Windows, System.Types, Raylib, rlgl, Classes, SysUtils, Contnrs,
+  RayMath, Math, JoltPhysics, r3ddelphi, TypInfo;
 
 type
   TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism, stModel);
@@ -99,13 +100,11 @@ type
     FBodyID: JPH_BodyID;
     FShape: JPH_Shape;
     FShapeType: TShapeType;
-    FModel: TR3D_Model;
     FVisible: boolean;
     FPosition: TVector3;
     FScale: TVector3;
     FRotation: TVector3;
     FQuaternion: TQuaternion;
-    FModelOffset: TVector3;
     FUserData: Pointer;
     FOnCollision: TCollisionEvent;
     FTealGlow: Boolean;
@@ -117,6 +116,9 @@ type
     procedure UpdateModelTransform;
     procedure UpdateLerp(DeltaTime: Single);
   public
+    FModel: TModel;
+    FModelOffset: TVector3;
+    FMeshSize: TVector3;
     FIsDead: boolean;
     FModelTransform: TMatrix;
     constructor Create(AOwner: TComponent); overload; override;
@@ -135,7 +137,6 @@ type
     procedure AddForce(AForce: TVector3);
     procedure ActivateBody;
     procedure DeactivateBody;
-    // Editor helpers to detach/reatach from physics simulation safely
     procedure DetachFromPhysics;
     procedure ReattachToPhysics;
     property BodyID: JPH_BodyID read FBodyID;
@@ -160,6 +161,7 @@ type
   end;
 
 implementation
+
 { TModelEngine }
 
 constructor TModelEngine.Create;
@@ -319,6 +321,7 @@ begin
     FreeMem(HitResult);
   end;
 end;
+
 { TA3DComponent }
 
 constructor TA3DComponent.Create(AOwner: TComponent);
@@ -334,6 +337,8 @@ begin
   FTargetAlpha := 1.0;
   FVisible := True;
   FTealGlow := False;
+  FModel.meshes := nil;
+  FMeshSize := Vector3Create(1, 1, 1);
 end;
 
 constructor TA3DComponent.Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean; APos: PJPH_RVec3; ARot: PJPH_Quat);
@@ -377,8 +382,20 @@ begin
         FShape := JPH_CylinderShapeSettings_CreateShape(ShapeSettings);
         FScale := Vector3Create(ASize.x, ASize.y, ASize.z);
       end;
+    stModel:
+      begin
+        // Use a fixed 1x1x1 physics box for models. The visual mesh is
+        // normalized to 1x1x1 world units via rlScalef(1/MeshSize) in the
+        // render code, so a half-extent of 0.5 matches the visual exactly.
+        HalfExtents.x := 0.5;
+        HalfExtents.y := 0.5;
+        HalfExtents.z := 0.5;
+        ShapeSettings := JPH_BoxShapeSettings_Create(@HalfExtents, JPH_DEFAULT_CONVEX_RADIUS);
+        FShape := JPH_BoxShapeSettings_CreateShape(ShapeSettings);
+      end;
   else
     begin
+      // Handle both standard boxes and models using a box shape
       HalfExtents.x := ASize.x * 0.5;
       HalfExtents.y := ASize.y * 0.5;
       HalfExtents.z := ASize.z * 0.5;
@@ -417,6 +434,10 @@ end;
 
 destructor TA3DComponent.Destroy;
 begin
+  // Unload the native Raylib model if one was assigned to this actor
+  if FModel.meshes <> nil then
+    UnloadModel(FModel);
+
   if Assigned(FEngine) and (FBodyID <> 0) then
   begin
     JPH_BodyInterface_RemoveAndDestroyBody(FEngine.BodyInterface, FBodyID);
@@ -618,13 +639,16 @@ var
   ConvexRadius: Single;
 begin
   FScale := Value;
+
   // Clean up old shape
   if FShape <> nil then
     JPH_Shape_Destroy(FShape);
+
   // Determine safe convex radius to prevent Jolt crashes on tiny objects
   ConvexRadius := JPH_DEFAULT_CONVEX_RADIUS;
   if (FScale.x < 0.2) or (FScale.y < 0.2) or (FScale.z < 0.2) then
     ConvexRadius := 0.0;
+
   case FShapeType of
     stSphere:
       begin
@@ -642,6 +666,18 @@ begin
         ShapeSettings := JPH_CylinderShapeSettings_Create(FScale.y * 0.5, FScale.x * 0.5, ConvexRadius);
         FShape := JPH_CylinderShapeSettings_CreateShape(ShapeSettings);
       end;
+    stModel:
+      begin
+        // For models, compute physics box half-extents from the original
+        // mesh dimensions multiplied by the current scale. This keeps the
+        // physics body in sync with the visual mesh at all times, including
+        // when the user resizes the actor via the gizmo.
+        HalfExtents.x := FMeshSize.x * FScale.x * 0.5;
+        HalfExtents.y := FMeshSize.y * FScale.y * 0.5;
+        HalfExtents.z := FMeshSize.z * FScale.z * 0.5;
+        ShapeSettings := JPH_BoxShapeSettings_Create(@HalfExtents, ConvexRadius);
+        FShape := JPH_BoxShapeSettings_CreateShape(ShapeSettings);
+      end;
   else
     begin
       HalfExtents.x := FScale.x * 0.5;
@@ -651,6 +687,7 @@ begin
       FShape := JPH_BoxShapeSettings_CreateShape(ShapeSettings);
     end;
   end;
+
   JPH_ShapeSettings_Destroy(ShapeSettings);
   UpdateModelTransform;
 end;
