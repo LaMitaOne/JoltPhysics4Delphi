@@ -74,7 +74,7 @@ Since the original C API is massive, there is still a lot to cover. Here is what
      Updated 3D rendering loop to apply lighting shaders consistently to primitives and skybox.    
      Integrated MiniAudio4Delphi for 3D audio engine support.    
      Added PlayTestSound procedure which triggers a sound effect when firing projectiles.   
-     Exposed DayNightRhythmActive and DayNightTime as published properties, allowing control of the day/night cycle via the Object Inspector at runtime.
+     Exposed DayNightRhythmActive and DayNightTime as published properties, allowing control of the day/night cycle at runtime.
     
 v0.52:    
      
