@@ -1,7 +1,7 @@
 unit Unit1;
 
 {==============================================================================*
- *  Mainform of raylib sandobox & jolt phsics
+ *  Mainform of raylib sandbox & jolt phsics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *
