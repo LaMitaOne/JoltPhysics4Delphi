@@ -1,8 +1,7 @@
 ﻿unit ModelEngine;
 
-
 {==============================================================================*
- *  ModelEngine v0.54 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.55 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -38,7 +37,6 @@
  *      and destroy that body (or be safely detached) before the Delphi
  *      object is freed.
  *==============================================================================}
-
 
 {$POINTERMATH ON}
 
@@ -165,6 +163,58 @@ type
 
 implementation
 { TModelEngine }
+
+const
+  // 5 vertices for a 4-sided pyramid.
+  PYRAMID_VERTS: array[0..4] of JPH_Vec3 = ((
+    x: -0.5;
+    y: -0.5;
+    z: -0.5
+  ), (
+    x: 0.5;
+    y: -0.5;
+    z: -0.5
+  ), (
+    x: 0.5;
+    y: -0.5;
+    z: 0.5
+  ), (
+    x: -0.5;
+    y: -0.5;
+    z: 0.5
+  ), (
+    x: 0.0;
+    y: 0.5;
+    z: 0.0
+  ));
+
+  // 6 vertices for a 3-sided prism.
+  // IMPORTANT: Also goes from Y=0 (bottom) to Y=1.0 (top) to match GenMeshCylinder!
+  PRISM_VERTS: array[0..5] of JPH_Vec3 = ((
+    x: 0.0;
+    y: 0.0;
+    z: -0.5
+  ), (
+    x: 0.43;
+    y: 0.0;
+    z: 0.25
+  ), (
+    x: -0.43;
+    y: 0.0;
+    z: 0.25
+  ), (
+    x: 0.0;
+    y: 1.0;
+    z: -0.5
+  ), (
+    x: 0.43;
+    y: 1.0;
+    z: 0.25
+  ), (
+    x: -0.43;
+    y: 1.0;
+    z: 0.25
+  ));
 
 constructor TModelEngine.Create;
 var
@@ -350,6 +400,9 @@ var
   Rot: JPH_Quat;
   MotionType: JPH_MotionType;
   CreationSettings: JPH_BodyCreationSettings;
+  ConvexHullSettings: JPH_ConvexHullShapeSettings;
+  BasePoints: array of JPH_Vec3;
+  i: Integer;
 begin
   Create(nil);
   FEngine := AParent;
@@ -362,32 +415,55 @@ begin
     MotionType := JPH_MotionType_Static
   else
     MotionType := JPH_MotionType_Dynamic;
+
   case AShapeType of
     stSphere:
       begin
-        // Use max axis for sphere radius to ensure it visually matches standard scale
+        // Use max axis for sphere radius
         ShapeSettings := JPH_SphereShapeSettings_Create(Max(ASize.x, Max(ASize.y, ASize.z)) * 0.5);
         FShape := JPH_SphereShapeSettings_CreateShape(ShapeSettings);
       end;
     stCapsule:
       begin
         // Jolt Capsule: HalfHeightOfCylinderPart, Radius
-        ShapeSettings := JPH_CapsuleShapeSettings_Create((FScale.y - FScale.x) * 0.5, FScale.x * 0.5);
+        // Matches the Raylib Cylinder(0.5, 1.0, 24) perfectly
+        ShapeSettings := JPH_CapsuleShapeSettings_Create(0.5, 0.5);
         FShape := JPH_CapsuleShapeSettings_CreateShape(ShapeSettings);
         FScale := Vector3Create(ASize.x, ASize.y, ASize.z);
       end;
     stPyramid, stPrism:
       begin
-        // Use cylinder shape with 4 sides for pyramid/prism. Top radius 0 for pyramid, >0 for prism
-        ShapeSettings := JPH_CylinderShapeSettings_Create(ASize.y * 0.5, ASize.x * 0.5, JPH_DEFAULT_CONVEX_RADIUS);
-        FShape := JPH_CylinderShapeSettings_CreateShape(ShapeSettings);
+        // Copy base vertices into a temporary dynamic array
+        if AShapeType = stPyramid then
+        begin
+          SetLength(BasePoints, 5);
+          for i := 0 to 4 do
+            BasePoints[i] := PYRAMID_VERTS[i];
+        end
+        else
+        begin
+          SetLength(BasePoints, 6);
+          for i := 0 to 5 do
+            BasePoints[i] := PRISM_VERTS[i];
+        end;
+
+        // Scale the base points dynamically by the requested size
+        for i := 0 to High(BasePoints) do
+        begin
+          BasePoints[i].x := BasePoints[i].x * ASize.x;
+          BasePoints[i].y := BasePoints[i].y * ASize.y;
+          BasePoints[i].z := BasePoints[i].z * ASize.z;
+        end;
+
+        // Create exact Convex Hull physics shape
+        ConvexHullSettings := JPH_ConvexHullShapeSettings_Create(@BasePoints[0], Length(BasePoints), JPH_DEFAULT_CONVEX_RADIUS);
+        FShape := JPH_ConvexHullShapeSettings_CreateShape(ConvexHullSettings);
+        ShapeSettings := ConvexHullSettings; // Unify for cleanup later
         FScale := Vector3Create(ASize.x, ASize.y, ASize.z);
       end;
     stModel:
       begin
-        // Use a fixed 1x1x1 physics box for models. The visual mesh is
-        // normalized to 1x1x1 world units via rlScalef(1/MeshSize) in the
-        // render code, so a half-extent of 0.5 matches the visual exactly.
+        // Use a fixed 1x1x1 physics box for models.
         HalfExtents.x := 0.5;
         HalfExtents.y := 0.5;
         HalfExtents.z := 0.5;
@@ -396,7 +472,7 @@ begin
       end;
   else
     begin
-      // Handle both standard boxes and models using a box shape
+      // Handle standard boxes
       HalfExtents.x := ASize.x * 0.5;
       HalfExtents.y := ASize.y * 0.5;
       HalfExtents.z := ASize.z * 0.5;
@@ -404,6 +480,7 @@ begin
       FShape := JPH_BoxShapeSettings_CreateShape(ShapeSettings);
     end;
   end;
+
   if APos <> nil then
     Pos := APos^
   else
@@ -426,6 +503,8 @@ begin
     FBodyID := JPH_BodyInterface_CreateAndAddBody(FEngine.BodyInterface, CreationSettings, JPH_Activation_DontActivate)
   else
     FBodyID := JPH_BodyInterface_CreateAndAddBody(FEngine.BodyInterface, CreationSettings, JPH_Activation_Activate);
+
+  // Free settings memory
   JPH_ShapeSettings_Destroy(ShapeSettings);
   JPH_BodyInterface_SetFriction(FEngine.BodyInterface, FBodyID, FFriction);
   JPH_BodyInterface_SetRestitution(FEngine.BodyInterface, FBodyID, FRestitution);
@@ -638,6 +717,9 @@ var
   ShapeSettings: JPH_ShapeSettings;
   HalfExtents: JPH_Vec3;
   ConvexRadius: Single;
+  ConvexHullSettings: JPH_ConvexHullShapeSettings;
+  BasePoints: array of JPH_Vec3;
+  i: Integer;
 begin
   FScale := Value;
 
@@ -653,33 +735,52 @@ begin
   case FShapeType of
     stSphere:
       begin
-        // Use max axis for sphere radius to ensure it visually matches standard scale
         ShapeSettings := JPH_SphereShapeSettings_Create(Max(FScale.x, Max(FScale.y, FScale.z)) * 0.5);
         FShape := JPH_SphereShapeSettings_CreateShape(ShapeSettings);
       end;
     stCapsule:
       begin
-        ShapeSettings := JPH_CapsuleShapeSettings_Create((FScale.y - FScale.x) * 0.5, FScale.x * 0.5);
+        // Jolt Capsule: HalfHeightOfCylinderPart, Radius
+        ShapeSettings := JPH_CapsuleShapeSettings_Create(0.5 * FScale.y, 0.5 * FScale.x);
         FShape := JPH_CapsuleShapeSettings_CreateShape(ShapeSettings);
       end;
     stPyramid, stPrism:
       begin
-        ShapeSettings := JPH_CylinderShapeSettings_Create(FScale.y * 0.5, FScale.x * 0.5, ConvexRadius);
-        FShape := JPH_CylinderShapeSettings_CreateShape(ShapeSettings);
+        // Load base vertices into temporary array
+        if FShapeType = stPyramid then
+        begin
+          SetLength(BasePoints, 5);
+          for i := 0 to 4 do
+            BasePoints[i] := PYRAMID_VERTS[i];
+        end
+        else
+        begin
+          SetLength(BasePoints, 6);
+          for i := 0 to 5 do
+            BasePoints[i] := PRISM_VERTS[i];
+        end;
+
+        // Apply current scale
+        for i := 0 to High(BasePoints) do
+        begin
+          BasePoints[i].x := BasePoints[i].x * FScale.x;
+          BasePoints[i].y := BasePoints[i].y * FScale.y;
+          BasePoints[i].z := BasePoints[i].z * FScale.z;
+        end;
+
+        ConvexHullSettings := JPH_ConvexHullShapeSettings_Create(@BasePoints[0], Length(BasePoints), ConvexRadius);
+        FShape := JPH_ConvexHullShapeSettings_CreateShape(ConvexHullSettings);
+        ShapeSettings := ConvexHullSettings;
       end;
     stModel:
       begin
-        // For models, compute physics box half-extents from the original
-        // mesh dimensions multiplied by the current scale. This keeps the
-        // physics body in sync with the visual mesh at all times, including
-        // when the user resizes the actor via the gizmo.
         HalfExtents.x := FMeshSize.x * FScale.x * 0.5;
         HalfExtents.y := FMeshSize.y * FScale.y * 0.5;
         HalfExtents.z := FMeshSize.z * FScale.z * 0.5;
         ShapeSettings := JPH_BoxShapeSettings_Create(@HalfExtents, ConvexRadius);
         FShape := JPH_BoxShapeSettings_CreateShape(ShapeSettings);
 
-        // Update model offset to keep visual mesh aligned with scaled physics box
+        // Update model offset to keep visual mesh aligned
         FModelOffset.x := -FBBoxMin.x * FScale.x;
         FModelOffset.y := -FBBoxMin.y * FScale.y - (FScale.y * FMeshSize.y * 0.5);
         FModelOffset.z := -FBBoxMin.z * FScale.z;

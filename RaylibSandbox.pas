@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.54 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.55 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -538,6 +538,7 @@ begin
   FUnitSphere := GenMeshSphere(1.0, 16, 16);
   UploadMesh(@FUnitSphere, False);
 
+  // Generate standard meshes for solid drawing
   FUnitCylinder := GenMeshCylinder(0.5, 1.0, 24);
   UploadMesh(@FUnitCylinder, False);
   FUnitCone := GenMeshCone(0.5, 1.0, 4);
@@ -545,6 +546,7 @@ begin
   FUnitPrism := GenMeshCylinder(0.5, 1.0, 3);
   UploadMesh(@FUnitPrism, False);
 
+  // Generate models for shapes that use custom drawing
   FCapsuleModel := LoadModelFromMesh(GenMeshCylinder(0.5, 1.0, 24));
   FPyramidModel := LoadModelFromMesh(GenMeshCone(0.5, 1.0, 4));
   FPrismModel := LoadModelFromMesh(GenMeshCylinder(0.5, 1.0, 3));
@@ -991,12 +993,17 @@ procedure TRaylibSandbox.UpdateProjectiles(dt: Single);
 var
   i: Integer;
   Actor: TA3DComponent;
+  CurrVel: TVector3;
+  SpeedSq: Single;
 begin
   for i := High(FProjectiles) downto 0 do
   begin
     if FProjectiles[i] = nil then
       Continue;
+
     Actor := FProjectiles[i];
+
+    // If the projectile is already marked as dead, free its memory and nil the pointer
     if Actor.FIsDead then
     begin
       if Actor.UserData <> nil then
@@ -1005,22 +1012,36 @@ begin
       FProjectiles[i] := nil;
       Continue;
     end;
+
     if Actor.UserData <> nil then
     begin
+      // 1. Lifespan check: Destroy the projectile after 5 seconds
       if GetTime() - PItemData(Actor.UserData)^.SpawnTime > 5.0 then
       begin
         Actor.FIsDead := True;
         Continue;
       end;
-      var CurrVel := Actor.GetLinearVelocity;
-      if (Abs(CurrVel.x) < Abs(PItemData(Actor.UserData)^.OldVelocity.x) * 0.5) or (Abs(CurrVel.y) < Abs(PItemData(Actor.UserData)^.OldVelocity.y) * 0.5) or (Abs(CurrVel.z) < Abs(PItemData(Actor.UserData)^.OldVelocity.z) * 0.5) then
+
+      // 2. Velocity check: Destroy the projectile if it slows down too much
+      CurrVel := Actor.GetLinearVelocity;
+
+      // We calculate the squared length of the velocity vector (Speed * Speed).
+      // This is much faster than using Vector3Length as it avoids a square root operation.
+      // We compare it against 25.0, which means the projectile dies if its speed drops below 5.0 units/sec.
+      SpeedSq := (CurrVel.x * CurrVel.x) + (CurrVel.y * CurrVel.y) + (CurrVel.z * CurrVel.z);
+
+      if SpeedSq < 25.0 then
       begin
         Actor.FIsDead := True;
         Continue;
       end;
+
+      // Store the current velocity for the next frame (useful for debugging or future logic)
       PItemData(Actor.UserData)^.OldVelocity := CurrVel;
     end;
   end;
+
+  // Compress the array: Remove all nil pointers so the array doesn't grow infinitely
   if Length(FProjectiles) > 0 then
   begin
     var CurrIdx: Integer := 0;
@@ -1032,6 +1053,7 @@ begin
         Inc(CurrIdx);
       end;
     end;
+    // Resize the array to fit only the surviving projectiles
     SetLength(FProjectiles, CurrIdx);
   end;
 end;
@@ -1578,35 +1600,62 @@ var
   NewPos, EndScale: TVector3;
   RotDelta: TQuaternion;
   RotAngle: Single;
-  RotAxis: TVector3;
+  RotAxis, WorldAxis, CamForward, MoveDir: TVector3;
+  LocalMove: TVector3;
+  CamDot: Single;
+  PitchAxis: TVector3;
 begin
   MouseDeltaX := FMousePos.x - FGizmoStartMouse.x;
   MouseDeltaY := FMousePos.y - FGizmoStartMouse.y;
+
+  // Calculate camera forward vector
+  CamForward := Vector3Normalize(Vector3Subtract(FCamera.target, FCamera.position));
+
   if FGizmoMode = gmTranslate then
   begin
-    NewPos := FGizmoStartVal;
+    // Determine local axis of the object being dragged (including object rotation)
+    WorldAxis := Vector3Create(0, 0, 0);
     if FGizmoAxis = 1 then
-      NewPos.x := FGizmoStartVal.x + (MouseDeltaX * 0.1) + (MouseDeltaY * 0.1)
+      WorldAxis := Vector3Create(1, 0, 0)
     else if FGizmoAxis = 2 then
-      NewPos.y := FGizmoStartVal.y + (MouseDeltaX * 0.1) - (MouseDeltaY * 0.1)
+      WorldAxis := Vector3Create(0, 1, 0)
     else if FGizmoAxis = 3 then
-      NewPos.z := FGizmoStartVal.z + (MouseDeltaX * 0.1) - (MouseDeltaY * 0.1);
+      WorldAxis := Vector3Create(0, 0, 1);
+
+    // Rotate base vector (1,0,0 etc) by object quaternion
+    WorldAxis := Vector3RotateByQuaternion(WorldAxis, FItemSelected.Quaternion);
+
+    // Create a direction vector from pure 2D mouse movement
+    MoveDir := Vector3Create(MouseDeltaX * 0.1, -MouseDeltaY * 0.1, 0);
+
+    // Projection: Project mouse movement onto the axis we are dragging
+    CamDot := Vector3DotProduct(WorldAxis, MoveDir);
+
+    // The delta is now applied exactly along the arrow (WorldAxis)
+    LocalMove := Vector3Scale(WorldAxis, CamDot);
+
+    NewPos := Vector3Add(FGizmoStartVal, LocalMove);
     FItemSelected.SetPosition(NewPos);
   end
   else if FGizmoMode = gmRotate then
   begin
     RotAxis := Vector3Create(0, 0, 0);
     if FGizmoAxis = 1 then
-      RotAxis.x := 1
+      RotAxis := Vector3RotateByQuaternion(Vector3Create(1, 0, 0), FItemSelected.Quaternion)
     else if FGizmoAxis = 2 then
-      RotAxis.y := 1
+      RotAxis := Vector3RotateByQuaternion(Vector3Create(0, 1, 0), FItemSelected.Quaternion)
     else if FGizmoAxis = 3 then
-      RotAxis.z := 1;
-    RotAngle := ((MouseDeltaX) + (MouseDeltaY)) * 0.25;
+      RotAxis := Vector3RotateByQuaternion(Vector3Create(0, 0, 1), FItemSelected.Quaternion);
+
+    if FGizmoAxis = 2 then
+      RotAngle := (MouseDeltaX * 0.25) + (MouseDeltaY * 0.25)
+    else
+      RotAngle := (-MouseDeltaY * 0.5) + (MouseDeltaX * 0.25);
+
     if Abs(RotAngle) > 0.1 then
     begin
       RotDelta := QuaternionFromAxisAngle(RotAxis, DegToRad(RotAngle));
-      FItemSelected.SetRotation(QuaternionMultiply(FGizmoStartQuat, RotDelta));
+      FItemSelected.SetRotation(QuaternionMultiply(RotDelta, FGizmoStartQuat));
       FGizmoStartMouse := FMousePos;
       FGizmoStartQuat := FItemSelected.Quaternion;
     end;
@@ -1809,9 +1858,11 @@ begin
   end;
 
   JPos.x := Pos.x;
+
+  // Set spawn offset so the object sits perfectly on the ground (Y=0)
   YOffset := 0.5;
-  if (FBrushShape <> stModel) and ((FBrushShape = stPyramid) or (FBrushShape = stPrism) or (FBrushShape = stCapsule)) then
-    YOffset := Size.y * 0.5
+  if (FBrushShape = stPyramid) or (FBrushShape = stBox) or (FBrushShape = stSphere) then
+    YOffset := 0.5
   else if FBrushShape = stModel then
     YOffset := 0.5;
 
@@ -2224,6 +2275,7 @@ begin
       else if Actor.ShapeType = stSphere then
         DrawSphere(Vector3Create(0, 0, 0), 0.5, BLACK)
       else if Actor.ShapeType = stCapsule then
+        // Offset by -0.5 in Y because Raylib capsule mesh is centered at origin
         DrawCylinderEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), 0.5, 0.5, 24, BLACK)
       else if (Actor.ShapeType = stPyramid) or (Actor.ShapeType = stPrism) then
       begin
@@ -2233,6 +2285,11 @@ begin
         var Segs: Integer := 4;
         if Actor.ShapeType = stPrism then
           Segs := 3;
+
+        // Offset by -0.25 in Y to align with Jolt physics center of mass
+        if Actor.ShapeType = stPyramid then
+          rlTranslatef(0.0, -0.25, 0.0);
+
         DrawCylinderEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), TopR, 0.5, Segs, BLACK);
       end;
 
@@ -2419,13 +2476,16 @@ begin
           rlScalef(Actor.Scale.x, Actor.Scale.y, Actor.Scale.z);
 
           rlPushMatrix();
-            // Fix: Lower the mesh by half of its local height (-0.5)
-          rlTranslatef(0.0, -0.5, 0.0);
-          DrawModel(FCapsuleModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
-          rlPopMatrix();
 
-          // The wireframe is now perfectly centered due to the scaling
+          // Shift down by 0.5 to align mesh bottom with Jolt physics bottom
+          rlTranslatef(0.0, -0.5, 0.0);
+
+          // Pass -0.5 in Y directly to DrawModel to lower mesh by half its height
+          DrawModel(FCapsuleModel, Vector3Create(0, -0.5, 0), 1.0, GetActorColor(Actor));
+
           DrawCylinderWiresEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), 0.5, 0.5, 24, BLACK);
+
+          rlPopMatrix();
         end
 
         // ====================================================================
@@ -2435,17 +2495,20 @@ begin
         begin
           rlScalef(Actor.Scale.x, Actor.Scale.y, Actor.Scale.z);
 
-          rlPushMatrix();
-            // Fix: Lower the pyramid by half of its height as well
-          rlTranslatef(0.0, -0.5, 0.0);
-          DrawModel(FPyramidModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
-          rlPopMatrix();
+          // Offset by -0.25 to align Jolt center of mass with visual mesh
+          rlTranslatef(0.0, -0.25, 0.0);
 
-          DrawCylinderWiresEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), 0.0, 0.5, 4, BLACK);
+          // Update ModelMat
+          ModelMat := rlGetMatrixTransform();
+          SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
+
+          DrawModel(FPyramidModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
+
+          DrawCylinderWiresEx(Vector3Create(0, 1, 0), Vector3Create(0, 0, 0), 0.0, 0.5, 4, BLACK);
         end
 
         // ====================================================================
-        // PRISM (Rotation and position fixed)
+        // PRISM
         // ====================================================================
         else if Actor.ShapeType = stPrism then
         begin
@@ -2475,8 +2538,12 @@ begin
   if Assigned(FItemSelected) and FItemSelected.Visible then
   begin
     rlPushMatrix();
+
+    // 1. Translate to object position
     Pos := FItemSelected.Position;
     rlTranslatef(Pos.x, Pos.y, Pos.z);
+
+    // 2. Apply object rotation
     Axis := Vector3Create(1, 1, 1);
     Angle := 0;
     if FItemSelected.Quaternion.w < 1.0 then
@@ -2485,6 +2552,8 @@ begin
 
     rlDrawRenderBatchActive();
     BeginShaderMode(FLightShader);
+
+    // 3. Fetch the correct ModelMatrix and send it to the shader
     ModelMat := rlGetMatrixTransform();
     SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
 
@@ -2492,59 +2561,94 @@ begin
     begin
       rlTranslatef(FItemSelected.FModelOffset.x, FItemSelected.FModelOffset.y, FItemSelected.FModelOffset.z);
       rlScalef(FItemSelected.Scale.x, FItemSelected.Scale.y, FItemSelected.Scale.z);
+
+      // Update ModelMat again for the model offset
+      ModelMat := rlGetMatrixTransform();
+      SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
+
       DrawModel(FItemSelected.FModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(FItemSelected));
       DrawCubeWires(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, YELLOW);
     end
     else
     begin
+      // Apply scale for the basic shapes
+      rlScalef(FItemSelected.Scale.x, FItemSelected.Scale.y, FItemSelected.Scale.z);
+
+      // Update ModelMat again with the scale applied
+      ModelMat := rlGetMatrixTransform();
+      SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
+
       if FItemSelected.ShapeType = stSphere then
-        DrawMeshSphere(Vector3Create(0, 0, 0), Max(FItemSelected.Scale.x, Max(FItemSelected.Scale.y, FItemSelected.Scale.z)) * 0.5, GetActorColor(FItemSelected))
+      begin
+        DrawMeshSphere(Vector3Create(0, 0, 0), 0.5, GetActorColor(FItemSelected));
+        DrawSphereWires(Vector3Create(0, 0, 0), 0.5, 16, 16, YELLOW);
+      end
       else if FItemSelected.ShapeType = stBox then
       begin
-        DrawMeshBox(Vector3Create(0, 0, 0), Vector3Create(FItemSelected.Scale.x, FItemSelected.Scale.y, FItemSelected.Scale.z), GetActorColor(FItemSelected));
-        DrawCubeWires(Vector3Create(0, 0, 0), FItemSelected.Scale.x, FItemSelected.Scale.y, FItemSelected.Scale.z, YELLOW);
+        DrawMeshBox(Vector3Create(0, 0, 0), Vector3Create(1.0, 1.0, 1.0), GetActorColor(FItemSelected));
+        DrawCubeWires(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, YELLOW);
       end
-      else if Actor.ShapeType = stCapsule then
+      else if FItemSelected.ShapeType = stCapsule then
       begin
-        rlScalef(Actor.Scale.x, Actor.Scale.y, Actor.Scale.z);
-
-        // Pass identity matrix since we use the OpenGL Matrix Stack
-        DrawMesh(FUnitCylinder, FDefaultMat, MatrixIdentity());
-
-        DrawCubeWires(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, BLACK);
-      end
-      else if Actor.ShapeType = stPyramid then
-      begin
-        rlScalef(Actor.Scale.x, Actor.Scale.y, Actor.Scale.z);
-
-        // Pass identity matrix
-        DrawMesh(FUnitCone, FDefaultMat, MatrixIdentity());
-
-        DrawCubeWires(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, BLACK);
-      end
-      else if FBrushShape = stPrism then
-      begin
-        // 1. Shift the stack to the desired ghost position on the floor
-        rlTranslatef(FGhostPos.x, FGhostPos.Y, FGhostPos.z);
-
-        // 2. The model is not rotated, exactly like in the spawn code
         rlPushMatrix();
-        rlTranslatef(0.0, 0.375, 0.0);
-        DrawModel(FPrismModel, Vector3Create(0, 0, 0), 1.0, Fade(WHITE, 0.4));
+
+        // Shift down by 0.5 to align mesh bottom with Jolt physics bottom
+        rlTranslatef(0.0, -0.5, 0.0);
+
+        // Pass -0.5 in Y directly to DrawModel to lower mesh by half its height
+        DrawModel(FCapsuleModel, Vector3Create(0, -0.5, 0), 1.0, GetActorColor(FItemSelected));
+
+        DrawCylinderWiresEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), 0.5, 0.5, 24, YELLOW);
+
+        rlPopMatrix();
+      end
+      else if FItemSelected.ShapeType = stPyramid then
+      begin
+        rlPushMatrix();
+
+        // Offset by -0.25 to align Jolt center of mass with visual mesh
+        rlTranslatef(0.0, -0.25, 0.0);
+
+        DrawCylinderWiresEx(Vector3Create(0, 1, 0), Vector3Create(0, 0, 0), 0.0, 0.5, 4, YELLOW);
+
+        DrawModel(FPyramidModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(FItemSelected));
+
+        rlPopMatrix();
+      end
+      else if FItemSelected.ShapeType = stPrism then
+      begin
+        rlPushMatrix();
+        rlTranslatef(0.0, -0.5, 0.0);
+
+        // Update ModelMat for the mesh offset
+        ModelMat := rlGetMatrixTransform();
+        SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
+
+        DrawModel(FPrismModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(FItemSelected));
         rlPopMatrix();
 
-        // 3. Rotate only the yellow wireframe by 90 degrees
+        // Re-update ModelMat for the wireframe
+        ModelMat := rlGetMatrixTransform();
+        SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
+
+        // Rotate the wireframe by 90 degrees on the Y axis to match the mesh
         rlPushMatrix();
         rlRotatef(90.0, 0.0, 1.0, 0.0);
-        DrawCylinderWiresEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.5, 0.5, 3, YELLOW);
+
+        // Update ModelMat for the wireframe rotation
+        ModelMat := rlGetMatrixTransform();
+        SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
+
+        DrawCylinderWiresEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), 0.5, 0.5, 3, YELLOW);
         rlPopMatrix();
       end;
     end;
+
     EndShaderMode();
     rlPopMatrix();
   end;
 
-  // --- BEGIN GHOST PREVIEW (Keep original heights) ---
+  // --- BEGIN GHOST PREVIEW ---
   if FIsBrushActive and FGhostVisible then
   begin
     rlPushMatrix();
@@ -2594,15 +2698,15 @@ begin
       rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
       if FCustomModel.meshes <> nil then
       begin
-        var GBBox := GetModelBoundingBox(FCustomModel);
+        var GBBOX := GetModelBoundingBox(FCustomModel);
 
-        var GMeshSize := Vector3Create(GBBox.max.x - GBBox.min.x, GBBox.max.y - GBBox.min.y, GBBox.max.z - GBBox.min.z);
+        var GMeshSize := Vector3Create(GBBOX.max.x - GBBOX.min.x, GBBOX.max.y - GBBOX.min.y, GBBOX.max.z - GBBOX.min.z);
         var GScale: TVector3;
         if (GMeshSize.x > 0) and (GMeshSize.y > 0) and (GMeshSize.z > 0) then
           GScale := Vector3Create(1.0 / GMeshSize.x, 1.0 / GMeshSize.y, 1.0 / GMeshSize.z)
         else
           GScale := Vector3Create(1, 1, 1);
-        rlTranslatef(-GBBox.min.x * GScale.x, -GBBox.min.y * GScale.y - 0.5, -GBBox.min.z * GScale.z);
+        rlTranslatef(-GBBOX.min.x * GScale.x, -GBBOX.min.y * GScale.y - 0.5, -GBBOX.min.z * GScale.z);
         rlScalef(GScale.x, GScale.y, GScale.z);
         DrawModel(FCustomModel, Vector3Create(0, 0, 0), 1.0, Fade(WHITE, 0.4));
       end
@@ -2622,17 +2726,37 @@ begin
   begin
     if FProjectiles[i] = nil then
       Continue;
+
     BeginShaderMode(FLightShader);
+
     rlPushMatrix();
+
+    // 1. Translate to the projectile's position (add a small Y offset)
     Pos := FProjectiles[i].Position;
-    Pos.y := Pos.y + 0.3;
+    rlTranslatef(Pos.x, Pos.y + 0.3, Pos.z);
+
+    // 2. Apply the projectile's rotation (so it visually rolls while flying)
+    var Quat := FProjectiles[i].Quaternion;
+    Axis := Vector3Create(1, 1, 1);
+    Angle := 0;
+    if Quat.w < 1.0 then
+      QuaternionToAxisAngle(Quat, @Axis, @Angle);
+    rlRotatef(Angle * RAD2DEG, Axis.x, Axis.y, Axis.z);
+
+    // 3. Scale it down to a small cannonball (0.3 radius)
     rlScalef(0.3, 0.3, 0.3);
-    ModelMat := MatrixMultiply(QuaternionToMatrix(FProjectiles[i].Quaternion), MatrixTranslate(Pos.x, Pos.y, Pos.z));
+
+    // 4. NOW fetch the combined matrix from the OpenGL stack and send it to the shader
+    ModelMat := rlGetMatrixTransform();
     SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
-    DrawMeshSphere(Pos, 1.0, SKYBLUE);
+
+    // Draw the sphere mesh at local (0,0,0)
+    DrawMeshSphere(Vector3Create(0, 0, 0), 1.0, SKYBLUE);
+
     rlPopMatrix();
     EndShaderMode();
   end;
+
   dt := GetFrameTime();
   UpdateProjectiles(dt);
   EndMode3D();
