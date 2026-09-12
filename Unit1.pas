@@ -57,7 +57,6 @@ type
     chkDayNightRythm: TCheckBox;
     TimePicker1: TTimePicker;
     procedure FormCreate(Sender: TObject);
-    procedure FormDestroy(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
     procedure btnSpawnSpheresClick(Sender: TObject);
     procedure btnSpawnPyramidsClick(Sender: TObject);
@@ -96,7 +95,6 @@ type
     procedure LoadPropertiesIntoGrid(AComponent: TA3DComponent);
     procedure SelectActorInUI(AActor: TA3DComponent);
     procedure HandleObjectSelected(Sender: TObject; Actor: TA3DComponent);
-    procedure HandleViewportRightClick(Sender: TObject);
   public
     { Public declarations }
   end;
@@ -155,13 +153,8 @@ begin
   FSandbox.OnSceneCleared := HandleSceneCleared;
   FSandbox.OnEngineException := HandleEngineException;
   FSandbox.OnObjectSelected := HandleObjectSelected;
-  FSandbox.OnViewportRightClick := HandleViewportRightClick;
 end;
 
-procedure TForm1.FormDestroy(Sender: TObject);
-begin
-  // Sandbox is owned by Self and destroyed automatically
-end;
 
 procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
@@ -178,11 +171,6 @@ end;
 procedure TForm1.FormShow(Sender: TObject);
 begin
   tmrStatsUpdater.Enabled := True;
-end;
-
-procedure TForm1.HandleViewportRightClick(Sender: TObject);
-begin
-  // Empty. Context menu is fully handled internally.
 end;
 
 procedure TForm1.btnToolDragThrowClick(Sender: TObject);

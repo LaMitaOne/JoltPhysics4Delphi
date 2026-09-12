@@ -1,7 +1,8 @@
 ﻿unit ModelEngine;
 
+
 {==============================================================================*
- *  ModelEngine v0.53 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.54 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -37,6 +38,7 @@
  *      and destroy that body (or be safely detached) before the Delphi
  *      object is freed.
  *==============================================================================}
+
 
 {$POINTERMATH ON}
 
@@ -94,7 +96,6 @@ type
     procedure SetFriction(const Value: Single);
     procedure SetRestitution(const Value: Single);
     procedure SetMass(const Value: Single);
-    procedure SetScale(const Value: TVector3);
   protected
     FEngine: TModelEngine;
     FBodyID: JPH_BodyID;
@@ -118,6 +119,7 @@ type
   public
     FModel: TModel;
     FModelOffset: TVector3;
+    FBBoxMin: TVector3;
     FMeshSize: TVector3;
     FIsDead: boolean;
     FModelTransform: TMatrix;
@@ -129,6 +131,7 @@ type
     procedure SetPosition(APosition: TVector3);
     procedure SetRotation(AQuaternion: TQuaternion);
     procedure SetLinearVelocity(AVelocity: TVector3);
+    procedure SetScale(const Value: TVector3);
     function GetLinearVelocity: TVector3;
     procedure SetAngularVelocity(AVelocity: TVector3);
     procedure SetMotionType(AMotionType: JPH_MotionType);
@@ -161,7 +164,6 @@ type
   end;
 
 implementation
-
 { TModelEngine }
 
 constructor TModelEngine.Create;
@@ -321,7 +323,6 @@ begin
     FreeMem(HitResult);
   end;
 end;
-
 { TA3DComponent }
 
 constructor TA3DComponent.Create(AOwner: TComponent);
@@ -677,6 +678,11 @@ begin
         HalfExtents.z := FMeshSize.z * FScale.z * 0.5;
         ShapeSettings := JPH_BoxShapeSettings_Create(@HalfExtents, ConvexRadius);
         FShape := JPH_BoxShapeSettings_CreateShape(ShapeSettings);
+
+        // Update model offset to keep visual mesh aligned with scaled physics box
+        FModelOffset.x := -FBBoxMin.x * FScale.x;
+        FModelOffset.y := -FBBoxMin.y * FScale.y - (FScale.y * FMeshSize.y * 0.5);
+        FModelOffset.z := -FBBoxMin.z * FScale.z;
       end;
   else
     begin
