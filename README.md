@@ -184,7 +184,10 @@ v0.52:
      Selection Highlighting: Dynamically selected objects are now rendered with a yellow wireframe overlay for clear visual feedback.
      Code Cleanup: Renamed cube-specific variables to generic item names (FItems, PItemData) to reflect support for multiple shape types.    
        
- Based on JoltC from https://github.com/amerkoleci/joltc    
+ JoltC Wrapper Based on JoltC from https://github.com/amerkoleci/joltc    
     
  ModelEngine based on  https://github.com/GuvaCode/raylib-TPS-prototype    
      
+includes:      
+Raylib 3d Wrapper https://github.com/LaMitaOne/r3d-delphi   
+MiniAudio4Delphi Wrapper https://github.com/LaMitaOne/MiniAudio4Delphi    
