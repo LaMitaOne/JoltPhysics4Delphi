@@ -3,7 +3,7 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
     
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaMitaOne/JoltPhysics4Delphi)    
             
-<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/76c7e76e-0b8e-494a-ac0b-46d0d1035499" />
+<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/091e5cc9-c3db-4a11-a7e2-058b9ab96326" />
         
 <img width="360" height="202" alt="b0rb5q" src="https://github.com/user-attachments/assets/34ceeff9-129f-4173-ad6c-093e9a228f75" />    
         
@@ -11,22 +11,43 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.53)     
+   Status: Work in Progress (Alpha v0.54)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
-✨ Features    
-    
-     Core Physics System: World creation, gravity setup, broadphase optimization.
+✨ Features
+
+Core Physics System (Jolt Physics)
+
+     World Creation: Physics system initialization, gravity setup, and broadphase optimization.
      Rigid Bodies: Static and Dynamic actors with full transform syncing (Position & Rotation).
-     Collision Shapes: Box, Sphere, Capsule, and Cylinder primitives.
+     Collision Shapes: Box, Sphere, Capsule, Cylinder, and Convex Model physics wrappers.
      Physics Interactions: Apply forces, impulses, and set linear/angular velocities.
      Raycasting: Built-in 3D raycasting from screen coordinates to the physics world.
-     Optimization: Frustum & Distance Culling   
-     Multi-threading: Utilizes Jolt's built-in thread pool and job system for maximum performance.
-     VCL Integration: Includes a TRaylibSandbox component that embeds a Raylib 3D window inside a standard Delphi VCL form, running smoothly in a background thread.
-     Shooting mechanic: Fire persistent blue cannonball projectiles using Spacebar with a cooldown to knock objects away.   
-     Custom GLSL Lighting System implementing basic ambient and diffuse shading for the floor, walls, and actors.
+     Safe Editing: Dynamic Detach/Reattach system. Objects are safely removed from the physics simulation during Gizmo editing and cleanly re-attached upon mouse release, preventing crashes or physics jitter.
+     Dynamic Scaling: Rebuilds native Jolt Shapes safely on the fly, including an automatic fallback to a 0.0 convex radius for paper-thin walls.
+     Multi-threading: Utilizes Jolt's built-in thread pool and job system for maximum CPU performance.
+
+Rendering & Environment (Raylib + Custom GLSL)
+
+     VCL Integration: Includes a TRaylibSandbox component that embeds a Raylib 3D window inside a standard Delphi VCL form, running smoothly in a background thread without blocking the UI.
+     Pre-allocated Unit Meshes: Capsules, Pyramids, and Prisms are rendered using optimized, pre-loaded Unit Meshes, drastically reducing memory overhead.
+     Perfect Grounding: Geometric primitives are perfectly centered on the floor during scaling, preventing floating or sinking objects.
+     Advanced Lighting System: Custom GLSL shaders implementing ambient and diffuse shading. Lighting and shadows now correctly adapt to world-rotated shapes (cylinders/cones no longer have fixed lighting).
      Dynamic Fake Shadows: Flat shadows drawn under objects that scale in size and opacity based on the object's height.
+     Procedural Skybox & Clouds: Custom GLSL shaders for a horizon-to-zenith gradient sky and a moving, dynamic cloud layer.
+     Day/Night Cycle: Manual or automatic time-of-day progression that dynamically shifts sun position, ambient lighting, and skybox gradients.
+     Optimization: Frustum & Distance Culling for actors outside the view frustum.
+
+Editor & Tooling
+
+     Full Gizmo System: Translate, Rotate, and Scale Gizmos (toggled via CTRL). Gizmos align perfectly to the object's local rotation and dynamically resize to remain grabbable regardless of object dimensions.
+     Object Inspector (RTTI): Full property editing via RTTI. Edit Position, Scale, Rotation, Mass, Friction, and Restitution directly from a standard Delphi TStringGrid.
+     Brush & Ghost Preview: Place objects dynamically in the 3D world with a semi-transparent ghost preview that snaps to the floor or surface of other objects.
+     Context Menu & Selection: Right-click context menus, TreeView hierarchy sync, and actor duplication.
+     Shooting Mechanic: Fire persistent blue cannonball projectiles with a cooldown to knock objects away.
+     Audio: Integrated MiniAudio4Delphi for spatial sound and engine test effects.
+
+
       
   Controls:    
       
@@ -57,6 +78,14 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:        
+
+   v0.54:   
+   
+     Capsules, Pyramids, and Prisms now use pre-loaded Unit Meshes and are 
+     perfectly grounded (centered on the floor) during scaling.   
+     The lighting and shadow system has been fixed to correctly adapt to 
+     world-rotated shapes (on 3d model, cube and sphere fine, others to do).   
+     Actor colors are now directly injected into the GLSL shader via vec4.   
       
  v0.53:    
     
