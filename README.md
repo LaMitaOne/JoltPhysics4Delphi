@@ -184,12 +184,21 @@ v0.52:
      Selection Highlighting: Dynamically selected objects are now rendered with a yellow wireframe overlay for clear visual feedback.
      Code Cleanup: Renamed cube-specific variables to generic item names (FItems, PItemData) to reflect support for multiple shape types.    
        
- JoltC Wrapper Based on JoltC from https://github.com/amerkoleci/joltc    
-    
+ JoltC Wrapper Based on JoltC from https://github.com/amerkoleci/joltc        
  ModelEngine based on  https://github.com/GuvaCode/raylib-TPS-prototype    
-      
- 3D Test Models by https://kenney.nl/     
-     
+          
 includes:      
 Raylib 3d Wrapper https://github.com/LaMitaOne/r3d-delphi   
 MiniAudio4Delphi Wrapper https://github.com/LaMitaOne/MiniAudio4Delphi    
+      
+3D Test Models by https://kenney.nl/     
+
+       
+## 🌐 Recommended 3D Model Sources     
+Looking for more `.glb` / `.gltf` assets to test in the sandbox? Check out these awesome free resources:     
+- [Kenney](https://kenney.nl) | [Quaternius](https://quaternius.com) | [Kay Lousberg](https://kaylousberg.com)    
+- [Poly Pizza](https://poly.pizza) | [Poly Haven](https://polyhaven.com) | [The Base Mesh](https://thebasemesh.com)     
+
+
+
+
