@@ -187,6 +187,8 @@ v0.52:
  JoltC Wrapper Based on JoltC from https://github.com/amerkoleci/joltc    
     
  ModelEngine based on  https://github.com/GuvaCode/raylib-TPS-prototype    
+      
+ 3D Test Models by https://kenney.nl/     
      
 includes:      
 Raylib 3d Wrapper https://github.com/LaMitaOne/r3d-delphi   
