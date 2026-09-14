@@ -177,7 +177,7 @@ object Form1: TForm1
       Top = 1
       Width = 198
       Height = 598
-      ActivePage = tsScene
+      ActivePage = tsEngine
       Align = alClient
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clSilver
@@ -205,18 +205,18 @@ object Form1: TForm1
           ExplicitHeight = 65
         end
         object btnClearScene: TButton
-          Left = 13
-          Top = 15
-          Width = 90
+          Left = 125
+          Top = 256
+          Width = 52
           Height = 25
-          Caption = 'Clear Scene'
+          Caption = 'Clear'
           TabOrder = 0
           OnClick = btnClearSceneClick
         end
         object btnSpawnCubes: TButton
           Left = 13
-          Top = 97
-          Width = 119
+          Top = 17
+          Width = 109
           Height = 25
           Caption = 'Spawn Cubes'
           TabOrder = 1
@@ -224,8 +224,8 @@ object Form1: TForm1
         end
         object btnSpawnSpheres: TButton
           Left = 13
-          Top = 126
-          Width = 119
+          Top = 46
+          Width = 109
           Height = 25
           Caption = 'Spawn Spheres'
           TabOrder = 2
@@ -233,8 +233,8 @@ object Form1: TForm1
         end
         object btnSpawnPyramids: TButton
           Left = 13
-          Top = 155
-          Width = 119
+          Top = 75
+          Width = 109
           Height = 25
           Caption = 'Spawn Pyramids'
           TabOrder = 3
@@ -242,16 +242,16 @@ object Form1: TForm1
         end
         object btnSpawnCapsules: TButton
           Left = 13
-          Top = 184
-          Width = 119
+          Top = 104
+          Width = 109
           Height = 25
           Caption = 'Spawn Capsule'
           TabOrder = 4
           OnClick = btnSpawnCapsulesClick
         end
         object btnSceneSave: TButton
-          Left = 13
-          Top = 311
+          Left = 125
+          Top = 318
           Width = 52
           Height = 25
           Caption = 'Save'
@@ -259,8 +259,8 @@ object Form1: TForm1
           OnClick = btnSceneSaveClick
         end
         object btnSceneLoad: TButton
-          Left = 77
-          Top = 311
+          Left = 125
+          Top = 287
           Width = 52
           Height = 25
           Caption = 'Load'
@@ -269,8 +269,8 @@ object Form1: TForm1
         end
         object btnSpawn3DModel: TButton
           Left = 13
-          Top = 261
-          Width = 119
+          Top = 166
+          Width = 109
           Height = 25
           Caption = 'Spawn 3d model'
           TabOrder = 7
@@ -278,8 +278,8 @@ object Form1: TForm1
         end
         object btnSpawnPrisms: TButton
           Left = 13
-          Top = 215
-          Width = 119
+          Top = 135
+          Width = 109
           Height = 25
           Caption = 'Spawn Prism'
           TabOrder = 8
@@ -305,6 +305,24 @@ object Form1: TForm1
           TabOrder = 9
           ExplicitTop = 351
         end
+        object btnSelectPrev: TButton
+          Left = 13
+          Top = 318
+          Width = 28
+          Height = 25
+          Caption = '<'
+          TabOrder = 10
+          OnClick = btnSelectPrevClick
+        end
+        object btnSelectNext: TButton
+          Left = 47
+          Top = 318
+          Width = 28
+          Height = 25
+          Caption = '>'
+          TabOrder = 11
+          OnClick = btnSelectNextClick
+        end
       end
       object tsEngine: TTabSheet
         Caption = 'Engine'
@@ -321,6 +339,13 @@ object Form1: TForm1
           Font.Name = 'Segoe UI'
           Font.Style = []
           ParentFont = False
+        end
+        object lblDaynightspeed: TLabel
+          Left = 32
+          Top = 324
+          Width = 35
+          Height = 15
+          Caption = 'Speed:'
         end
         object cbFPS: TComboBox
           Left = 16
@@ -355,7 +380,7 @@ object Form1: TForm1
         end
         object chkDistanceCulling: TCheckBox
           Left = 16
-          Top = 117
+          Top = 129
           Width = 105
           Height = 17
           Caption = 'Distance culling'
@@ -375,7 +400,7 @@ object Form1: TForm1
         end
         object cbFrustumCulling: TCheckBox
           Left = 16
-          Top = 146
+          Top = 106
           Width = 129
           Height = 17
           Caption = 'Frustum culling'
@@ -395,7 +420,7 @@ object Form1: TForm1
         end
         object chkHightlightCollision: TCheckBox
           Left = 16
-          Top = 336
+          Top = 368
           Width = 145
           Height = 17
           Caption = 'Hightlight Collision'
@@ -436,6 +461,28 @@ object Form1: TForm1
           Time = 0.583333333333333400
           TimeFormat = 'hh:nn'
           OnChange = TimePicker1Change
+        end
+        object SpDistance: TSpinEdit
+          Left = 127
+          Top = 126
+          Width = 57
+          Height = 24
+          MaxValue = 0
+          MinValue = 1
+          TabOrder = 6
+          Value = 120
+          OnChange = SpDistanceChange
+        end
+        object seDayNightspeed: TSpinEdit
+          Left = 127
+          Top = 321
+          Width = 57
+          Height = 24
+          MaxValue = 1000
+          MinValue = 1
+          TabOrder = 7
+          Value = 0
+          OnChange = seDayNightspeedChange
         end
       end
     end

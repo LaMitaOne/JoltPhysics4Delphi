@@ -16,7 +16,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Math,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, RaylibSandbox, ModelEngine, TypInfo,
-  JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers;
+  JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers, Vcl.Samples.Spin;
 
 type
   TForm1 = class(TForm)
@@ -56,6 +56,11 @@ type
     OpenDialog1: TOpenDialog;
     chkDayNightRythm: TCheckBox;
     TimePicker1: TTimePicker;
+    btnSelectPrev: TButton;
+    btnSelectNext: TButton;
+    SpDistance: TSpinEdit;
+    seDayNightspeed: TSpinEdit;
+    lblDaynightspeed: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
     procedure btnSpawnSpheresClick(Sender: TObject);
@@ -82,6 +87,10 @@ type
     procedure btnShootClick(Sender: TObject);
     procedure chkDayNightRythmClick(Sender: TObject);
     procedure TimePicker1Change(Sender: TObject);
+    procedure btnSelectPrevClick(Sender: TObject);
+    procedure btnSelectNextClick(Sender: TObject);
+    procedure SpDistanceChange(Sender: TObject);
+    procedure seDayNightspeedChange(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TA3DComponent;
@@ -155,7 +164,6 @@ begin
   FSandbox.OnObjectSelected := HandleObjectSelected;
 end;
 
-
 procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
   if Key = VK_DELETE then
@@ -216,10 +224,19 @@ begin
   //
 end;
 
+procedure TForm1.btnSelectNextClick(Sender: TObject);
+begin
+  FSandbox.SelectNextObject;
+end;
+
+procedure TForm1.btnSelectPrevClick(Sender: TObject);
+begin
+  FSandbox.SelectPrevObject;
+end;
+
 procedure TForm1.btnShootClick(Sender: TObject);
 begin
-  if Assigned(FSandbox) then
-    FSandbox.PublicShootBall;
+  FSandbox.PublicShootBall;
 end;
 
 procedure TForm1.btnSpawn3DModelClick(Sender: TObject);
@@ -509,6 +526,11 @@ begin
   end;
 end;
 
+procedure TForm1.SpDistanceChange(Sender: TObject);
+begin
+  FSandbox.MaxRenderDistance := SpDistance.Value;
+end;
+
 procedure TForm1.HandleViewportReady(Sender: TObject);
 begin
   lblInfo.Caption := 'Engine Viewport Ready.';
@@ -620,6 +642,18 @@ begin
   finally
     tvSceneHierarchy.Items.EndUpdate;
   end;
+end;
+
+procedure TForm1.seDayNightspeedChange(Sender: TObject);
+var
+  UserVal: Integer;
+  ActualSpeed: Single;
+begin
+  UserVal := seDayNightspeed.Value;
+
+  // Scale 1-100 to 0.001-0.1
+  ActualSpeed := UserVal / 1000.0;
+  FSandbox.DayNightSpeed := ActualSpeed;
 end;
 
 procedure TForm1.ProcessEditorSelection;

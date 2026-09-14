@@ -187,7 +187,6 @@ const
     y: 0.5;
     z: 0.0
   ));
-
   // 6 vertices for a 3-sided prism.
   // IMPORTANT: Also goes from Y=0 (bottom) to Y=1.0 (top) to match GenMeshCylinder!
   PRISM_VERTS: array[0..5] of JPH_Vec3 = ((
