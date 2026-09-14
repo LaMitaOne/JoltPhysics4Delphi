@@ -177,7 +177,7 @@ object Form1: TForm1
       Top = 1
       Width = 198
       Height = 598
-      ActivePage = tsEngine
+      ActivePage = tsScene
       Align = alClient
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clSilver
@@ -303,7 +303,6 @@ object Form1: TForm1
           ParentFont = False
           ReadOnly = True
           TabOrder = 9
-          ExplicitTop = 351
         end
         object btnSelectPrev: TButton
           Left = 13
@@ -418,14 +417,14 @@ object Form1: TForm1
           StyleElements = [seClient, seBorder]
           OnClick = cbFrustumCullingClick
         end
-        object chkHightlightCollision: TCheckBox
+        object chkHighlightCollision: TCheckBox
           Left = 16
           Top = 368
           Width = 145
           Height = 17
-          Caption = 'Hightlight Collision'
+          Caption = 'Highlight Collision'
           TabOrder = 3
-          OnClick = chkHightlightCollisionClick
+          OnClick = chkHighlightCollisionClick
         end
         object chkDayNightRythm: TCheckBox
           Left = 16
@@ -467,7 +466,8 @@ object Form1: TForm1
           Top = 126
           Width = 57
           Height = 24
-          MaxValue = 0
+          EditorEnabled = False
+          MaxValue = 5000
           MinValue = 1
           TabOrder = 6
           Value = 120
@@ -481,7 +481,7 @@ object Form1: TForm1
           MaxValue = 1000
           MinValue = 1
           TabOrder = 7
-          Value = 0
+          Value = 1
           OnChange = seDayNightspeedChange
         end
       end

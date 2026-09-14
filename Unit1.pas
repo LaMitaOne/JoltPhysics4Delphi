@@ -49,7 +49,7 @@ type
     chkDistanceCulling: TCheckBox;
     cbFrustumCulling: TCheckBox;
     btnSpawnPrisms: TButton;
-    chkHightlightCollision: TCheckBox;
+    chkHighlightCollision: TCheckBox;
     Memo1: TMemo;
     tmrStatsUpdater: TTimer;
     btnShoot: TButton;
@@ -81,7 +81,7 @@ type
     procedure chkDistanceCullingClick(Sender: TObject);
     procedure cbFrustumCullingClick(Sender: TObject);
     procedure btnSpawnPrismsClick(Sender: TObject);
-    procedure chkHightlightCollisionClick(Sender: TObject);
+    procedure chkHighlightCollisionClick(Sender: TObject);
     procedure tmrStatsUpdaterTimer(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure btnShootClick(Sender: TObject);
@@ -209,9 +209,9 @@ begin
   FSandbox.DistanceCulling := chkDistanceCulling.Checked;
 end;
 
-procedure TForm1.chkHightlightCollisionClick(Sender: TObject);
+procedure TForm1.chkHighlightCollisionClick(Sender: TObject);
 begin
-  FSandbox.HighlightCollision := chkHightlightCollision.Checked;
+  FSandbox.HighlightCollision := chkHighlightCollision.Checked;
 end;
 
 procedure TForm1.btnSceneLoadClick(Sender: TObject);
