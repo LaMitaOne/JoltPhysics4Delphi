@@ -11,7 +11,7 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.54)     
+   Status: Work in Progress (Alpha v0.55)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features
@@ -55,6 +55,7 @@ Editor & Tooling
    Middle click camera rotation    
    WASD move camera    
    Mouse Wheel zoom in out      
+   Ctrl q,e select prev, next     
       
 📦 Project Structure    
     
@@ -79,6 +80,14 @@ Since the original C API is massive, there is still a lot to cover. Here is what
 
   Latest Changes:        
 
+   v0.55:   
+
+    Converted basic primitives (Cube, Sphere) from direct vertex drawing to proper Raylib meshes. This ensures the custom GLSL lighting system calculates normals and shadows correctly for every object in the scene.
+    Implemented object cycling. Users can now quickly iterate through spawned objects using UI buttons or keyboard shortcuts (Ctrl+Q for previous, Ctrl+E for next).
+    Distance culling is no longer hardcoded. Exposed the MaxRenderDistance variable to the Object Inspector and linked it to a SpinEdit control on the VCL form, allowing real-time adjustments.
+    Identified and resolved a per-frame shader creation/destroy overhead in the RenderShadowMap routine by caching the default shader.
+    Exposed DayNightSpeed property to allow dynamic adjustment of the time-lapse speed via a UI SpinEdit (scaled 1-100).
+     
    v0.54:   
    
      Capsules, Pyramids, and Prisms now use pre-loaded Unit Meshes and are 
