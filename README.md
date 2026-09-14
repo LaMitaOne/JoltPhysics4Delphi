@@ -44,7 +44,7 @@ Editor & Tooling
      Object Inspector (RTTI): Full property editing via RTTI. Edit Position, Scale, Rotation, Mass, Friction, and Restitution directly from a standard Delphi TStringGrid.
      Brush & Ghost Preview: Place objects dynamically in the 3D world with a semi-transparent ghost preview that snaps to the floor or surface of other objects.
      Context Menu & Selection: Right-click context menus, TreeView hierarchy sync, and actor duplication.
-     Shooting Mechanic: Fire persistent blue cannonball projectiles with a cooldown to knock objects away.
+     Shooting Mechanic: Fire blue cannonball projectiles with a cooldown to knock objects away.
      Audio: Integrated MiniAudio4Delphi for spatial sound and engine test effects.
 
 
