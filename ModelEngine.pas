@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine v0.55 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.56 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -47,7 +47,7 @@ uses
   RayMath, Math, JoltPhysics, r3ddelphi, TypInfo;
 
 type
-  TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism, stModel);
+  TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism, stModel, stBomb);
 
   TA3DComponent = class;
 
@@ -91,6 +91,7 @@ type
     FFriction: Single;
     FRestitution: Single;
     FMass: Single;
+    FIsStatic: Boolean; // NEW: Cached flag to know if this body is static
     procedure SetFriction(const Value: Single);
     procedure SetRestitution(const Value: Single);
     procedure SetMass(const Value: Single);
@@ -132,8 +133,9 @@ type
     procedure SetScale(const Value: TVector3);
     function GetLinearVelocity: TVector3;
     procedure SetAngularVelocity(AVelocity: TVector3);
-    procedure SetMotionType(AMotionType: JPH_MotionType);
     function GetAngularVelocity: TVector3;
+    procedure SetMotionType(AMotionType: JPH_MotionType);
+    function GetMotionType: JPH_MotionType; // NEW: Getter for MotionType
     procedure ApplyImpulse(AImpulse: TVector3);
     procedure AddForce(AForce: TVector3);
     procedure ActivateBody;
@@ -159,6 +161,7 @@ type
     property TargetAlpha: Single read FTargetAlpha write FTargetAlpha;
     property LerpSpeed: Single read FLerpSpeed write FLerpSpeed;
     property OnCollision: TCollisionEvent read FOnCollision write FOnCollision;
+    property IsStatic: Boolean read FIsStatic;
   end;
 
 implementation
@@ -263,16 +266,10 @@ end;
 destructor TModelEngine.Destroy;
 begin
   Clear;
-  JPH_ShapeFilter_Destroy(FShapeFilter);
-  JPH_BodyFilter_Destroy(FBodyFilter);
-  JPH_ObjectLayerFilter_Destroy(FObjectLayerFilter);
-  JPH_BroadPhaseLayerFilter_Destroy(FBroadPhaseLayerFilter);
   JPH_TempAllocator_Destroy(FTempAllocator);
   JPH_JobSystem_Destroy(FJobSystem);
   JPH_PhysicsSystem_Destroy(FPhysicsSystem);
-  JPH_ObjectVsBroadPhaseLayerFilter_Destroy(FObjectVsBroadPhaseLayerFilter);
-  JPH_ObjectLayerPairFilter_Destroy(FObjectLayerPairFilter);
-  JPH_BroadPhaseLayerInterface_Destroy(FBroadPhaseLayerInterface);
+
   JPH_Shutdown;
   FActorList.Free;
   inherited;
@@ -380,6 +377,7 @@ begin
   FFriction := 0.6;
   FRestitution := 0.3;
   FMass := 1.0;
+  FIsStatic := False; // Default to dynamic
   FLerpSpeed := 5.0;
   FActColor := WHITE;
   FTargetColor := WHITE;
@@ -410,13 +408,17 @@ begin
   FQuaternion := QuaternionIdentity;
   FModelTransform := MatrixIdentity();
   FShapeType := AShapeType;
+
+  // NEW: Cache the static flag
+  FIsStatic := IsStatic;
+
   if IsStatic then
     MotionType := JPH_MotionType_Static
   else
     MotionType := JPH_MotionType_Dynamic;
 
   case AShapeType of
-    stSphere:
+    stSphere, stBomb:
       begin
         // Use max axis for sphere radius
         ShapeSettings := JPH_SphereShapeSettings_Create(Max(ASize.x, Max(ASize.y, ASize.z)) * 0.5);
@@ -602,7 +604,19 @@ end;
 procedure TA3DComponent.SetMotionType(AMotionType: JPH_MotionType);
 begin
   if FBodyID <> 0 then
+  begin
     JPH_BodyInterface_SetMotionType(FEngine.BodyInterface, FBodyID, AMotionType, JPH_Activation_Activate);
+    // Update cached flag if changed via this method
+    FIsStatic := (AMotionType = JPH_MotionType_Static);
+  end;
+end;
+
+function TA3DComponent.GetMotionType: JPH_MotionType;
+begin
+  if FIsStatic then
+    Result := JPH_MotionType_Static
+  else
+    Result := JPH_MotionType_Dynamic;
 end;
 
 procedure TA3DComponent.SetLinearVelocity(AVelocity: TVector3);
@@ -694,6 +708,7 @@ var
   Pos: JPH_RVec3;
   Rot: JPH_Quat;
   CreationSettings: JPH_BodyCreationSettings;
+  MotionType: JPH_MotionType;
 begin
   if (FBodyID = 0) and Assigned(FEngine) then
   begin
@@ -704,7 +719,14 @@ begin
     Rot.y := FQuaternion.y;
     Rot.z := FQuaternion.z;
     Rot.w := FQuaternion.w;
-    CreationSettings := JPH_BodyCreationSettings_Create3(FShape, @Pos, @Rot, JPH_MotionType_Dynamic, FEngine.CollideAllLayer);
+
+    // NEW: Reattach with the correct MotionType
+    if FIsStatic then
+      MotionType := JPH_MotionType_Static
+    else
+      MotionType := JPH_MotionType_Dynamic;
+
+    CreationSettings := JPH_BodyCreationSettings_Create3(FShape, @Pos, @Rot, MotionType, FEngine.CollideAllLayer);
     FBodyID := JPH_BodyInterface_CreateAndAddBody(FEngine.BodyInterface, CreationSettings, JPH_Activation_Activate);
     JPH_BodyInterface_SetFriction(FEngine.BodyInterface, FBodyID, FFriction);
     JPH_BodyInterface_SetRestitution(FEngine.BodyInterface, FBodyID, FRestitution);
@@ -732,7 +754,7 @@ begin
     ConvexRadius := 0.0;
 
   case FShapeType of
-    stSphere:
+    stSphere, stBomb:
       begin
         ShapeSettings := JPH_SphereShapeSettings_Create(Max(FScale.x, Max(FScale.y, FScale.z)) * 0.5);
         FShape := JPH_SphereShapeSettings_CreateShape(ShapeSettings);

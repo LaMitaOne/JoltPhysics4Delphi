@@ -16,7 +16,7 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Math,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, RaylibSandbox, ModelEngine, TypInfo,
-  JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers, Vcl.Samples.Spin;
+  JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers, Vcl.Samples.Spin, VCL3D;
 
 type
   TForm1 = class(TForm)
@@ -61,6 +61,9 @@ type
     SpDistance: TSpinEdit;
     seDayNightspeed: TSpinEdit;
     lblDaynightspeed: TLabel;
+    btnSpawnSandbox: TButton;
+    btnSpawnWall: TButton;
+    btnSpawnBomb: TButton;
     procedure FormCreate(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
     procedure btnSpawnSpheresClick(Sender: TObject);
@@ -91,6 +94,9 @@ type
     procedure btnSelectNextClick(Sender: TObject);
     procedure SpDistanceChange(Sender: TObject);
     procedure seDayNightspeedChange(Sender: TObject);
+    procedure btnSpawnSandboxClick(Sender: TObject);
+    procedure btnSpawnWallClick(Sender: TObject);
+    procedure btnSpawnBombClick(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TA3DComponent;
@@ -239,6 +245,18 @@ begin
   FSandbox.PublicShootBall;
 end;
 
+procedure TForm1.btnSpawnSandboxClick(Sender: TObject);
+begin
+  TVCL3D.SpawnSandbox(FSandbox);
+end;
+
+
+procedure TForm1.btnSpawnWallClick(Sender: TObject);
+begin
+  TVCL3D.SpawnDynamicWall(FSandbox, 10,10, false, true);
+end;
+
+
 procedure TForm1.btnSpawn3DModelClick(Sender: TObject);
 begin
   if OpenDialog1.Execute then
@@ -246,6 +264,11 @@ begin
     FSandbox.LoadCustomModel(OpenDialog1.FileName);
    // lblInfo.Caption := 'Brush: 3D Model Selected.';
   end;
+end;
+
+procedure TForm1.btnSpawnBombClick(Sender: TObject);
+begin
+  FSandbox.SetBrush(stBomb);
 end;
 
 procedure TForm1.btnSpawnCapsulesClick(Sender: TObject);

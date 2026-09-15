@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.55 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.56 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -74,6 +74,16 @@ type
     IsProjectile: Boolean;
     Name: string;
     OldVelocity: TVector3;
+  end;
+
+  // Custom Spawn Request record for external tools like VCL3D.pas
+  TSpawnRequest = record
+    Shape: TShapeType;
+    Pos: TVector3;
+    Size: TVector3;
+    IsStatic: Boolean;
+    Name: string;
+    Color: TColorB;
   end;
 
   TRaylibSandbox = class;
@@ -226,6 +236,19 @@ type
     // Distance Culling customizable property
     FMaxRenderDistance: Single;
 
+    // Thread-safe Custom Spawn Queue
+    FCustomSpawnQueue: TArray<TSpawnRequest>;
+    FCustomSpawnTimer: Single;
+
+    // Bomb System Variables
+    FBombActor: TA3DComponent;
+    FBombTimer: Single;
+    FBombExploded: Boolean;
+    procedure UpdateBomb(dt: Single);
+    procedure ExplodeBomb;
+
+    procedure ProcessCustomSpawnQueue(dt: Single);
+
     procedure SetDayNightTime(const Value: Single);
     procedure SetDayNightRhythmActive(const Value: Boolean);
     procedure SetDayNightSpeed(const Value: Single);
@@ -278,6 +301,7 @@ type
     FCustomModel: TModel;
     FItems: TArray<TA3DComponent>;
     FMouseLeftHandled: Boolean;
+    FSandboxSpawned: Boolean;
     function ItemCount: Integer;
     procedure ClearItems;
     procedure DeleteSelectedActor;
@@ -289,6 +313,10 @@ type
     procedure SpawnAtMouse(Pos: TVector3);
     procedure SelectNextObject;
     procedure SelectPrevObject;
+
+    // Exposes the custom spawn queue to external threads/UI
+    procedure QueueCustomSpawn(const Request: TSpawnRequest);
+
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     property OnViewportReady: TNotifyEngineEvent read FOnViewportReady write FOnViewportReady;
@@ -409,7 +437,11 @@ begin
   FDefaultShader.id := 0;
 
   // Default render culling distance
-  FMaxRenderDistance := 120.0;
+  FMaxRenderDistance := 160.0;
+
+  // Initialize Custom Spawn Queue
+  FCustomSpawnQueue := nil;
+  FCustomSpawnTimer := 0.0;
 end;
 
 destructor TRaylibSandbox.Destroy;
@@ -526,10 +558,6 @@ end;
 
 procedure TRaylibSandbox.InitLightingAndEnvironment;
 const
-  // First shader version (replaced to unify normal matrix handling across all shape meshes)
-  // VERT: AnsiString = '#version 330' + #10 + 'in vec3 vertexPosition;' + #10 + 'in vec3 vertexNormal;' + #10 + 'in vec2 vertexTexCoord;' + #10 + 'in vec4 vertexColor;' + #10 + 'uniform mat4 mvp;' + #10 + 'uniform mat4 matModel;' + #10 + 'uniform mat4 lightView;' + #10 + 'uniform mat4 lightProj;' + #10 + 'uniform int isCylShape;' + #10 + 'out vec3 vNormal;' + #10 + 'out vec2 vTexCoord;' + #10 + 'out vec4 vColor;' + #10 + 'out vec4 vWorldPos;' + #10 + 'out vec4 vLightSpacePos;' + #10 + 'void main()' + #10 +
-  //   '{' + #10 + '  vWorldPos = matModel * vec4(vertexPosition, 1.0);' + #10 + '  if (isCylShape == 1) {' + #10 + '    vec3 t0 = normalize(mat3(matModel) * vec3(1.0, 0.0, 0.0));' + #10 + '    vec3 t1 = normalize(mat3(matModel) * vec3(0.0, 1.0, 0.0));' + #10 + '    vec3 t2 = normalize(mat3(matModel) * vec3(0.0, 0.0, 1.0));' + #10 + '    mat3 rotMat = mat3(t0, t1, t2);' + #10 + '    vNormal = normalize(rotMat * normalize(vertexNormal));' + #10 + '  } else {' + #10 + '    vNormal = vertexNormal;' + #10 + '  }' + #10 + '  vTexCoord = vertexTexCoord;' + #10 + '  vColor = vertexColor;' + #10 + '  vLightSpacePos = lightProj * lightView * vWorldPos;' + #10 + '  gl_Position = mvp * vec4(vertexPosition, 1.0);' + #10 + '}';
-
   VERT: AnsiString = '#version 330' + #10 + 'in vec3 vertexPosition;' + #10 + 'in vec3 vertexNormal;' + #10 + 'in vec2 vertexTexCoord;' + #10 + 'in vec4 vertexColor;' + #10 + 'uniform mat4 mvp;' + #10 + 'uniform mat4 matModel;' + #10 + 'uniform mat4 lightView;' + #10 + 'uniform mat4 lightProj;' + #10 + 'out vec3 vNormal;' + #10 + 'out vec2 vTexCoord;' + #10 + 'out vec4 vColor;' + #10 + 'out vec4 vWorldPos;' + #10 + 'out vec4 vLightSpacePos;' + #10 + 'void main()' + #10 + '{' + #10 +
     '  vWorldPos = matModel * vec4(vertexPosition, 1.0);' + #10 + '  vNormal = normalize(mat3(matModel) * vertexNormal);' + #10 + '  vTexCoord = vertexTexCoord;' + #10 + '  vColor = vertexColor;' + #10 + '  vLightSpacePos = lightProj * lightView * vWorldPos;' + #10 + '  gl_Position = mvp * vec4(vertexPosition, 1.0);' + #10 + '}';
   FRAG: AnsiString = '#version 330' + #10 + 'in vec3 vNormal;' + #10 + 'in vec2 vTexCoord;' + #10 + 'in vec4 vColor;' + #10 + 'in vec4 vWorldPos;' + #10 + 'in vec4 vLightSpacePos;' + #10 + 'uniform vec3 lightPos;' + #10 + 'uniform vec3 viewPos;' + #10 + 'uniform vec4 ambient;' + #10 + 'uniform vec4 diffuse;' + #10 + 'uniform sampler2D texture0;' + #10 + 'uniform sampler2D shadowMap;' + #10 + 'uniform float shadowBias;' + #10 + 'out vec4 finalColor;' + #10 + 'void main()' + #10 + '{' + #10 +
@@ -840,6 +868,10 @@ begin
   try
     FGizmoMode := gmNone;
     FClearItemsQueued := True;
+    // Clear custom spawn queue to prevent further scripted spawns after clearing
+    FCustomSpawnQueue := nil;
+    FBombActor := nil;
+    FBombExploded := False;
   finally
     FLock.Leave;
   end;
@@ -851,6 +883,18 @@ begin
   try
     FSpawnQueue := FSpawnQueue + Count;
     FSpawnShape := ShapeType;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+procedure TRaylibSandbox.QueueCustomSpawn(const Request: TSpawnRequest);
+begin
+  // Thread-safe addition to the custom spawn queue
+  FLock.Enter;
+  try
+    SetLength(FCustomSpawnQueue, Length(FCustomSpawnQueue) + 1);
+    FCustomSpawnQueue[High(FCustomSpawnQueue)] := Request;
   finally
     FLock.Leave;
   end;
@@ -1913,6 +1957,8 @@ begin
         Data^.Name := 'Capsule_' + IntToStr(oldLen);
       stPrism:
         Data^.Name := 'Prism_' + IntToStr(oldLen);
+      stBomb:
+        Data^.Name := 'Placed_Bomb_' + IntToStr(oldLen);
     end;
   end;
   Size := Vector3Create(1, 1, 1);
@@ -1933,10 +1979,6 @@ begin
 
   // Set spawn offset so the object sits perfectly on the ground (Y=0)
   YOffset := 0.5;
-  if (FBrushShape = stPyramid) or (FBrushShape = stBox) or (FBrushShape = stSphere) then
-    YOffset := 0.5
-  else if FBrushShape = stModel then
-    YOffset := 0.5;
 
   JPos.y := Pos.y + YOffset;
   JPos.z := Pos.z;
@@ -1958,6 +2000,21 @@ begin
   Obj.Restitution := 0.0;
   Obj.UserData := Data;
   Obj.Visible := True;
+
+  if FBrushShape = stBomb then
+  begin
+    Obj.Friction := 0.5;
+    Obj.Restitution := 0.2;
+    Obj.TargetColor := RED;
+    Obj.ActColor := RED;
+
+    Obj.FModel := FSphereModel;
+    FBombActor := Obj;
+        // Activate the bomb timer
+    FBombTimer := 2.0; // 2 seconds until boom
+    FBombExploded := False;
+  end;
+
   Obj.SetPosition(Vector3Create(JPos.x, JPos.y, JPos.z));
   Obj.SetRotation(QuaternionFromEuler(0, 0, 0));
   FItems[oldLen] := Obj;
@@ -2076,6 +2133,7 @@ begin
       end;
       SetLength(FProjectiles, 0);
       SetLength(FItems, 0);
+      FSandboxSpawned := False;
       FClearItemsQueued := False;
       DoSceneCleared;
     finally
@@ -2086,6 +2144,8 @@ begin
   HandleCameraInput;
   HandleDesktopInput;
   ProcessSpawnQueue(dt);
+  ProcessCustomSpawnQueue(dt); // Process custom external spawns
+  UpdateBomb(dt);
   if FSimulationRunning then
   begin
     try
@@ -2420,6 +2480,11 @@ var
   begin
     if A.TealGlow then
       Exit(COL_TEAL);
+
+    // If the Actor has a custom color assigned (like spawned walls), use it!
+    if (A.ActColor.r <> WHITE.r) or (A.ActColor.g <> WHITE.g) or (A.ActColor.b <> WHITE.b) or (A.ActColor.a <> WHITE.a) then
+      Exit(A.ActColor);
+
     case A.ShapeType of
       stBox:
         Exit(COL_CUBE);
@@ -2431,6 +2496,8 @@ var
         Exit(COL_CAPSULE);
       stPrism:
         Exit(COL_PRISM);
+      stBomb:
+        Exit(RED);
     else
       Exit(WHITE);
     end;
@@ -2548,7 +2615,16 @@ begin
           DrawModel(FBoxModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
           DrawCubeWires(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, BLACK);
         end
+        // ====================================================================
+        // BOMB
+        // ====================================================================
+        else if Actor.ShapeType = stBomb then
+        begin
+          ModelMat := rlGetMatrixTransform();
+          SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
 
+          DrawModel(FSphereModel, Vector3Create(0, 0, 0), 0.5, GetActorColor(Actor));
+        end
         // ====================================================================
         // CAPSULE / CYLINDER
         // ====================================================================
@@ -2821,7 +2897,14 @@ begin
       else
         DrawModel(FCustomModel, Vector3Create(0, 0.5, 0), 1.0, Fade(WHITE, 0.4));
       DrawCubeWires(Vector3Create(0, 0, 0), 1, 1, 1, YELLOW);
+    end
+    else if FBrushShape = stBomb then
+    begin
+      rlTranslatef(FGhostPos.x, FGhostPos.y + 0.5, FGhostPos.z);
+      DrawSphere(Vector3Create(0, 0, 0), 0.5, Fade(RED, 0.5));
+      DrawSphereWires(Vector3Create(0, 0, 0), 0.5, 16, 16, YELLOW);
     end;
+
     rlPopMatrix();
   end;
 
@@ -3183,7 +3266,6 @@ begin
       end);
   end;
 end;
-
 // ============================================================================
 // NAVIGATION LOGIC
 // Uses an internal absolute counter to cycle strictly through the FItems array.
@@ -3249,6 +3331,185 @@ begin
     // Notify the VCL Form to update TreeView and Inspector
     DoObjectSelected(Actor);
   end;
+end;
+
+procedure TRaylibSandbox.ProcessCustomSpawnQueue(dt: Single);
+var
+  Req: TSpawnRequest;
+  oldLen: Integer;
+  i: Integer;
+  Data: PItemData;
+  JPos: JPH_RVec3;
+  JRot: JPH_Quat;
+  Obj: TA3DComponent;
+  BombPos: TVector3;
+  BombReq: TSpawnRequest;
+begin
+  if Length(FCustomSpawnQueue) = 0 then
+    Exit;
+
+  if FCustomSpawnTimer > 0 then
+  begin
+    FCustomSpawnTimer := FCustomSpawnTimer - dt;
+    Exit;
+  end;
+
+  FLock.Enter;
+  try
+    Req := FCustomSpawnQueue[0];
+    if Length(FCustomSpawnQueue) > 1 then
+    begin
+      for i := 0 to High(FCustomSpawnQueue) - 1 do
+        FCustomSpawnQueue[i] := FCustomSpawnQueue[i + 1];
+    end;
+    SetLength(FCustomSpawnQueue, Length(FCustomSpawnQueue) - 1);
+  finally
+    FLock.Leave;
+  end;
+
+  // Faster spawn rate (0.05s) so the wall finishes before the bomb goes off!
+  FCustomSpawnTimer := 0.05;
+
+  // Check if this is the special Bomb Trigger
+  if Req.Name = 'BOMB_TRIGGER' then
+  begin
+    // Spawn the last wall block first
+    Req.Name := 'WallBlock_Final';
+    // (We just let it fall through to the normal spawn code below for the last brick)
+
+    // Now queue the actual bomb behind the wall
+    BombReq.Shape := stSphere;
+    BombReq.Size := Vector3Create(1, 1, 1);
+    BombReq.IsStatic := False;
+    BombReq.Color := RED;
+    BombReq.Pos := Vector3Create(0, 2.0, -4.0); // 4 units behind the wall
+    BombReq.Name := 'THE_BOMB';
+
+    // Insert bomb at the front of the queue so it spawns immediately after the last brick
+    FLock.Enter;
+    try
+      SetLength(FCustomSpawnQueue, Length(FCustomSpawnQueue) + 1);
+      for i := High(FCustomSpawnQueue) downto 1 do
+        FCustomSpawnQueue[i] := FCustomSpawnQueue[i - 1];
+      FCustomSpawnQueue[0] := BombReq;
+    finally
+      FLock.Leave;
+    end;
+  end;
+
+  oldLen := Length(FItems);
+  SetLength(FItems, oldLen + 1);
+
+  New(Data);
+  FillChar(Data^, SizeOf(TItemData), 0);
+  Data^.SpawnTime := GetTime();
+  Data^.IsProjectile := False;
+  Data^.Name := Req.Name;
+
+  JPos.x := Req.Pos.x;
+  JPos.y := Req.Pos.y;
+  JPos.z := Req.Pos.z;
+  JRot.x := 0;
+  JRot.y := 0;
+  JRot.z := 0;
+  JRot.w := 1;
+
+  Obj := TA3DComponent.Create('', FEngine, Req.Shape, Req.Size, Req.IsStatic, @JPos, @JRot);
+  Obj.Friction := 0.6;
+  Obj.Restitution := 0.1;
+
+  Obj.UserData := Data;
+  Obj.Visible := True;
+  Obj.TargetColor := Req.Color;
+  Obj.ActColor := Req.Color;
+
+  // If it's the bomb, set up the explosion timer
+  if Req.Name = 'THE_BOMB' then
+  begin
+    FBombActor := Obj;
+    FBombTimer := 2.0; // 2 seconds until boom!
+    FBombExploded := False;
+  end;
+
+  FItems[oldLen] := Obj;
+  DoActorSpawned(Obj, oldLen);
+end;
+
+procedure TRaylibSandbox.UpdateBomb(dt: Single);
+begin
+  if not Assigned(FBombActor) or FBombExploded then
+    Exit;
+
+  FBombTimer := FBombTimer - dt;
+
+  // Flashing effect: Blink faster as time runs out
+  if FBombTimer < 0.5 then
+  begin
+    if Trunc(FBombTimer * 20) mod 2 = 0 then
+      FBombActor.ActColor := RED
+    else
+      FBombActor.ActColor := WHITE;
+  end;
+
+  if FBombTimer <= 0 then
+  begin
+    ExplodeBomb;
+  end;
+end;
+
+procedure TRaylibSandbox.ExplodeBomb;
+var
+  i: Integer;
+  Actor: TA3DComponent;
+  Dist: Single;
+  Dir: TVector3;
+  ForceMag: Single;
+begin
+  if not Assigned(FBombActor) then
+    Exit;
+
+  FBombExploded := True;
+
+  // Loop through all items and apply massive explosion force
+  for i := 0 to High(FItems) do
+  begin
+    Actor := FItems[i];
+    if Assigned(Actor) and (Actor <> FBombActor) and not Actor.FIsDead then
+    begin
+      // Only affect dynamic objects (our wall blocks)
+      if not Actor.IsStatic then
+      begin
+        Dist := Vector3Distance(Actor.Position, FBombActor.Position);
+
+        // Affect blocks within a 25 unit radius
+        if Dist < 25.0 then
+        begin
+          Dir := Vector3Subtract(Actor.Position, FBombActor.Position);
+          if Vector3Length(Dir) > 0.001 then
+            Dir := Vector3Normalize(Dir)
+          else
+            Dir := Vector3Create(0, 1, 0); // Fallback if exactly inside
+
+          // Force is stronger closer to the bomb (Massive magnitude!)
+          ForceMag := (25.0 - Dist) * 5000.0;
+
+          // CRITICAL: Wake up the body from Sleep Mode before applying force!
+          Actor.ActivateBody;
+
+          // Apply the explosive impulse
+          Actor.ApplyImpulse(Vector3Scale(Dir, ForceMag));
+
+          // Add a strong upward kick for dramatic effect
+          Actor.ApplyImpulse(Vector3Create(0, ForceMag * 0.3, 0));
+        end;
+      end;
+    end;
+  end;
+
+  // Hide the bomb actor (it's consumed)
+  FBombActor.Visible := False;
+  FBombActor.FIsDead := True;
+  FBombActor := nil;
 end;
 
 end.

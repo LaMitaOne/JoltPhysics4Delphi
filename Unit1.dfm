@@ -209,6 +209,7 @@ object Form1: TForm1
           Top = 256
           Width = 52
           Height = 25
+          Anchors = [akLeft, akBottom]
           Caption = 'Clear'
           TabOrder = 0
           OnClick = btnClearSceneClick
@@ -254,6 +255,7 @@ object Form1: TForm1
           Top = 318
           Width = 52
           Height = 25
+          Anchors = [akLeft, akBottom]
           Caption = 'Save'
           TabOrder = 5
           OnClick = btnSceneSaveClick
@@ -263,6 +265,7 @@ object Form1: TForm1
           Top = 287
           Width = 52
           Height = 25
+          Anchors = [akLeft, akBottom]
           Caption = 'Load'
           TabOrder = 6
           OnClick = btnSceneLoadClick
@@ -303,12 +306,14 @@ object Form1: TForm1
           ParentFont = False
           ReadOnly = True
           TabOrder = 9
+          ExplicitTop = 351
         end
         object btnSelectPrev: TButton
           Left = 13
           Top = 318
           Width = 28
           Height = 25
+          Anchors = [akLeft, akBottom]
           Caption = '<'
           TabOrder = 10
           OnClick = btnSelectPrevClick
@@ -318,9 +323,39 @@ object Form1: TForm1
           Top = 318
           Width = 28
           Height = 25
+          Anchors = [akLeft, akBottom]
           Caption = '>'
           TabOrder = 11
           OnClick = btnSelectNextClick
+        end
+        object btnSpawnSandbox: TButton
+          Left = 10
+          Top = 256
+          Width = 109
+          Height = 25
+          Anchors = [akLeft, akBottom]
+          Caption = 'Spawn Sandbox'
+          TabOrder = 12
+          OnClick = btnSpawnSandboxClick
+        end
+        object btnSpawnWall: TButton
+          Left = 10
+          Top = 287
+          Width = 109
+          Height = 25
+          Anchors = [akLeft, akBottom]
+          Caption = 'Spawn Wall'
+          TabOrder = 13
+          OnClick = btnSpawnWallClick
+        end
+        object btnSpawnBomb: TButton
+          Left = 13
+          Top = 197
+          Width = 109
+          Height = 25
+          Caption = 'Spawn Bomb'
+          TabOrder = 14
+          OnClick = btnSpawnBombClick
         end
       end
       object tsEngine: TTabSheet
@@ -468,9 +503,9 @@ object Form1: TForm1
           Height = 24
           EditorEnabled = False
           MaxValue = 5000
-          MinValue = 1
+          MinValue = 10
           TabOrder = 6
-          Value = 120
+          Value = 160
           OnChange = SpDistanceChange
         end
         object seDayNightspeed: TSpinEdit
