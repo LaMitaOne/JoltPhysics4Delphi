@@ -3,7 +3,7 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
     
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaMitaOne/JoltPhysics4Delphi)    
             
-<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/091e5cc9-c3db-4a11-a7e2-058b9ab96326" />
+<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/5f465c5e-0379-4367-a2b9-1e46335d4f98" />
         
 <img width="360" height="202" alt="b0rb5q" src="https://github.com/user-attachments/assets/34ceeff9-129f-4173-ad6c-093e9a228f75" />    
         
@@ -11,7 +11,7 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.55)     
+   Status: Work in Progress (Alpha v0.56)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features
@@ -78,8 +78,21 @@ Since the original C API is massive, there is still a lot to cover. Here is what
 
   Exe and sample project included    
 
-  Latest Changes:        
-
+  Latest Changes:  
+  
+   v0.56:   
+     
+     Added FIsStatic property and GetMotionType method to TA3DComponent for thread-safe state checking    
+     Preserved original motion type in ReattachToPhysics to prevent dynamic objects from becoming static    
+     Added TSpawnRequest record to enable thread-safe custom spawn queues from external modules   
+     Added new VCL3D unit for high-level, ready-to-use spawning routines    
+     Implemented SpawnSandbox to generate 4 solid, static boundary walls    
+     Implemented SpawnDynamicWall to procedurally build a grid of physics blocks    
+     Added parameters to toggle sequential dropping vs perfect placement for wall blocks    
+     Implemented interactive Bomb Brush to place timed explosive spheres via mouse click    
+     Added UpdateBomb and ExplodeBomb mechanics applying massive radial and upward impulses    
+     Fixed Access Violation crash on application shutdown by removing redundant Jolt filter destruction     
+          
    v0.55:   
 
     Converted basic primitives (Cube, Sphere) from direct vertex drawing to proper Raylib meshes. This ensures the custom GLSL lighting system calculates normals and shadows correctly for every object in the scene.
