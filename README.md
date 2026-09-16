@@ -11,7 +11,7 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.56)     
+   Status: Work in Progress (Alpha v0.57)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features
@@ -79,7 +79,14 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:  
-  
+     
+   v0.57:   
+
+     Added Slow Motion Mode: Integrated a fully functional slow-motion system. When activated externally, the physics simulation (Jolt Physics), bomb timers, and projectile lifespans scale correctly to 20% speed, ensuring smooth and physically accurate time-lapse effects without breaking gravity or collision.    
+     Added Spawn & Explosion Sounds: Implemented distinct audio feedback using MiniAudio. Newly spawned objects now play an impact sound, and the bomb explosion triggers a dedicated, heavy explosion sound effect.     
+     Added 3D Button Spawner (btnSpawnButton): Added functionality to spawn fully interactive 3D buttons directly into the Raylib viewport. The buttons feature dynamic text rendering onto a texture, hover states, press-animations, and properly fire their assigned OnClick events thread-safe back to the VCL.    
+     Fixed Pyramid Mesh Alignment: Resolved an issue where the visual mesh of the pyramid was offset from its actual physics center of mass. It now aligns perfectly, ensuring the geometry rests correctly on the ground – even when dynamically rotated sideways.     
+     
    v0.56:   
      
      Added FIsStatic property and GetMotionType method to TA3DComponent for thread-safe state checking    
