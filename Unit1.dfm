@@ -213,6 +213,7 @@ object Form1: TForm1
           Caption = 'Clear'
           TabOrder = 0
           OnClick = btnClearSceneClick
+          ExplicitTop = 255
         end
         object btnSpawnCubes: TButton
           Left = 13
@@ -259,6 +260,7 @@ object Form1: TForm1
           Caption = 'Save'
           TabOrder = 5
           OnClick = btnSceneSaveClick
+          ExplicitTop = 317
         end
         object btnSceneLoad: TButton
           Left = 125
@@ -269,6 +271,7 @@ object Form1: TForm1
           Caption = 'Load'
           TabOrder = 6
           OnClick = btnSceneLoadClick
+          ExplicitTop = 286
         end
         object btnSpawn3DModel: TButton
           Left = 13
@@ -317,6 +320,7 @@ object Form1: TForm1
           Caption = '<'
           TabOrder = 10
           OnClick = btnSelectPrevClick
+          ExplicitTop = 317
         end
         object btnSelectNext: TButton
           Left = 47
@@ -327,6 +331,7 @@ object Form1: TForm1
           Caption = '>'
           TabOrder = 11
           OnClick = btnSelectNextClick
+          ExplicitTop = 317
         end
         object btnSpawnSandbox: TButton
           Left = 10
@@ -337,6 +342,7 @@ object Form1: TForm1
           Caption = 'Spawn Sandbox'
           TabOrder = 12
           OnClick = btnSpawnSandboxClick
+          ExplicitTop = 255
         end
         object btnSpawnWall: TButton
           Left = 10
@@ -347,6 +353,7 @@ object Form1: TForm1
           Caption = 'Spawn Wall'
           TabOrder = 13
           OnClick = btnSpawnWallClick
+          ExplicitTop = 286
         end
         object btnSpawnBomb: TButton
           Left = 13

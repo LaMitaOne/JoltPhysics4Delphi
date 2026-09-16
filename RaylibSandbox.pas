@@ -75,8 +75,8 @@ type
     Name: string;
     OldVelocity: TVector3;
   end;
-
   // Custom Spawn Request record for external tools like VCL3D.pas
+
   TSpawnRequest = record
     Shape: TShapeType;
     Pos: TVector3;
@@ -291,6 +291,8 @@ type
     procedure SetDistanceCulling(const Value: Boolean);
     procedure SetMaxRenderDistance(const Value: Single);
     procedure PlayTestSound;
+    procedure PlayImpactSound;
+    procedure PlaySpawnSound;
     procedure DrawMeshBox(Pos: TVector3; Scale: TVector3; Color: TColorB);
     procedure DrawMeshSphere(Pos: TVector3; Radius: Single; Color: TColorB);
   protected
@@ -632,6 +634,8 @@ begin
   FSphereModel.materials[0].shader := FLightShader;
   FCapsuleModel.materials[0].shader := FLightShader;
   FPyramidModel.materials[0].shader := FLightShader;
+  FPyramidModel.transform := MatrixRotateY(45.0 * DEG2RAD);
+  FPrismModel.transform := MatrixRotateY(120.0 * DEG2RAD);
   FPrismModel.materials[0].shader := FLightShader;
 
   // Initialize Skybox
@@ -685,9 +689,33 @@ var
 begin
   if FAudioEngine <> nil then
   begin
-    Res := ma_engine_play_sound(FAudioEngine, 'test.wav', nil);
+    Res := ma_engine_play_sound(FAudioEngine, 'ressources\audio\test.wav', nil);
     if Res <> MA_SUCCESS then
       DoEngineException('Failed to play test.wav', 'AudioEngine');
+  end;
+end;
+
+procedure TRaylibSandbox.PlaySpawnSound;
+var
+  Res: Integer;
+begin
+  if FAudioEngine <> nil then
+  begin
+    Res := ma_engine_play_sound(FAudioEngine, 'ressources\audio\impactPlank_medium_000.wav', nil);
+    if Res <> MA_SUCCESS then
+      DoEngineException('Failed to play impactPlank_medium_000.wav', 'AudioEngine');
+  end;
+end;
+
+procedure TRaylibSandbox.PlayImpactSound;
+var
+  Res: Integer;
+begin
+  if FAudioEngine <> nil then
+  begin
+    Res := ma_engine_play_sound(FAudioEngine, 'ressources\audio\explosionCrunch_004.wav', nil);
+    if Res <> MA_SUCCESS then
+      DoEngineException('Failed to play explosionCrunch_004.wav', 'AudioEngine');
   end;
 end;
 
@@ -1679,6 +1707,7 @@ begin
     NewActor.UserData := NewData;
     NewActor.Visible := True;
     FItems[OldLen] := NewActor;
+    PlaySpawnSound;
     DoActorSpawned(NewActor, OldLen);
     DoObjectSelected(NewActor);
   end;
@@ -2013,11 +2042,17 @@ begin
         // Activate the bomb timer
     FBombTimer := 2.0; // 2 seconds until boom
     FBombExploded := False;
+    if Assigned(FItemSelected) then
+    begin
+      FItemSelected := nil;
+      DoObjectSelected(nil);
+    end;
   end;
 
   Obj.SetPosition(Vector3Create(JPos.x, JPos.y, JPos.z));
   Obj.SetRotation(QuaternionFromEuler(0, 0, 0));
   FItems[oldLen] := Obj;
+  PlaySpawnSound;
   DoActorSpawned(Obj, oldLen);
 end;
 
@@ -2663,7 +2698,10 @@ begin
 
           DrawModel(FPyramidModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
 
+          rlPushMatrix();
+          rlRotatef(45.0, 0.0, 1.0, 0.0);
           DrawCylinderWiresEx(Vector3Create(0, 1, 0), Vector3Create(0, 0, 0), 0.0, 0.5, 4, BLACK);
+          rlPopMatrix();
         end
 
         // ====================================================================
@@ -2790,8 +2828,10 @@ begin
         rlTranslatef(0.0, -0.25, 0.0);
         ModelMat := rlGetMatrixTransform();
         SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
-
+        rlPushMatrix();
+        rlRotatef(45.0, 0.0, 1.0, 0.0);
         DrawCylinderWiresEx(Vector3Create(0, 1, 0), Vector3Create(0, 0, 0), 0.0, 0.5, 4, YELLOW);
+        rlPopMatrix();
 
         DrawModel(FPyramidModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(FItemSelected));
 
@@ -3469,6 +3509,8 @@ begin
     Exit;
 
   FBombExploded := True;
+
+  PlayImpactSound;
 
   // Loop through all items and apply massive explosion force
   for i := 0 to High(FItems) do

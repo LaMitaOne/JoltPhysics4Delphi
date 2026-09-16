@@ -47,20 +47,17 @@ type
   ma_encoder = Pointer;
 
   ma_spatializer = Pointer;
-
   // Result type for miniaudio functions (0 = MA_SUCCESS)
   ma_result = Integer;
 
 const
   MINIAUDIO_LIB = 'miniaudio.dll';
   MA_SUCCESS = 0;
-
   // Attenuation Models (Used for 3D Audio)
   ma_attenuation_model_none = 0;
   ma_attenuation_model_inverse = 1;
   ma_attenuation_model_linear = 2;
   ma_attenuation_model_exponential = 3;
-
 // =============================================================================
 // CORE & MEMORY (Sizeof helper functions for dynamic allocation)
 // =============================================================================
@@ -81,7 +78,6 @@ function ma_spatializer_sizeof(): NativeUInt; cdecl;
 function ma_log_sizeof(): NativeUInt; cdecl;
 
 function ma_node_graph_sizeof(): NativeUInt; cdecl;
-
 // =============================================================================
 // ENGINE
 // =============================================================================
@@ -106,10 +102,8 @@ function ma_engine_get_channels(pEngine: ma_engine): Integer; cdecl;
 function ma_engine_get_time(pEngine: ma_engine): UInt64; cdecl;
 
 procedure ma_engine_set_time(pEngine: ma_engine; time: UInt64); cdecl;
-
 // Engine Convenience (Plays a sound directly without an ma_sound object)
 function ma_engine_play_sound(pEngine: ma_engine; pFilePath: PAnsiChar; pGroup: ma_sound_group): ma_result; cdecl;
-
 // =============================================================================
 // ENGINE LISTENER (The "ear" in the 3D world - usually the camera)
 // =============================================================================
@@ -122,7 +116,6 @@ procedure ma_engine_listener_set_velocity(pEngine: ma_engine; x, y, z: Single); 
 procedure ma_engine_listener_set_world_up(pEngine: ma_engine; x, y, z: Single); cdecl;
 
 procedure ma_engine_listener_set_enabled(pEngine: ma_engine; enabled: Integer); cdecl;
-
 // =============================================================================
 // SOUND (Load and play audio files)
 // =============================================================================
@@ -149,7 +142,6 @@ procedure ma_sound_seek_to_pcm_frame(pSound: ma_sound; frameIndex: UInt64); cdec
 function ma_sound_get_cursor_in_pcm_frames(pSound: ma_sound; out pCursor: UInt64): ma_result; cdecl;
 
 function ma_sound_get_length_in_pcm_frames(pSound: ma_sound; out pLength: UInt64): ma_result; cdecl;
-
 // Sound Properties
 procedure ma_sound_set_volume(pSound: ma_sound; volume: Single); cdecl;
 
@@ -164,7 +156,6 @@ procedure ma_sound_set_pitch(pSound: ma_sound; pitch: Single); cdecl;
 function ma_sound_get_pitch(pSound: ma_sound): Single; cdecl;
 
 procedure ma_sound_set_fade_in_pcm_frames(pSound: ma_sound; volumeBeg: Single; volumeEnd: Single; fadeLengthInFrames: UInt64); cdecl;
-
 // =============================================================================
 // SOUND 3D AUDIO
 // =============================================================================
@@ -185,7 +176,6 @@ procedure ma_sound_set_rolloff(pSound: ma_sound; rolloff: Single); cdecl;
 procedure ma_sound_set_doppler_factor(pSound: ma_sound; factor: Single); cdecl;
 
 procedure ma_sound_set_spatialization_enabled(pSound: ma_sound; enabled: Integer); cdecl;
-
 // =============================================================================
 // SOUND GROUPS (Buses for e.g. Music, SFX, Voice)
 // =============================================================================
@@ -202,7 +192,6 @@ procedure ma_sound_group_set_volume(pGroup: ma_sound_group; volume: Single); cde
 procedure ma_sound_group_set_pan(pGroup: ma_sound_group; pan: Single); cdecl;
 
 procedure ma_sound_group_set_pitch(pGroup: ma_sound_group; pitch: Single); cdecl;
-
 // =============================================================================
 // NODE GRAPH (For advanced audio routing)
 // =============================================================================
@@ -211,7 +200,6 @@ function ma_node_graph_init(pConfig: Pointer; pAllocationCallbacks: Pointer; pNo
 procedure ma_node_graph_uninit(pNodeGraph: ma_node_graph); cdecl;
 
 procedure ma_node_set_output_bus_volume(pNode: ma_node; outputBusIndex: Cardinal; volume: Single); cdecl;
-
 // =============================================================================
 // SPATIALIZER (Advanced 3D Audio Control)
 // =============================================================================
@@ -224,7 +212,6 @@ procedure ma_spatializer_set_position(pSpatializer: ma_spatializer; x, y, z: Sin
 procedure ma_spatializer_set_direction(pSpatializer: ma_spatializer; x, y, z: Single); cdecl;
 
 procedure ma_spatializer_set_velocity(pSpatializer: ma_spatializer; x, y, z: Single); cdecl;
-
 // =============================================================================
 // DEVICE (Low-Level Audio Device Control)
 // =============================================================================
@@ -239,7 +226,6 @@ function ma_device_start(pDevice: ma_device): ma_result; cdecl;
 function ma_device_stop(pDevice: ma_device): ma_result; cdecl;
 
 procedure ma_device_set_master_volume(pDevice: ma_device; volume: Single); cdecl;
-
 // =============================================================================
 // DATA SOURCES (Generic Audio Sources)
 // =============================================================================
@@ -258,7 +244,6 @@ function ma_data_source_get_cursor_in_pcm_frames(pDataSource: ma_data_source; ou
 function ma_data_source_get_length_in_pcm_frames(pDataSource: ma_data_source; out pLength: UInt64): ma_result; cdecl;
 
 procedure ma_data_source_set_looping(pDataSource: ma_data_source; isLooping: Integer); cdecl;
-
 // =============================================================================
 // AUDIO BUFFER (Loads audio entirely into RAM)
 // =============================================================================
@@ -297,7 +282,6 @@ function ma_decoder_seek_to_pcm_frame(pDecoder: ma_decoder; frameIndex: UInt64):
 function ma_decoder_get_data_format(pDecoder: ma_decoder; out pFormat: Cardinal; out pChannels: Cardinal; out pSampleRate: Cardinal; pChannelMap: Pointer; channelMapCap: Cardinal): ma_result; cdecl;
 
 function ma_decoder_get_length_in_pcm_frames(pDecoder: ma_decoder; out pLength: UInt64): ma_result; cdecl;
-
 // Specific Decoder Init functions for formats
 function ma_wav_init_memory(pData: Pointer; dataSize: NativeUInt; pWav: Pointer): ma_result; cdecl;
 
@@ -310,7 +294,6 @@ procedure ma_wav_uninit(pWav: Pointer); cdecl;
 procedure ma_mp3_uninit(pMp3: Pointer); cdecl;
 
 procedure ma_flac_uninit(pFlac: Pointer); cdecl;
-
 // =============================================================================
 // ENCODERS (Record audio and save as WAV)
 // =============================================================================
@@ -323,7 +306,6 @@ function ma_encoder_init_file_w(pFilePath: PWideChar; pConfig: Pointer; pEncoder
 procedure ma_encoder_uninit(pEncoder: ma_encoder); cdecl;
 
 function ma_encoder_write_pcm_frames(pEncoder: ma_encoder; pFramesIn: Pointer; frameCount: NativeUInt; out pFramesWritten: NativeUInt): ma_result; cdecl;
-
 // =============================================================================
 // NODES & EFFECTS (Biquad Filter, Delay, etc.)
 // =============================================================================
@@ -334,28 +316,24 @@ procedure ma_node_uninit(pNode: ma_node; pAllocationCallbacks: Pointer); cdecl;
 procedure ma_node_attach_output_bus(pNode: ma_node; outputBusIndex: Cardinal; pOtherNode: ma_node; otherNodeInputBusIndex: Cardinal); cdecl;
 
 procedure ma_node_detach_output_bus(pNode: ma_node; outputBusIndex: Cardinal); cdecl;
-
 // Biquad Filter (Lowpass, Highpass, etc.)
 function ma_biquad_node_config_init(format: Cardinal; channels: Cardinal; loPass: Single; hiPass: Single): Pointer; cdecl;
 
 function ma_biquad_node_init(pNodeGraph: ma_node_graph; pConfig: Pointer; pAllocationCallbacks: Pointer; pNode: ma_node): ma_result; cdecl;
 
 procedure ma_biquad_node_uninit(pNode: ma_node; pAllocationCallbacks: Pointer); cdecl;
-
 // Delay Effect
 function ma_delay_node_config_init(format: Cardinal; channels: Cardinal; sampleRate: Cardinal; delayInFrames: UInt32; decay: Single): Pointer; cdecl;
 
 function ma_delay_node_init(pNodeGraph: ma_node_graph; pConfig: Pointer; pAllocationCallbacks: Pointer; pNode: ma_node): ma_result; cdecl;
 
 procedure ma_delay_node_uninit(pNode: ma_node; pAllocationCallbacks: Pointer); cdecl;
-
 // Waveform (Generate Sine, Square, Sawtooth)
 function ma_waveform_config_init(format: Cardinal; channels: Cardinal; sampleRate: Cardinal; type_: Integer; amplitude: Single; frequency: Single): Pointer; cdecl;
 
 function ma_waveform_init(pConfig: Pointer; pWaveform: Pointer): ma_result; cdecl;
 
 procedure ma_waveform_uninit(pWaveform: Pointer); cdecl;
-
 // =============================================================================
 // RESOURCE MANAGER (Audio-Streaming & Memory Management)
 // =============================================================================
@@ -366,7 +344,6 @@ procedure ma_resource_manager_uninit(pResourceManager: ma_resource_manager); cde
 function ma_resource_manager_register_file(pResourceManager: ma_resource_manager; pFilePath: PAnsiChar): ma_result; cdecl;
 
 function ma_resource_manager_unregister_file(pResourceManager: ma_resource_manager; pFilePath: PAnsiChar): ma_result; cdecl;
-
 // =============================================================================
 // UTILS & CONVERSION (Volume, Clamp, etc.)
 // =============================================================================
@@ -379,7 +356,6 @@ procedure ma_apply_volume_factor_f32(pFrames: PSingle; frameCount: NativeUInt; c
 procedure ma_silence_pcm_frames(pFrames: Pointer; frameCount: NativeUInt; format: Cardinal; channels: Cardinal); cdecl;
 
 function ma_convert_frames(pFramesOut: Pointer; frameCountOut: NativeUInt; formatOut: Cardinal; channelsOut: Cardinal; sampleRateOut: Cardinal; pFramesIn: Pointer; frameCountIn: NativeUInt; formatIn: Cardinal; channelsIn: Cardinal; sampleRateIn: Cardinal): NativeUInt; cdecl;
-
 // =============================================================================
 // LOGGING
 // =============================================================================
@@ -390,7 +366,6 @@ procedure ma_log_uninit(pLog: ma_log); cdecl;
 procedure ma_log_post(pLog: ma_log; level: Integer; pMessage: PAnsiChar); cdecl;
 
 implementation
-
 // CORE & MEMORY
 
 function ma_engine_sizeof; cdecl; external MINIAUDIO_LIB;
@@ -410,7 +385,6 @@ function ma_spatializer_sizeof; cdecl; external MINIAUDIO_LIB;
 function ma_log_sizeof; cdecl; external MINIAUDIO_LIB;
 
 function ma_node_graph_sizeof; cdecl; external MINIAUDIO_LIB;
-
 // ENGINE
 function ma_engine_init; cdecl; external MINIAUDIO_LIB;
 
@@ -435,7 +409,6 @@ function ma_engine_get_time; cdecl; external MINIAUDIO_LIB;
 procedure ma_engine_set_time; cdecl; external MINIAUDIO_LIB;
 
 function ma_engine_play_sound; cdecl; external MINIAUDIO_LIB;
-
 // LISTENER
 procedure ma_engine_listener_set_position; cdecl; external MINIAUDIO_LIB;
 
@@ -446,7 +419,6 @@ procedure ma_engine_listener_set_velocity; cdecl; external MINIAUDIO_LIB;
 procedure ma_engine_listener_set_world_up; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_engine_listener_set_enabled; cdecl; external MINIAUDIO_LIB;
-
 // SOUND
 function ma_sound_init_from_file; cdecl; external MINIAUDIO_LIB;
 
@@ -485,7 +457,6 @@ procedure ma_sound_set_pitch; cdecl; external MINIAUDIO_LIB;
 function ma_sound_get_pitch; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_sound_set_fade_in_pcm_frames; cdecl; external MINIAUDIO_LIB;
-
 // 3D AUDIO
 procedure ma_sound_set_position; cdecl; external MINIAUDIO_LIB;
 
@@ -504,7 +475,6 @@ procedure ma_sound_set_rolloff; cdecl; external MINIAUDIO_LIB;
 procedure ma_sound_set_doppler_factor; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_sound_set_spatialization_enabled; cdecl; external MINIAUDIO_LIB;
-
 // GROUPS
 function ma_sound_group_init; cdecl; external MINIAUDIO_LIB;
 
@@ -519,14 +489,12 @@ procedure ma_sound_group_set_volume; cdecl; external MINIAUDIO_LIB;
 procedure ma_sound_group_set_pan; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_sound_group_set_pitch; cdecl; external MINIAUDIO_LIB;
-
 // NODE GRAPH
 function ma_node_graph_init; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_node_graph_uninit; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_node_set_output_bus_volume; cdecl; external MINIAUDIO_LIB;
-
 // SPATIALIZER
 function ma_spatializer_init; cdecl; external MINIAUDIO_LIB;
 
@@ -537,7 +505,6 @@ procedure ma_spatializer_set_position; cdecl; external MINIAUDIO_LIB;
 procedure ma_spatializer_set_direction; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_spatializer_set_velocity; cdecl; external MINIAUDIO_LIB;
-
 // DEVICE
 function ma_device_init; cdecl; external MINIAUDIO_LIB;
 
@@ -550,7 +517,6 @@ function ma_device_start; cdecl; external MINIAUDIO_LIB;
 function ma_device_stop; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_device_set_master_volume; cdecl; external MINIAUDIO_LIB;
-
 // DATA SOURCES
 function ma_data_source_init; cdecl; external MINIAUDIO_LIB;
 
@@ -567,7 +533,6 @@ function ma_data_source_get_cursor_in_pcm_frames; cdecl; external MINIAUDIO_LIB;
 function ma_data_source_get_length_in_pcm_frames; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_data_source_set_looping; cdecl; external MINIAUDIO_LIB;
-
 // AUDIO BUFFER
 function ma_audio_buffer_init; cdecl; external MINIAUDIO_LIB;
 
@@ -580,7 +545,6 @@ procedure ma_audio_buffer_uninit; cdecl; external MINIAUDIO_LIB;
 procedure ma_audio_buffer_uninit_and_free; cdecl; external MINIAUDIO_LIB;
 
 function ma_audio_buffer_config_init; cdecl; external MINIAUDIO_LIB;
-
 // DECODERS
 function ma_decoder_config_init; cdecl; external MINIAUDIO_LIB;
 
@@ -613,7 +577,6 @@ procedure ma_wav_uninit; cdecl; external MINIAUDIO_LIB;
 procedure ma_mp3_uninit; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_flac_uninit; cdecl; external MINIAUDIO_LIB;
-
 // ENCODERS
 function ma_encoder_config_init; cdecl; external MINIAUDIO_LIB;
 
@@ -624,7 +587,6 @@ function ma_encoder_init_file_w; cdecl; external MINIAUDIO_LIB;
 procedure ma_encoder_uninit; cdecl; external MINIAUDIO_LIB;
 
 function ma_encoder_write_pcm_frames; cdecl; external MINIAUDIO_LIB;
-
 // NODES & EFFECTS
 function ma_node_init; cdecl; external MINIAUDIO_LIB;
 
@@ -651,7 +613,6 @@ function ma_waveform_config_init; cdecl; external MINIAUDIO_LIB;
 function ma_waveform_init; cdecl; external MINIAUDIO_LIB;
 
 procedure ma_waveform_uninit; cdecl; external MINIAUDIO_LIB;
-
 // RESOURCE MANAGER
 function ma_resource_manager_init; cdecl; external MINIAUDIO_LIB;
 
@@ -660,7 +621,6 @@ procedure ma_resource_manager_uninit; cdecl; external MINIAUDIO_LIB;
 function ma_resource_manager_register_file; cdecl; external MINIAUDIO_LIB;
 
 function ma_resource_manager_unregister_file; cdecl; external MINIAUDIO_LIB;
-
 // UTILS & CONVERSION
 function ma_volume_db_to_linear; cdecl; external MINIAUDIO_LIB;
 
@@ -671,7 +631,6 @@ procedure ma_apply_volume_factor_f32; cdecl; external MINIAUDIO_LIB;
 procedure ma_silence_pcm_frames; cdecl; external MINIAUDIO_LIB;
 
 function ma_convert_frames; cdecl; external MINIAUDIO_LIB;
-
 // LOG
 function ma_log_init; cdecl; external MINIAUDIO_LIB;
 

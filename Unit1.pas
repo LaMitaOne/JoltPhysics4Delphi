@@ -269,11 +269,14 @@ end;
 procedure TForm1.btnSpawnBombClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stBomb);
+  FSandbox.SetGizmoMode(gmTranslate);
+  lblInfo.Caption := 'Brush: Bomb Selected.';
 end;
 
 procedure TForm1.btnSpawnCapsulesClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stCapsule);
+  FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Capsule Selected.';
 end;
 
@@ -307,8 +310,10 @@ end;
 
 procedure TForm1.btnClearSceneClick(Sender: TObject);
 begin
-  FSandbox.ClearItems;
   FSandbox.SetBrush(TShapeType(-1));
+  FSandbox.ClearItems;
+
+
   lblInfo.Caption := 'Scene Cleared.';
 end;
 
