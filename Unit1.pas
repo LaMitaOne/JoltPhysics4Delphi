@@ -66,6 +66,7 @@ type
     btnSpawnBomb: TButton;
     btnSpawnButton: TButton;
     chkSlowMotion: TCheckBox;
+    SaveDialog1: TSaveDialog;
     procedure FormCreate(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
     procedure btnSpawnSpheresClick(Sender: TObject);
@@ -240,14 +241,88 @@ begin
   FSandbox.SetSlowMotion(chkSlowMotion.Checked);
 end;
 
-procedure TForm1.btnSceneLoadClick(Sender: TObject);
-begin
- //
-end;
-
 procedure TForm1.btnSceneSaveClick(Sender: TObject);
+var
+  Stream: TFileStream;
+  Writer: TWriter;
+  i: Integer;
+  Actor: TA3DComponent;
 begin
-  //
+  //if not Assigned(FSandbox) then
+  Exit;         //not working now
+  if SaveDialog1.Execute then
+  begin
+    Stream := TFileStream.Create(SaveDialog1.FileName, fmCreate);
+    try
+      Writer := TWriter.Create(Stream, 4096);
+      try
+        // Write the total number of objects at the beginning of the stream
+        Writer.WriteInteger(FSandbox.ItemCount);
+        // Serialize each Actor
+        for i := 0 to FSandbox.ItemCount - 1 do
+        begin
+          Actor := FSandbox.FItems[i];
+          if Assigned(Actor) then
+          begin
+            // WriteComponent automatically uses RTTI to write all Published properties
+            // of TA3DComponent (Position, Rotation, Scale, Colors, etc.) to the stream
+            Writer.WriteComponent(Actor);
+          end;
+        end;
+        Writer.FlushBuffer;
+      finally
+        Writer.Free;
+      end;
+    finally
+      Stream.Free;
+    end;
+    lblInfo.Caption := 'Scene saved to: ' + SaveDialog1.FileName;
+  end;
+end;
+procedure TForm1.btnSceneLoadClick(Sender: TObject);
+var
+  Stream: TFileStream;
+  Reader: TReader;
+  i, Count: Integer;
+  Actor: TA3DComponent;
+begin
+  //if not Assigned(FSandbox) then
+  Exit;         //not working now
+  if OpenDialog1.Execute then
+  begin
+    if not FileExists(PAnsichar(OpenDialog1.FileName)) then Exit;
+    // Clear the current scene safely
+    FSandbox.ClearItems;
+    Stream := TFileStream.Create(OpenDialog1.FileName, fmOpenRead);
+    try
+      Reader := TReader.Create(Stream, 4096);
+      try
+        // Read the total number of objects from the beginning of the stream
+        Count := Reader.ReadInteger;
+        // Deserialize each Actor
+        for i := 0 to Count - 1 do
+        begin
+          // ReadComponent instantiates the object and loads all properties.
+          // NOTE: ReadComponent tries to call the parameterless constructor.
+          // This might cause issues if TA3DComponent strictly requires an Engine object.
+          // We will need to adjust the constructor in ModelEngine!
+          Actor := TComponent(Reader.ReadComponent(nil)) as TA3DComponent;
+          if Assigned(Actor) then
+          begin
+            // UserData is not serialized; it will be regenerated on re-attach
+            Actor.UserData := nil;
+            // TODO: Create a method in TRaylibSandbox (e.g., ReattachLoadedActor)
+            // to pass the loaded Actor back to Jolt Physics to recreate its collision bodies!
+          end;
+        end;
+      finally
+        Reader.Free;
+      end;
+    finally
+      Stream.Free;
+    end;
+    lblInfo.Caption := 'Scene loaded from: ' + OpenDialog1.FileName;
+  end;
 end;
 
 procedure TForm1.btnSelectNextClick(Sender: TObject);
