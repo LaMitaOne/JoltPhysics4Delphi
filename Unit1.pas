@@ -195,8 +195,8 @@ end;
 
 procedure TForm1.btnToolDragThrowClick(Sender: TObject);
 begin
-  // Activate Drag & Throw Tool (Gizmo Mode None)
-  FSandbox.SetGizmoMode(gmNone);
+  // Activate Drag & Throw Tool (Gizmo Mode gmDragAndThrow)
+  FSandbox.SetGizmoMode(gmDragAndThrow);
   lblInfo.Caption := 'Tool: Drag & Throw Active.';
 end;
 
