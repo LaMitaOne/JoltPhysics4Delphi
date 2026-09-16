@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine v0.56 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.57 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -47,7 +47,7 @@ uses
   RayMath, Math, JoltPhysics, r3ddelphi, TypInfo;
 
 type
-  TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism, stModel, stBomb);
+  TShapeType = (stBox, stSphere, stCapsule, stPyramid, stPrism, stModel, stBomb, stButton);
 
   TA3DComponent = class;
 
@@ -76,7 +76,6 @@ type
     procedure Add(const Component: TA3DComponent);
     procedure Remove(const Component: TA3DComponent);
     procedure Update(DeltaTime: single);
-    procedure Render;
     procedure Clear;
     function RayCast(const Origin, Direction: TVector3; out HitBodyID: JPH_BodyID; out HitPoint: TVector3): Boolean;
     property Items[const Index: integer]: TA3DComponent read GetComponent; default;
@@ -91,7 +90,13 @@ type
     FFriction: Single;
     FRestitution: Single;
     FMass: Single;
-    FIsStatic: Boolean; // NEW: Cached flag to know if this body is static
+    FIsStatic: Boolean;
+    FIsHovered: Boolean;
+    FIsPressed: Boolean;
+    FOnClick: TNotifyEvent;
+    FBaseColor: TColorB;
+    FHoverColor: TColorB;
+    FButtonCaption: string;
     procedure SetFriction(const Value: Single);
     procedure SetRestitution(const Value: Single);
     procedure SetMass(const Value: Single);
@@ -122,11 +127,11 @@ type
     FMeshSize: TVector3;
     FIsDead: boolean;
     FModelTransform: TMatrix;
+    FButtonTexture: TTexture2D;
     constructor Create(AOwner: TComponent); overload; override;
     constructor Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean = False; APos: PJPH_RVec3 = nil; ARot: PJPH_Quat = nil); reintroduce; overload;
     destructor Destroy; override;
     procedure Update(DeltaTime: single); virtual;
-    procedure Draw; virtual;
     procedure SetPosition(APosition: TVector3);
     procedure SetRotation(AQuaternion: TQuaternion);
     procedure SetLinearVelocity(AVelocity: TVector3);
@@ -162,6 +167,12 @@ type
     property LerpSpeed: Single read FLerpSpeed write FLerpSpeed;
     property OnCollision: TCollisionEvent read FOnCollision write FOnCollision;
     property IsStatic: Boolean read FIsStatic;
+    property IsHovered: Boolean read FIsHovered write FIsHovered;
+    property IsPressed: Boolean read FIsPressed write FIsPressed;
+    property OnClick: TNotifyEvent read FOnClick write FOnClick;
+    property BaseColor: TColorB read FBaseColor write FBaseColor;
+    property HoverColor: TColorB read FHoverColor write FHoverColor;
+    property Caption: string read FButtonCaption write FButtonCaption;
   end;
 
 implementation
@@ -309,10 +320,6 @@ begin
     on E: Exception do
       OutputDebugString(PChar('Engine Physics Update Exception: ' + E.Message));
   end;
-end;
-
-procedure TModelEngine.Render;
-begin
 end;
 
 procedure TModelEngine.Clear;
@@ -544,6 +551,22 @@ var
   JPos: JPH_Vec3;
   JRot: JPH_Quat;
 begin
+  // Manage button color states dynamically
+  if FShapeType = stButton then
+  begin
+    if FIsPressed then
+    begin
+      // Darken color when pressed
+      FTargetColor.r := Max(0, Round(FBaseColor.r * 0.6));
+      FTargetColor.g := Max(0, Round(FBaseColor.g * 0.6));
+      FTargetColor.b := Max(0, Round(FBaseColor.b * 0.6));
+      FTargetColor.a := 255;
+    end
+    else if FIsHovered then
+      FTargetColor := FHoverColor
+    else
+      FTargetColor := FBaseColor;
+  end;
   UpdateLerp(DeltaTime);
   if FBodyID <> 0 then
   begin
@@ -856,11 +879,6 @@ procedure TA3DComponent.DeactivateBody;
 begin
   if FBodyID <> 0 then
     JPH_BodyInterface_DeactivateBody(FEngine.BodyInterface, FBodyID);
-end;
-
-procedure TA3DComponent.Draw;
-begin
-  // Rendering is handled externally
 end;
 
 end.

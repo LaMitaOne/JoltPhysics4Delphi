@@ -1,7 +1,7 @@
 unit VCL3D;
 
 {==============================================================================*
- *  VCL3D - High-Level Spawning Utilities for TRaylibSandbox
+ *  VCL3D v0.57 - High-Level Spawning Utilities for TRaylibSandbox
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *
@@ -14,7 +14,7 @@ unit VCL3D;
 interface
 
 uses
-  System.SysUtils, Raylib, RaylibSandbox, ModelEngine;
+  System.SysUtils, System.Classes, Raylib, RaylibSandbox, ModelEngine;
 
 type
   TVCL3D = class
@@ -30,10 +30,12 @@ type
 
     { Call this when the scene is cleared to allow Sandbox to be spawned again }
     class procedure ResetSandboxFlag;
+
+    { Spawns a 3D UI Button with OnClick Event }
+    class procedure SpawnButton(Sandbox: TRaylibSandbox; const ACaption: string; APos, ASize: TVector3; AOnClick: TNotifyEvent);
   end;
 
 implementation
-
 { TVCL3D }
 
 class procedure TVCL3D.ResetSandboxFlag;
@@ -140,6 +142,31 @@ begin
       Sandbox.QueueCustomSpawn(Req);
     end;
   end;
+end;
+
+class procedure TVCL3D.SpawnButton(Sandbox: TRaylibSandbox; const ACaption: string; APos, ASize: TVector3; AOnClick: TNotifyEvent);
+var
+  Req: TSpawnRequest;
+begin
+  if not Assigned(Sandbox) then
+    Exit;
+
+  // Configure the spawn request for a static UI button
+  Req.Shape := stButton;
+  Req.Pos := APos;
+  Req.Size := ASize;
+  Req.IsStatic := True; // Buttons shouldn't fall via gravity
+  Req.Name := 'UI_Button_' + ACaption;
+
+  // Default Colors (Standard VCL Blue-ish)
+  Req.Color := BLUE;
+  Req.BaseColor := GRAY;
+  Req.HoverColor := SKYBLUE;
+
+  Req.Caption := ACaption;
+  Req.OnClick := AOnClick;
+
+  Sandbox.QueueCustomSpawn(Req);
 end;
 
 end.

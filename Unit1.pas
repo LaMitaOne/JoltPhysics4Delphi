@@ -64,6 +64,8 @@ type
     btnSpawnSandbox: TButton;
     btnSpawnWall: TButton;
     btnSpawnBomb: TButton;
+    btnSpawnButton: TButton;
+    chkSlowMotion: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
     procedure btnSpawnSpheresClick(Sender: TObject);
@@ -97,6 +99,8 @@ type
     procedure btnSpawnSandboxClick(Sender: TObject);
     procedure btnSpawnWallClick(Sender: TObject);
     procedure btnSpawnBombClick(Sender: TObject);
+    procedure btnSpawnButtonClick(Sender: TObject);
+    procedure chkSlowMotionClick(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TA3DComponent;
@@ -110,6 +114,7 @@ type
     procedure LoadPropertiesIntoGrid(AComponent: TA3DComponent);
     procedure SelectActorInUI(AActor: TA3DComponent);
     procedure HandleObjectSelected(Sender: TObject; Actor: TA3DComponent);
+    procedure My3DButtonClick(Sender: TObject);
   public
     { Public declarations }
   end;
@@ -194,6 +199,16 @@ begin
   lblInfo.Caption := 'Tool: Drag & Throw Active.';
 end;
 
+procedure TForm1.btnSpawnButtonClick(Sender: TObject);
+begin
+  TVCL3D.SpawnButton(FSandbox, 'Button', Vector3Create(0, 5, 0), Vector3Create(4, 1, 0.5), My3DButtonClick);
+end;
+
+procedure TForm1.My3DButtonClick(Sender: TObject);
+begin
+  ShowMessage('Hello World vom 3D Button!');
+end;
+
 procedure TForm1.cbFPSChange(Sender: TObject);
 begin
   // TargetFPS is just an indicator, real limit is removed in RaylibSandbox to allow 144+ FPS if VSync is off
@@ -218,6 +233,11 @@ end;
 procedure TForm1.chkHighlightCollisionClick(Sender: TObject);
 begin
   FSandbox.HighlightCollision := chkHighlightCollision.Checked;
+end;
+
+procedure TForm1.chkSlowMotionClick(Sender: TObject);
+begin
+  FSandbox.SetSlowMotion(chkSlowMotion.Checked);
 end;
 
 procedure TForm1.btnSceneLoadClick(Sender: TObject);

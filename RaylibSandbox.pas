@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.56 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.57 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -84,6 +84,10 @@ type
     IsStatic: Boolean;
     Name: string;
     Color: TColorB;
+    Caption: string;
+    BaseColor: TColorB;
+    HoverColor: TColorB;
+    OnClick: TNotifyEvent;
   end;
 
   TRaylibSandbox = class;
@@ -105,7 +109,7 @@ type
 
   TEngineExceptionEvent = procedure(Sender: TObject; const Args: TEngineExceptionEventArgs) of object;
 
-  TGizmoMode = (gmNone, gmTranslate, gmRotate, gmScale);
+  TGizmoMode = (gmNone, gmTranslate, gmRotate, gmScale, gmDragAndThrow);
 
   TRaylibSandbox = class(TWinControl)
   private
@@ -152,6 +156,7 @@ type
     FShadowMap: TRenderTexture2D;
     FDefaultMat: TMaterial;
     FWhiteTex: TTexture2D;
+    FDefaultWhiteTex: TTexture2D; // Sichere Basis-Textur für Standard-Modelle
     FLightCam: TCamera3D;
     FShadowMapLoc: Integer;
     FLightViewLoc: Integer;
@@ -244,6 +249,11 @@ type
     FBombActor: TA3DComponent;
     FBombTimer: Single;
     FBombExploded: Boolean;
+
+    // Slow Motion System Variables
+    FTimeScale: Single;
+    FSlowMotionActive: Boolean;
+
     procedure UpdateBomb(dt: Single);
     procedure ExplodeBomb;
 
@@ -319,6 +329,9 @@ type
     // Exposes the custom spawn queue to external threads/UI
     procedure QueueCustomSpawn(const Request: TSpawnRequest);
 
+    // External method to toggle slow motion externally
+    procedure SetSlowMotion(Active: Boolean);
+
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     property OnViewportReady: TNotifyEngineEvent read FOnViewportReady write FOnViewportReady;
@@ -359,6 +372,39 @@ const
     b: 170;
     A: 255
   );
+
+// Helper function to render text into a texture so it can be applied to 3D meshes
+function DrawTextToTexture(const AText: string; FontSize: Integer; TextColor, BGColor: TColorB): TTexture2D;
+var
+  Img: TImage;
+  W, H: Integer;
+  Txt: AnsiString;
+begin
+  Txt := AnsiString(' ' + AText + ' ');
+  if Length(Txt) = 0 then
+    Txt := ' ';
+
+  // Calculate width and height for the image canvas
+  W := MeasureText(PAnsiChar(Txt), FontSize) + 4;
+  H := FontSize + 4;
+
+  // Generate an image filled with the BUTTON COLOR (not transparent!)
+  Img := GenImageColor(W, H, BGColor);
+
+  // Draw the text onto the image
+  ImageDrawText(@Img, PAnsiChar(Txt), 2, 2, FontSize, TextColor);
+
+  ImageFlipVertical(@Img);
+
+  // Convert the image to a GPU texture
+  Result := LoadTextureFromImage(Img);
+
+  // Set trilinear filter so the text doesn't look pixelated up close
+  SetTextureFilter(Result, TEXTURE_FILTER_TRILINEAR);
+
+  // Free the CPU-side image data
+  UnloadImage(Img);
+end;
 
 procedure TRaylibSandbox.DrawMeshBox(Pos: TVector3; Scale: TVector3; Color: TColorB);
 begin
@@ -444,6 +490,10 @@ begin
   // Initialize Custom Spawn Queue
   FCustomSpawnQueue := nil;
   FCustomSpawnTimer := 0.0;
+
+  // Initialize Slow Motion System
+  FTimeScale := 1.0; // Default to normal speed
+  FSlowMotionActive := False;
 end;
 
 destructor TRaylibSandbox.Destroy;
@@ -563,8 +613,8 @@ const
   VERT: AnsiString = '#version 330' + #10 + 'in vec3 vertexPosition;' + #10 + 'in vec3 vertexNormal;' + #10 + 'in vec2 vertexTexCoord;' + #10 + 'in vec4 vertexColor;' + #10 + 'uniform mat4 mvp;' + #10 + 'uniform mat4 matModel;' + #10 + 'uniform mat4 lightView;' + #10 + 'uniform mat4 lightProj;' + #10 + 'out vec3 vNormal;' + #10 + 'out vec2 vTexCoord;' + #10 + 'out vec4 vColor;' + #10 + 'out vec4 vWorldPos;' + #10 + 'out vec4 vLightSpacePos;' + #10 + 'void main()' + #10 + '{' + #10 +
     '  vWorldPos = matModel * vec4(vertexPosition, 1.0);' + #10 + '  vNormal = normalize(mat3(matModel) * vertexNormal);' + #10 + '  vTexCoord = vertexTexCoord;' + #10 + '  vColor = vertexColor;' + #10 + '  vLightSpacePos = lightProj * lightView * vWorldPos;' + #10 + '  gl_Position = mvp * vec4(vertexPosition, 1.0);' + #10 + '}';
   FRAG: AnsiString = '#version 330' + #10 + 'in vec3 vNormal;' + #10 + 'in vec2 vTexCoord;' + #10 + 'in vec4 vColor;' + #10 + 'in vec4 vWorldPos;' + #10 + 'in vec4 vLightSpacePos;' + #10 + 'uniform vec3 lightPos;' + #10 + 'uniform vec3 viewPos;' + #10 + 'uniform vec4 ambient;' + #10 + 'uniform vec4 diffuse;' + #10 + 'uniform sampler2D texture0;' + #10 + 'uniform sampler2D shadowMap;' + #10 + 'uniform float shadowBias;' + #10 + 'out vec4 finalColor;' + #10 + 'void main()' + #10 + '{' + #10 +
-    '  vec3 lightDir = normalize(lightPos - vWorldPos.xyz);' + #10 + '  vec3 normal = normalize(vNormal);' + #10 + '  float diff = max(dot(normal, lightDir), 0.0);' + #10 + '  vec4 texColor = texture(texture0, vTexCoord);' + #10 + '  vec4 baseColor = vColor;' + #10 + '  vec4 ambientColor = ambient * baseColor;' + #10 + '  vec4 diffuseColor = diffuse * diff * baseColor;' + #10 + '  vec3 projCoords = vLightSpacePos.xyz / vLightSpacePos.w;' + #10 + '  projCoords = projCoords * 0.5 + 0.5;' + #10 +
-    '  float shadow = 0.0;' + #10 + '  if(projCoords.z <= 1.0 && projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 && projCoords.y <= 1.0) {' + #10 + '    float closestDepth = texture(shadowMap, projCoords.xy).r;' + #10 + '    float currentDepth = projCoords.z;' + #10 + '    shadow = currentDepth - shadowBias > closestDepth ? 1.0 : 0.0;' + #10 + '  }' + #10 + '  finalColor = ambientColor + diffuseColor * (1.0 - shadow);' + #10 + '}';
+    '  vec3 lightDir = normalize(lightPos - vWorldPos.xyz);' + #10 + '  vec3 normal = normalize(vNormal);' + #10 + '  float diff = max(dot(normal, lightDir), 0.0);' + #10 + '  vec4 texColor = texture(texture0, vTexCoord);' + #10 + 'vec4 baseColor = vec4(vColor.rgb, vColor.a) * texColor;' + #10 + '  vec4 ambientColor = ambient * baseColor;' + #10 + '  vec4 diffuseColor = diffuse * diff * baseColor;' + #10 + '  vec3 projCoords = vLightSpacePos.xyz / vLightSpacePos.w;' + #10 +
+    '  projCoords = projCoords * 0.5 + 0.5;' + #10 + '  float shadow = 0.0;' + #10 + '  if(projCoords.z <= 1.0 && projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 && projCoords.y <= 1.0) {' + #10 + '    float closestDepth = texture(shadowMap, projCoords.xy).r;' + #10 + '    float currentDepth = projCoords.z;' + #10 + '    shadow = currentDepth - shadowBias > closestDepth ? 1.0 : 0.0;' + #10 + '  }' + #10 + '  finalColor = ambientColor + diffuseColor * (1.0 - shadow);' + #10 + '}';
   // Procedural Skybox Shader
   SKYBOX_VERT: AnsiString = '#version 330' + #10 + 'in vec3 vertexPosition;' + #10 + 'out vec3 fragPosition;' + #10 + 'uniform mat4 projection;' + #10 + 'uniform mat4 view;' + #10 + 'void main()' + #10 + '{' + #10 + '  fragPosition = vertexPosition;' + #10 + '  mat4 rotView = mat4(mat3(view));' + #10 + // Remove translation
     '  vec4 clipPos = projection * rotView * vec4(vertexPosition, 1.0);' + #10 + '  gl_Position = clipPos.xyww;' + #10 + // Force depth to 1.0 (background)
@@ -579,6 +629,11 @@ var
   SkyMesh, CloudMesh: TMesh;
   FilePath: string;
 begin
+  // Sichere 1x1 weiße Textur generieren, damit Shader nie ins Leere laufen (Schwarz)
+  var WhiteImg := GenImageColor(1, 1, WHITE);
+  FDefaultWhiteTex := LoadTextureFromImage(WhiteImg);
+  UnloadImage(WhiteImg);
+
   // Initialize Main Lighting Shader
   FLightShader := LoadShaderFromMemory(PAnsiChar(VERT), PAnsiChar(FRAG));
   FLightPosLoc := GetShaderLocation(FLightShader, 'lightPos');
@@ -628,6 +683,7 @@ begin
   FCapsuleModel := LoadModelFromMesh(GenMeshCylinder(0.5, 1.0, 24));
   FPyramidModel := LoadModelFromMesh(GenMeshCone(0.5, 1.0, 4));
   FPrismModel := LoadModelFromMesh(GenMeshCylinder(0.5, 1.0, 3));
+
   // We assign a rotation quaternion so the shader knows the normals rotate with the object
   FPrismModel.transform := MatrixRotateY(120.0 * DEG2RAD);
   FBoxModel.materials[0].shader := FLightShader;
@@ -637,6 +693,11 @@ begin
   FPyramidModel.transform := MatrixRotateY(45.0 * DEG2RAD);
   FPrismModel.transform := MatrixRotateY(120.0 * DEG2RAD);
   FPrismModel.materials[0].shader := FLightShader;
+
+  // Sichere weiße Standard-Textur für alle Modelle setzen!
+  FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := FDefaultWhiteTex;
+  FSphereModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := FDefaultWhiteTex;
+  FCapsuleModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := FDefaultWhiteTex;
 
   // Initialize Skybox
   FSkyboxShader := LoadShaderFromMemory(PAnsiChar(SKYBOX_VERT), PAnsiChar(SKYBOX_FRAG));
@@ -842,6 +903,8 @@ begin
             UnloadTexture(FAmbientGradientTex);
           if FWhiteTex.id > 0 then
             UnloadTexture(FWhiteTex);
+          if FDefaultWhiteTex.id > 0 then
+            UnloadTexture(FDefaultWhiteTex);
           UnloadMesh(FUnitBox);
           UnloadMesh(FUnitSphere);
           if FAudioEngine <> nil then
@@ -1241,11 +1304,14 @@ begin
   begin
     if not FCtrlWasPressed then
     begin
+      // Cycle through tools including the new explicit Drag & Throw tool
       if FGizmoMode = gmTranslate then
         FGizmoMode := gmRotate
       else if FGizmoMode = gmRotate then
         FGizmoMode := gmScale
       else if FGizmoMode = gmScale then
+        FGizmoMode := gmDragAndThrow
+      else if FGizmoMode = gmDragAndThrow then
         FGizmoMode := gmNone
       else if FGizmoMode = gmNone then
         FGizmoMode := gmTranslate;
@@ -1259,6 +1325,88 @@ begin
     HandlePopupInput;
     Exit;
   end;
+
+  ray := GetScreenToWorldRay(FMousePos, FCamera);
+
+  // ====================================================================
+  // 3D BUTTON INTERACTION LOGIC (Hover & Click)
+  // Handles UI clicks independent from physics tools
+  // ====================================================================
+  var ClosestButtonDist: Single := 1e9;
+  var HoveredButton: TA3DComponent := nil;
+
+  // Reset hover states for all buttons
+  for i := 0 to High(FItems) do
+    if Assigned(FItems[i]) and (FItems[i].ShapeType = stButton) then
+      FItems[i].IsHovered := False;
+
+  // Find the closest button under the mouse cursor
+  for i := 0 to High(FItems) do
+  begin
+    if Assigned(FItems[i]) and (FItems[i].ShapeType = stButton) then
+    begin
+      HalfX := FItems[i].Scale.x * 0.5;
+      HalfY := FItems[i].Scale.y * 0.5;
+      HalfZ := FItems[i].Scale.z * 0.5;
+      itemBox.min := Vector3Create(FItems[i].position.x - HalfX, FItems[i].position.y - HalfY, FItems[i].position.z - HalfZ);
+      itemBox.max := Vector3Create(FItems[i].position.x + HalfX, FItems[i].position.y + HalfY, FItems[i].position.z + HalfZ);
+
+      hitInfo := GetRayCollisionBox(ray, itemBox);
+      if hitInfo.hit and (hitInfo.distance < ClosestButtonDist) then
+      begin
+        ClosestButtonDist := hitInfo.distance;
+        HoveredButton := FItems[i];
+      end;
+    end;
+  end;
+
+  if Assigned(HoveredButton) then
+  begin
+    HoveredButton.IsHovered := True;
+
+    if bLeftMouseClicked then
+    begin
+      HoveredButton.IsPressed := True;
+      FMouseLeftHandled := True;
+    end
+    else if (not FMouseLeftPressed) and HoveredButton.IsPressed then
+    begin
+      // Mouse released -> Trigger OnClick!
+      HoveredButton.IsPressed := False;
+      FMouseLeftHandled := True;
+
+      // Fire Event thread-safe to avoid VCL cross-thread exceptions
+      if Assigned(HoveredButton.OnClick) then
+      begin
+        var Callback := HoveredButton.OnClick;
+        var BtnRef := HoveredButton;
+
+        // CRITICAL: Set to nil to prevent spam firing in the next frames!
+        HoveredButton.OnClick := nil;
+
+        TThread.Queue(nil,
+          procedure
+          begin
+            Callback(BtnRef);
+            // Restore the OnClick event for the next time
+            BtnRef.OnClick := Callback;
+          end);
+      end;
+    end;
+
+    Exit; // Prevent selecting 3D objects behind the button
+  end
+  else
+  begin
+    // If mouse is released outside any button, unpress all buttons
+    if not FMouseLeftPressed then
+    begin
+      for i := 0 to High(FItems) do
+        if Assigned(FItems[i]) and (FItems[i].ShapeType = stButton) then
+          FItems[i].IsPressed := False;
+    end;
+  end;
+
   if (GetAsyncKeyState(VK_RBUTTON) and $8000) <> 0 then
   begin
     if not FRightClickWasPressed then
@@ -1269,7 +1417,10 @@ begin
       begin
         FPopupOpen := True;
         FPopupPos := FMousePos;
-        ray := GetScreenToWorldRay(FMousePos, FCamera);
+
+  // If gmNone is active, we do strictly nothing else (no object dragging)
+        if FGizmoMode = gmNone then
+          Exit;
         groundBox.min := Vector3Create(-1000, -0.1, -1000);
         groundBox.max := Vector3Create(1000, 0.1, 1000);
         hitInfo := GetRayCollisionBox(ray, groundBox);
@@ -1303,7 +1454,7 @@ begin
     Exit;
   end;
   ray := GetScreenToWorldRay(FMousePos, FCamera);
-  if FGizmoMode = gmNone then
+  if FGizmoMode = gmDragAndThrow then
   begin
     if FDragging and Assigned(FItemSelected) then
     begin
@@ -2151,6 +2302,9 @@ begin
       begin
         if Assigned(FItems[i]) then
         begin
+          // Unload the button text texture if it exists
+          if FItems[i].FButtonTexture.id > 0 then
+            UnloadTexture(FItems[i].FButtonTexture);
           FItems[i].Visible := False;
           FItems[i].Free;
           FItems[i] := nil;
@@ -2176,16 +2330,26 @@ begin
     end;
   end;
   dt := GetFrameTime();
+
+  // Slow Motion calculation: Scale time if active, otherwise normal speed
+  if FSlowMotionActive then
+    FTimeScale := 0.2 // 20% speed
+  else
+    FTimeScale := 1.0; // Normal speed
+
+  // Calculate physics delta time based on slow motion scale
+  var PhysDt: Single := dt * FTimeScale;
+
   HandleCameraInput;
   HandleDesktopInput;
   ProcessSpawnQueue(dt);
   ProcessCustomSpawnQueue(dt); // Process custom external spawns
-  UpdateBomb(dt);
+  UpdateBomb(PhysDt); // Pass slowed down time to bomb timer
   if FSimulationRunning then
   begin
     try
       QueryPerformanceCounter(StartTime);
-      FEngine.Update(dt);
+      FEngine.Update(PhysDt); // Pass slowed down time to Jolt Physics
       QueryPerformanceCounter(EndTime);
       QueryPerformanceFrequency(Freq);
       FLastPhysicsTime := (EndTime - StartTime) * 1000.0 / Freq;
@@ -2254,7 +2418,7 @@ begin
         FItems[i].TealGlow := IsTeal;
       end;
     end;
-  if FDragging and Assigned(FItemSelected) and (FGizmoMode = gmNone) then
+  if FDragging and Assigned(FItemSelected) and (FGizmoMode = gmDragAndThrow) then
   begin
     Dir.x := FDragTargetPos.x - FItemSelected.Position.x;
     Dir.y := 0;
@@ -2647,6 +2811,7 @@ begin
           ModelMat := rlGetMatrixTransform();
           SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
 
+          // Standard-Box nutzt die Base-Textur von Raylib
           DrawModel(FBoxModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
           DrawCubeWires(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, BLACK);
         end
@@ -2731,6 +2896,51 @@ begin
           SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
 
           DrawCylinderWiresEx(Vector3Create(0, 0.5, 0), Vector3Create(0, -0.5, 0), 0.5, 0.5, 3, BLACK);
+          rlPopMatrix();
+        end
+        // ====================================================================
+        // 3D BUTTON
+        // ====================================================================
+        else if Actor.ShapeType = stButton then
+        begin
+          // Button movement: Only move inward when pressed
+          var BtnOffset: Single := 0.0;
+          if Actor.IsPressed then
+            BtnOffset := -0.03; // Move slightly inward on click
+
+          // 1. Draw the outer frame (darker color)
+          rlPushMatrix();
+          rlScalef(Actor.Scale.x, Actor.Scale.y, Actor.Scale.z);
+          var FrameCol: TColorB;
+          FrameCol.r := Max(0, Round(Actor.BaseColor.r * 0.5));
+          FrameCol.g := Max(0, Round(Actor.BaseColor.g * 0.5));
+          FrameCol.b := Max(0, Round(Actor.BaseColor.b * 0.5));
+          FrameCol.a := 255;
+
+          DrawCube(Vector3Create(0, 0, -0.1), 1.0, 1.0, 1.0, FrameCol);
+          rlPopMatrix();
+
+          rlPushMatrix();
+          rlTranslatef(0, 0, BtnOffset);
+          rlScalef(Actor.Scale.x * 0.85, Actor.Scale.y * 0.85, Actor.Scale.z);
+
+          if Actor.FButtonTexture.id > 0 then
+            FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := Actor.FButtonTexture
+          else
+            FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := FDefaultWhiteTex;
+
+          rlEnableBackfaceCulling();
+
+          ModelMat := rlGetMatrixTransform();
+          SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
+
+          DrawModel(FBoxModel, Vector3Create(0, 0, 0), 1.0, Actor.ActColor);
+
+          rlDisableBackfaceCulling();
+
+          FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := FDefaultWhiteTex;
+
+          DrawCubeWires(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, BLACK);
           rlPopMatrix();
         end;
 
@@ -2988,7 +3198,9 @@ begin
   end;
 
   dt := GetFrameTime();
-  UpdateProjectiles(dt);
+  // Pass scaled time to projectiles so their lifespan checks sync with slow motion
+  UpdateProjectiles(dt * FTimeScale);
+
   EndMode3D();
 end;
 
@@ -3234,8 +3446,10 @@ begin
       ModeStr := 'Mode: Rotate (Turn)';
     gmScale:
       ModeStr := 'Mode: Scale (Resize)';
+    gmDragAndThrow:
+      ModeStr := 'Mode: Drag & Throw';
   else
-    ModeStr := 'Mode: Drag & Throw (Test Tool)';
+    ModeStr := 'Mode: None (UI Interaction)';
   end;
   DrawText(PAnsiChar(ModeStr), 10, GetScreenHeight() - 90, 20, RAYWHITE);
 end;
@@ -3460,6 +3674,19 @@ begin
 
   Obj.UserData := Data;
   Obj.Visible := True;
+  if Req.Shape = stButton then
+  begin
+    Obj.Caption := Req.Caption;
+    Obj.BaseColor := Req.BaseColor;
+    Obj.HoverColor := Req.HoverColor;
+    Obj.OnClick := Req.OnClick;
+
+    var TxtSize: Integer := Round(Req.Size.x * 20.0);
+    if TxtSize < 10 then
+      TxtSize := 10;
+    Obj.FButtonTexture := DrawTextToTexture(Req.Caption, TxtSize, BLACK, Req.BaseColor);
+  end;
+
   Obj.TargetColor := Req.Color;
   Obj.ActColor := Req.Color;
 
@@ -3552,6 +3779,12 @@ begin
   FBombActor.Visible := False;
   FBombActor.FIsDead := True;
   FBombActor := nil;
+end;
+
+// External accessor to toggle slow motion from VCL/UI
+procedure TRaylibSandbox.SetSlowMotion(Active: Boolean);
+begin
+  FSlowMotionActive := Active;
 end;
 
 end.

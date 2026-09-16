@@ -2,7 +2,7 @@ object Form1: TForm1
   Left = 0
   Top = 0
   Caption = 'MRX Engine Editor - Prototype'
-  ClientHeight = 642
+  ClientHeight = 647
   ClientWidth = 1100
   Color = 4276545
   Font.Charset = DEFAULT_CHARSET
@@ -19,7 +19,7 @@ object Form1: TForm1
     Left = 200
     Top = 0
     Width = 5
-    Height = 600
+    Height = 605
     ExplicitLeft = 201
     ExplicitHeight = 441
   end
@@ -27,16 +27,17 @@ object Form1: TForm1
     Left = 895
     Top = 0
     Width = 5
-    Height = 600
+    Height = 605
     Align = alRight
     ExplicitLeft = 208
     ExplicitTop = 8
+    ExplicitHeight = 600
   end
   object pnlLeft: TPanel
     Left = 0
     Top = 0
     Width = 200
-    Height = 600
+    Height = 605
     Align = alLeft
     Caption = 'pnlLeft'
     TabOrder = 0
@@ -73,7 +74,7 @@ object Form1: TForm1
       Left = 1
       Top = 297
       Width = 198
-      Height = 302
+      Height = 307
       Align = alClient
       Caption = 'Panel1'
       TabOrder = 1
@@ -82,7 +83,7 @@ object Form1: TForm1
         Left = 1
         Top = 1
         Width = 196
-        Height = 300
+        Height = 305
         Align = alClient
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clBlack
@@ -100,7 +101,7 @@ object Form1: TForm1
   end
   object pnlBottom: TPanel
     Left = 0
-    Top = 600
+    Top = 605
     Width = 1100
     Height = 42
     Align = alBottom
@@ -166,7 +167,7 @@ object Form1: TForm1
     Left = 900
     Top = 0
     Width = 200
-    Height = 600
+    Height = 605
     Align = alRight
     Caption = 'pnlRight'
     TabOrder = 2
@@ -176,7 +177,7 @@ object Form1: TForm1
       Left = 1
       Top = 1
       Width = 198
-      Height = 598
+      Height = 603
       ActivePage = tsScene
       Align = alClient
       Font.Charset = DEFAULT_CHARSET
@@ -191,12 +192,12 @@ object Form1: TForm1
         Caption = 'Scene'
         DesignSize = (
           190
-          568)
+          573)
         object Shape1: TShape
           Left = 0
           Top = 0
           Width = 190
-          Height = 568
+          Height = 573
           Align = alClient
           Brush.Color = clBlack
           ExplicitLeft = 88
@@ -206,7 +207,7 @@ object Form1: TForm1
         end
         object btnClearScene: TButton
           Left = 125
-          Top = 256
+          Top = 261
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -253,7 +254,7 @@ object Form1: TForm1
         end
         object btnSceneSave: TButton
           Left = 125
-          Top = 318
+          Top = 323
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -264,7 +265,7 @@ object Form1: TForm1
         end
         object btnSceneLoad: TButton
           Left = 125
-          Top = 287
+          Top = 292
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -293,7 +294,7 @@ object Form1: TForm1
         end
         object Memo1: TMemo
           Left = 16
-          Top = 352
+          Top = 357
           Width = 161
           Height = 201
           Anchors = [akLeft, akBottom]
@@ -313,7 +314,7 @@ object Form1: TForm1
         end
         object btnSelectPrev: TButton
           Left = 13
-          Top = 318
+          Top = 323
           Width = 28
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -324,7 +325,7 @@ object Form1: TForm1
         end
         object btnSelectNext: TButton
           Left = 47
-          Top = 318
+          Top = 323
           Width = 28
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -335,7 +336,7 @@ object Form1: TForm1
         end
         object btnSpawnSandbox: TButton
           Left = 10
-          Top = 256
+          Top = 261
           Width = 109
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -346,7 +347,7 @@ object Form1: TForm1
         end
         object btnSpawnWall: TButton
           Left = 10
-          Top = 287
+          Top = 292
           Width = 109
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -363,6 +364,15 @@ object Form1: TForm1
           Caption = 'Spawn Bomb'
           TabOrder = 14
           OnClick = btnSpawnBombClick
+        end
+        object btnSpawnButton: TButton
+          Left = 13
+          Top = 228
+          Width = 109
+          Height = 25
+          Caption = 'Spawn Button'
+          TabOrder = 15
+          OnClick = btnSpawnButtonClick
         end
       end
       object tsEngine: TTabSheet
@@ -525,6 +535,24 @@ object Form1: TForm1
           TabOrder = 7
           Value = 1
           OnChange = seDayNightspeedChange
+        end
+        object chkSlowMotion: TCheckBox
+          Left = 16
+          Top = 209
+          Width = 105
+          Height = 17
+          Caption = 'Slow Motion'
+          Color = clBlack
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clBlack
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentColor = False
+          ParentFont = False
+          TabOrder = 8
+          StyleElements = [seClient, seBorder]
+          OnClick = chkSlowMotionClick
         end
       end
     end
