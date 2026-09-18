@@ -82,7 +82,6 @@ type
     procedure cbFPSChange(Sender: TObject);
     procedure btnSceneSaveClick(Sender: TObject);
     procedure btnSceneLoadClick(Sender: TObject);
-    procedure tvSceneHierarchyClick(Sender: TObject);
     procedure btnSpawn3DModelClick(Sender: TObject);
     procedure chkDistanceCullingClick(Sender: TObject);
     procedure cbFrustumCullingClick(Sender: TObject);
@@ -107,7 +106,6 @@ type
     FSelectedComponent: TA3DComponent;
     FIsUpdatingGrid: Boolean;
     procedure RefreshHierarchy;
-    procedure ProcessEditorSelection;
     procedure HandleViewportReady(Sender: TObject);
     procedure HandleActorSpawned(Sender: TObject; const Args: TActorEventArgs);
     procedure HandleSceneCleared(Sender: TObject);
@@ -248,25 +246,45 @@ var
   i: Integer;
   Actor: TA3DComponent;
 begin
-  //if not Assigned(FSandbox) then
-  Exit;         //not working now
+  if not Assigned(FSandbox) then Exit;
+
   if SaveDialog1.Execute then
   begin
     Stream := TFileStream.Create(SaveDialog1.FileName, fmCreate);
     try
       Writer := TWriter.Create(Stream, 4096);
       try
-        // Write the total number of objects at the beginning of the stream
         Writer.WriteInteger(FSandbox.ItemCount);
-        // Serialize each Actor
+
         for i := 0 to FSandbox.ItemCount - 1 do
         begin
           Actor := FSandbox.FItems[i];
           if Assigned(Actor) then
           begin
-            // WriteComponent automatically uses RTTI to write all Published properties
-            // of TA3DComponent (Position, Rotation, Scale, Colors, etc.) to the stream
-            Writer.WriteComponent(Actor);
+            // Write all properties manually
+            Writer.WriteStr(Actor.Name);
+            Writer.WriteInteger(Integer(Actor.ShapeType));
+
+            Writer.WriteFloat(Actor.Position.x);
+            Writer.WriteFloat(Actor.Position.y);
+            Writer.WriteFloat(Actor.Position.z);
+
+            Writer.WriteFloat(Actor.Quaternion.x);
+            Writer.WriteFloat(Actor.Quaternion.y);
+            Writer.WriteFloat(Actor.Quaternion.z);
+            Writer.WriteFloat(Actor.Quaternion.w);
+
+            Writer.WriteFloat(Actor.Scale.x);
+            Writer.WriteFloat(Actor.Scale.y);
+            Writer.WriteFloat(Actor.Scale.z);
+
+            Writer.WriteFloat(Actor.Friction);
+            Writer.WriteFloat(Actor.Restitution);
+
+            Writer.WriteInteger(Actor.ActColor.r);
+            Writer.WriteInteger(Actor.ActColor.g);
+            Writer.WriteInteger(Actor.ActColor.b);
+            Writer.WriteInteger(Actor.ActColor.a);
           end;
         end;
         Writer.FlushBuffer;
@@ -279,50 +297,93 @@ begin
     lblInfo.Caption := 'Scene saved to: ' + SaveDialog1.FileName;
   end;
 end;
+
 procedure TForm1.btnSceneLoadClick(Sender: TObject);
 var
   Stream: TFileStream;
   Reader: TReader;
   i, Count: Integer;
   Actor: TA3DComponent;
+  JPos: JPH_RVec3;
+  JRot: JPH_Quat;
+  ShapeType: TShapeType;
+  Size: TVector3;
+  Friction, Restitution: Single;
+  LoadColor: TColorB;
 begin
-  //if not Assigned(FSandbox) then
-  Exit;         //not working now
-  if OpenDialog1.Execute then
-  begin
-    if not FileExists(PAnsichar(OpenDialog1.FileName)) then Exit;
-    // Clear the current scene safely
-    FSandbox.ClearItems;
-    Stream := TFileStream.Create(OpenDialog1.FileName, fmOpenRead);
+  if not Assigned(FSandbox) then Exit;
+
+  if not OpenDialog1.Execute then
+    Exit;
+
+  // Clear the current scene dynamically (keeps floor, skybox and lights alive)
+  FSandbox.ClearDynamicItemsOnly;
+  tvSceneHierarchy.Items.Clear;
+
+  Stream := TFileStream.Create(OpenDialog1.FileName, fmOpenRead);
+  try
+    Reader := TReader.Create(Stream, 4096);
     try
-      Reader := TReader.Create(Stream, 4096);
-      try
-        // Read the total number of objects from the beginning of the stream
-        Count := Reader.ReadInteger;
-        // Deserialize each Actor
-        for i := 0 to Count - 1 do
-        begin
-          // ReadComponent instantiates the object and loads all properties.
-          // NOTE: ReadComponent tries to call the parameterless constructor.
-          // This might cause issues if TA3DComponent strictly requires an Engine object.
-          // We will need to adjust the constructor in ModelEngine!
-          Actor := TComponent(Reader.ReadComponent(nil)) as TA3DComponent;
-          if Assigned(Actor) then
-          begin
-            // UserData is not serialized; it will be regenerated on re-attach
-            Actor.UserData := nil;
-            // TODO: Create a method in TRaylibSandbox (e.g., ReattachLoadedActor)
-            // to pass the loaded Actor back to Jolt Physics to recreate its collision bodies!
-          end;
-        end;
-      finally
-        Reader.Free;
+      Count := Reader.ReadInteger;
+
+      for i := 0 to Count - 1 do
+      begin
+        // 1. Read manually serialized properties from the stream
+        var AName: string := Reader.ReadStr;
+        ShapeType := TShapeType(Reader.ReadInteger);
+
+        JPos.x := Reader.ReadFloat;
+        JPos.y := Reader.ReadFloat;
+        JPos.z := Reader.ReadFloat;
+
+        JRot.x := Reader.ReadFloat;
+        JRot.y := Reader.ReadFloat;
+        JRot.z := Reader.ReadFloat;
+        JRot.w := Reader.ReadFloat;
+
+        Size.x := Reader.ReadFloat;
+        Size.y := Reader.ReadFloat;
+        Size.z := Reader.ReadFloat;
+
+        Friction := Reader.ReadFloat;
+        Restitution := Reader.ReadFloat;
+
+        LoadColor.r := Reader.ReadInteger;
+        LoadColor.g := Reader.ReadInteger;
+        LoadColor.b := Reader.ReadInteger;
+        LoadColor.a := Reader.ReadInteger;
+
+        // 2. Use your safe engine constructor!
+        // This creates the Jolt Body properly without VCL RTTI crashes.
+        Actor := TA3DComponent.Create('', FSandbox.Engine, ShapeType, Size, False, @JPos, @JRot);
+
+        // 3. Overwrite the properties that were just created with the loaded ones
+        Actor.Name := AName;
+        Actor.Friction := Friction;
+        Actor.Restitution := Restitution;
+        Actor.ActColor := LoadColor;
+        Actor.TargetColor := LoadColor;
+
+        // 4. Make it visible and add to Sandbox list and VCL TreeView
+        Actor.Visible := True;
+
+        SetLength(FSandbox.FItems, Length(FSandbox.FItems) + 1);
+        FSandbox.FItems[High(FSandbox.FItems)] := Actor;
+
+        var NodeText: string;
+        if Actor.Name <> '' then
+          NodeText := Actor.Name
+        else
+          NodeText := 'Unnamed ' + GetEnumName(TypeInfo(TShapeType), Ord(Actor.ShapeType));
+        tvSceneHierarchy.Items.AddChild(nil, NodeText).Data := Actor;
       end;
     finally
-      Stream.Free;
+      Reader.Free;
     end;
-    lblInfo.Caption := 'Scene loaded from: ' + OpenDialog1.FileName;
+  finally
+    Stream.Free;
   end;
+  lblInfo.Caption := 'Scene loaded from: ' + OpenDialog1.FileName;
 end;
 
 procedure TForm1.btnSelectNextClick(Sender: TObject);
@@ -448,10 +509,10 @@ begin
       StringGrid1.Cells[1, 1] := '';
       Exit;
     end;
-    Count := GetPropList(AComponent.ClassInfo, tkAny, nil);
+    Count := GetPropList(AComponent.ClassInfo, tkAny, nil, true);
     GetMem(PropList, Count * SizeOf(Pointer));
     try
-      GetPropList(AComponent.ClassInfo, tkAny, PropList);
+      GetPropList(AComponent.ClassInfo, tkAny, PropList, true);
       StringGrid1.RowCount := Count + 1;
       StringGrid1.Cells[0, 0] := 'Property';
       StringGrid1.Cells[1, 0] := 'Value';
@@ -526,6 +587,12 @@ begin
   if FIsUpdatingGrid or (ARow = 0) or not Assigned(FSelectedComponent) then
     Exit;
   PropName := StringGrid1.Cells[0, ARow];
+  if PropName = 'Name' then
+  begin
+    FSelectedComponent.Name := Value;
+    RefreshHierarchy;
+  end;
+
   PropInfo := GetPropInfo(FSelectedComponent, PropName);
   if not Assigned(PropInfo) then
     Exit;
@@ -662,17 +729,23 @@ end;
 
 procedure TForm1.HandleActorSpawned(Sender: TObject; const Args: TActorEventArgs);
 var
-  Data: PItemData;
   NodeText: string;
+  Node: TTreeNode;
 begin
   if Args.Actor <> nil then
   begin
-    Data := Args.Actor.UserData;
-    if Assigned(Data) then
-      NodeText := Format('%s (%s)', [Data^.Name, GetEnumName(TypeInfo(TShapeType), Ord(Args.Actor.ShapeType))])
+    // Determine the display name for the TreeView node
+    if Args.Actor.Name <> '' then
+      NodeText := Args.Actor.Name
     else
-      NodeText := 'Unknown Actor';
-    tvSceneHierarchy.Items.AddChild(nil, NodeText);
+      NodeText := 'Unnamed ' + GetEnumName(TypeInfo(TShapeType), Ord(Args.Actor.ShapeType));
+
+    // Add the node to the TreeView
+    Node := tvSceneHierarchy.Items.AddChild(nil, NodeText);
+
+    // CRITICAL: Store the actual Actor object pointer in the Node's Data property.
+    // This ensures that clicking the node immediately gives us the Actor.
+    Node.Data := Args.Actor;
   end;
 end;
 
@@ -735,13 +808,43 @@ begin
 end;
 
 procedure TForm1.tvSceneHierarchyChange(Sender: TObject; Node: TTreeNode);
+var
+  Actor: TA3DComponent;
+  i: Integer;
 begin
-  ProcessEditorSelection;
-end;
+  // If nothing is selected, or the Node has no Data (Actor), clear selection
+  if (Node = nil) or (Node.Data = nil) then
+  begin
+    FSelectedComponent := nil;
+    FSandbox.SetSelectedActor(nil);
+    LoadPropertiesIntoGrid(nil); // Clear the Object Inspector
+    Exit;
+  end;
 
-procedure TForm1.tvSceneHierarchyClick(Sender: TObject);
-begin
-  //selected in tree
+  // Retrieve the actual Actor object from the selected Node's Data pointer
+  Actor := TA3DComponent(Node.Data);
+
+  if Assigned(Actor) then
+  begin
+    // Clear previous glow states on all items in the background
+    for i := 0 to FSandbox.ItemCount - 1 do
+      if Assigned(FSandbox.FItems[i]) then
+        FSandbox.FItems[i].TealGlow := False;
+
+    // Apply new selection state (make it glow teal in the 3D scene)
+    Actor.TealGlow := True;
+    FSelectedComponent := Actor;
+
+    // Notify the Raylib Sandbox engine about the new selection
+    FSandbox.SetSelectedActor(Actor);
+
+    // Update the Object Inspector grid with the selected Actor's properties
+    LoadPropertiesIntoGrid(Actor);
+
+    // Update the status label at the bottom
+    lblInfo.Caption := Format('Selected: %s | Pos: %.1f, %.1f, %.1f',
+      [Actor.Name, Actor.Position.x, Actor.Position.y, Actor.Position.z]);
+  end;
 end;
 
 procedure TForm1.RefreshHierarchy;
@@ -749,6 +852,7 @@ var
   i: Integer;
   Actor: TA3DComponent;
   NodeText: string;
+  Node: TTreeNode;
 begin
   tvSceneHierarchy.Items.BeginUpdate;
   try
@@ -758,8 +862,18 @@ begin
       Actor := FSandbox.FItems[i];
       if Assigned(Actor) then
       begin
-        NodeText := Format('%d: %s', [i, GetEnumName(TypeInfo(TShapeType), Ord(Actor.ShapeType))]);
-        tvSceneHierarchy.Items.AddChild(nil, NodeText);
+        // Determine the display name for the TreeView node
+        if Actor.Name <> '' then
+          NodeText := Actor.Name
+        else
+          NodeText := 'Unnamed ' + GetEnumName(TypeInfo(TShapeType), Ord(Actor.ShapeType));
+
+        // Add the node to the TreeView
+        Node := tvSceneHierarchy.Items.AddChild(nil, NodeText);
+
+        // CRITICAL: Store the actual Actor object pointer in the Node's Data property.
+        // This allows us to instantly access the Actor when the user clicks the node.
+        Node.Data := Actor;
       end;
     end;
   finally
@@ -779,35 +893,14 @@ begin
   FSandbox.DayNightSpeed := ActualSpeed;
 end;
 
-procedure TForm1.ProcessEditorSelection;
-var
-  SelectedIndex: Integer;
-  Actor: TA3DComponent;
-  i: Integer;
-begin
-  if tvSceneHierarchy.Selected = nil then
-    Exit;
-  SelectedIndex := tvSceneHierarchy.Selected.Index;
-  for i := 0 to FSandbox.ItemCount - 1 do
-    if Assigned(FSandbox.FItems[i]) then
-      FSandbox.FItems[i].TealGlow := False;
-  if (SelectedIndex >= 0) and (SelectedIndex < FSandbox.ItemCount) then
-  begin
-    Actor := FSandbox.FItems[SelectedIndex];
-    if Assigned(Actor) then
-    begin
-      Actor.TealGlow := True;
-      FSandbox.SetSelectedActor(Actor);
-      SelectActorInUI(Actor);
-      lblInfo.Caption := Format('Selected: %s | Pos: %.1f, %.1f, %.1f', [GetEnumName(TypeInfo(TShapeType), Ord(Actor.ShapeType)), Actor.Position.x, Actor.Position.y, Actor.Position.z]);
-    end;
-  end
-  else
-  begin
-    FSandbox.SetSelectedActor(nil);
-    SelectActorInUI(nil);
-  end;
-end;
+initialization
+  // CRITICAL: Register the class so TReader.ReadComponent can instantiate it!
+  // TReader is paranoid and refuses to create classes it doesn't know.
+  RegisterClass(TA3DComponent);
+
+finalization
+  // Optional, aber sauber:
+  UnRegisterClass(TA3DComponent);
 
 end.
 

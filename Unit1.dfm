@@ -68,7 +68,6 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 0
       OnChange = tvSceneHierarchyChange
-      OnClick = tvSceneHierarchyClick
     end
     object Panel1: TPanel
       Left = 1
@@ -565,10 +564,12 @@ object Form1: TForm1
     Top = 131
   end
   object OpenDialog1: TOpenDialog
+    DefaultExt = 'd3dfm'
     Left = 808
     Top = 168
   end
   object SaveDialog1: TSaveDialog
+    DefaultExt = 'd3dfm'
     Left = 840
     Top = 120
   end

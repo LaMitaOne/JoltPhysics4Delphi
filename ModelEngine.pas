@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine v0.57 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.58 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -87,6 +87,7 @@ type
 
   TA3DComponent = class(TComponent)
   private
+  FName: string;
     FFriction: Single;
     FRestitution: Single;
     FMass: Single;
@@ -100,10 +101,8 @@ type
     procedure SetFriction(const Value: Single);
     procedure SetRestitution(const Value: Single);
     procedure SetMass(const Value: Single);
+    procedure SetName(const Value: string);
   protected
-    FEngine: TModelEngine;
-    FBodyID: JPH_BodyID;
-    FShape: JPH_Shape;
     FShapeType: TShapeType;
     FVisible: boolean;
     FPosition: TVector3;
@@ -121,6 +120,9 @@ type
     procedure UpdateModelTransform;
     procedure UpdateLerp(DeltaTime: Single);
   public
+    FEngine: TModelEngine;
+    FBodyID: JPH_BodyID;
+    FShape: JPH_Shape;
     FModel: TModel;
     FModelOffset: TVector3;
     FBBoxMin: TVector3;
@@ -140,7 +142,7 @@ type
     procedure SetAngularVelocity(AVelocity: TVector3);
     function GetAngularVelocity: TVector3;
     procedure SetMotionType(AMotionType: JPH_MotionType);
-    function GetMotionType: JPH_MotionType; // NEW: Getter for MotionType
+    function GetMotionType: JPH_MotionType;
     procedure ApplyImpulse(AImpulse: TVector3);
     procedure AddForce(AForce: TVector3);
     procedure ActivateBody;
@@ -173,6 +175,7 @@ type
     property BaseColor: TColorB read FBaseColor write FBaseColor;
     property HoverColor: TColorB read FHoverColor write FHoverColor;
     property Caption: string read FButtonCaption write FButtonCaption;
+    property Name: string read FName write SetName;
   end;
 
 implementation
@@ -696,6 +699,14 @@ begin
   end
   else
     Result := Vector3Zero;
+end;
+
+procedure TA3DComponent.SetName(const Value: string);
+begin
+  if FName <> Value then
+  begin
+    FName := Value;
+  end;
 end;
 
 procedure TA3DComponent.SetMass(const Value: Single);

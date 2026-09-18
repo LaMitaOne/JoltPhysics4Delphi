@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.57 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.58 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -348,6 +348,8 @@ type
     property DistanceCulling: Boolean read FDistanceCulling write SetDistanceCulling;
     // Exposed setter to control how far away objects get culled
     property MaxRenderDistance: Single read FMaxRenderDistance write SetMaxRenderDistance;
+    procedure ReattachLoadedActor(Actor: TA3DComponent);
+    procedure ClearDynamicItemsOnly;
   published
     property Align;
     property Anchors;
@@ -372,8 +374,8 @@ const
     b: 170;
     A: 255
   );
-
 // Helper function to render text into a texture so it can be applied to 3D meshes
+
 function DrawTextToTexture(const AText: string; FontSize: Integer; TextColor, BGColor: TColorB): TTexture2D;
 var
   Img: TImage;
@@ -1046,6 +1048,7 @@ begin
   JRot.z := RandQuat.z;
   JRot.w := RandQuat.w;
   Obj := TA3DComponent.Create('', FEngine, FSpawnShape, Size, False, @JPos, @JRot);
+  Obj.Name := Data^.Name;
   Obj.Friction := 0.2;
   Obj.Restitution := 0.2;
   Obj.UserData := Data;
@@ -1268,7 +1271,19 @@ var
   bIsModelBrush: Boolean;
   bLeftMouseDown: Boolean;
   bLeftMouseClicked: Boolean;
+  R: TRect;
 begin
+ // PREVENT BACKGROUND CLICKS: Only process input if the mouse cursor
+  // is actually hovering over the Raylib window area!
+  GetWindowRect(FRaylibWnd, R);
+  GetCursorPos(p);
+  if not PtInRect(R, p) then
+  begin
+    FMouseLeftPressed := False;
+    FDragging := False;
+    Exit;
+  end;
+
   // Select next/prev object
   if (GetAsyncKeyState(VK_CONTROL) and $8000) <> 0 then
   begin
@@ -2167,6 +2182,7 @@ begin
   JRot.z := 0;
   JRot.w := 1;
   Obj := TA3DComponent.Create('', FEngine, FBrushShape, Size, False, @JPos, @JRot);
+  Obj.Name := Data^.Name;
 
   if FBrushShape = stModel then
   begin
@@ -2647,31 +2663,31 @@ var
   function GetActorColor(A: TA3DComponent): TColorB;
   const
     COL_CUBE: TColorB = (
-    r: 230;
+    R: 230;
     g: 41;
     b: 55;
     A: 255
   );
     COL_PYRAMID: TColorB = (
-    r: 255;
+    R: 255;
     g: 161;
     b: 0;
     A: 255
   );
     COL_SPHERE: TColorB = (
-    r: 179;
+    R: 179;
     g: 71;
     b: 217;
     A: 255
   );
     COL_CAPSULE: TColorB = (
-    r: 0;
+    R: 0;
     g: 168;
     b: 150;
     A: 255
   );
     COL_TEAL: TColorB = (
-    r: 64;
+    R: 64;
     g: 224;
     b: 208;
     A: 255
@@ -3669,6 +3685,7 @@ begin
   JRot.w := 1;
 
   Obj := TA3DComponent.Create('', FEngine, Req.Shape, Req.Size, Req.IsStatic, @JPos, @JRot);
+  Obj.Name := Req.Name;
   Obj.Friction := 0.6;
   Obj.Restitution := 0.1;
 
@@ -3780,11 +3797,89 @@ begin
   FBombActor.FIsDead := True;
   FBombActor := nil;
 end;
-
 // External accessor to toggle slow motion from VCL/UI
+
 procedure TRaylibSandbox.SetSlowMotion(Active: Boolean);
 begin
   FSlowMotionActive := Active;
+end;
+
+procedure TRaylibSandbox.ClearDynamicItemsOnly;
+begin
+  FLock.Enter;
+  try
+    FGizmoMode := gmNone;
+    FDragging := False;
+    FItemSelected := nil;
+    FSpawnQueue := 0;
+
+    // Only clear dynamic items, keep FFloorActor and Engine alive!
+    var i: Integer;
+    for i := High(FItems) downto 0 do
+    begin
+      if Assigned(FItems[i]) then
+      begin
+        if FItems[i].FButtonTexture.id > 0 then
+          UnloadTexture(FItems[i].FButtonTexture);
+        FItems[i].Visible := False;
+        FItems[i].Free;
+        FItems[i] := nil;
+      end;
+    end;
+    for i := High(FProjectiles) downto 0 do
+    begin
+      if Assigned(FProjectiles[i]) then
+      begin
+        if FProjectiles[i].UserData <> nil then
+          Dispose(PItemData(FProjectiles[i].UserData));
+        FProjectiles[i].Free;
+        FProjectiles[i] := nil;
+      end;
+    end;
+
+    SetLength(FProjectiles, 0);
+    SetLength(FItems, 0);
+    FBombActor := nil;
+    FBombExploded := False;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+procedure TRaylibSandbox.ReattachLoadedActor(Actor: TA3DComponent);
+var
+  JPos: JPH_RVec3;
+  JRot: JPH_Quat;
+begin
+  if not Assigned(Actor) or not Assigned(FEngine) then
+    Exit;
+
+  // Reassign the engine pointer in case it was lost during serialization
+  Actor.FEngine := FEngine;
+
+  // Recreate the physics body based on loaded transform and scale
+  JPos.x := Actor.Position.x;
+  JPos.y := Actor.Position.y;
+  JPos.z := Actor.Position.z;
+  JRot.x := Actor.Quaternion.x;
+  JRot.y := Actor.Quaternion.y;
+  JRot.z := Actor.Quaternion.z;
+  JRot.w := Actor.Quaternion.w;
+
+  // Create the body in Jolt
+  Actor.FBodyID := JPH_BodyInterface_CreateAndAddBody(
+    FEngine.BodyInterface,
+    JPH_BodyCreationSettings_Create3(
+      Actor.FShape,
+      @JPos,
+      @JRot,
+      JPH_MotionType_Dynamic,
+      0 // Default ObjectLayer, adjust if you save/load layers
+    ),
+    JPH_Activation_Activate
+  );
+
+  Actor.Visible := True;
 end;
 
 end.
