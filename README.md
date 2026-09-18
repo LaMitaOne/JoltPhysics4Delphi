@@ -235,7 +235,7 @@ MiniAudio4Delphi Wrapper https://github.com/LaMitaOne/MiniAudio4Delphi
 Looking for more `.glb` / `.gltf` assets to test in the sandbox? Check out these awesome free resources:     
 - [Kenney](https://kenney.nl) | [Quaternius](https://quaternius.com) | [Kay Lousberg](https://kaylousberg.com)    
 - [Poly Pizza](https://poly.pizza) | [Poly Haven](https://polyhaven.com) | [The Base Mesh](https://thebasemesh.com)     
-
-
+      
+https://app.sloyd.ai/labs/text-to-3d    
 
 
