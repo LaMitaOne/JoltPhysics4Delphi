@@ -11,7 +11,7 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.57)     
+   Status: Work in Progress (Alpha v0.58)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features
@@ -79,6 +79,14 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:  
+     
+   v0.58:   
+
+     Scene Serialization (Save/Load): Implemented a custom, high-performance binary scene format (.d3dfm). Uses manual TFileStream and TWriter/TReader serialization to bypass VCL RTTI streaming crashes. Safely writes and restores object names, shape types, transforms (position, rotation, scale), colors, and physics properties. Still more to test but ...sometiems...works :D   
+     Object Naming: TA3DComponent now explicitly declares and overrides the Name property (inheriting from TComponent). Names are assigned automatically on spawn (e.g., Cube_0, Sphere_1) and are fully serialized.
+     TreeView Synchronization: The VCL TTreeView is now fully bi-directionally linked with the 3D scene. Spawning an object adds a node, deleting removes it. Clicking a node selects the 3D object (and vice versa) via stored object pointers in Node.Data.
+     RTTI Object Inspector Enhancements: The TStringGrid inspector now correctly displays inherited properties (like Name) using GetPropList with the IncludeInherited flag. Editing the Name property in the grid instantly updates the TreeView.
+     Viewport Focus Guard: Implemented a bounds-check in HandleDesktopInput. The engine only processes 3D clicks/dragging if the mouse cursor is actively hovering over the Raylib viewport, preventing accidental deselections or background clicks while editing in the VCL UI.
      
    v0.57:   
 
