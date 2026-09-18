@@ -82,7 +82,7 @@ Since the original C API is massive, there is still a lot to cover. Here is what
      
    v0.58:   
 
-     Scene Serialization (Save/Load): Implemented a custom, high-performance binary scene format (.d3dfm). Uses manual TFileStream and TWriter/TReader serialization to bypass VCL RTTI streaming crashes. Safely writes and restores object names, shape types, transforms (position, rotation, scale), colors, and physics properties. Still more to test but ...sometiems...works :D   
+     Scene Serialization (Save/Load): Implemented a custom, high-performance binary scene format (.d3dfm). Uses manual TFileStream and TWriter/TReader serialization to bypass VCL RTTI streaming crashes. Safely writes and restores object names, shape types, transforms (position, rotation, scale), colors, and physics properties. Still more to test but ...sometimes...works :D   
      Object Naming: TA3DComponent now explicitly declares and overrides the Name property (inheriting from TComponent). Names are assigned automatically on spawn (e.g., Cube_0, Sphere_1) and are fully serialized.
      TreeView Synchronization: The VCL TTreeView is now fully bi-directionally linked with the 3D scene. Spawning an object adds a node, deleting removes it. Clicking a node selects the 3D object (and vice versa) via stored object pointers in Node.Data.
      RTTI Object Inspector Enhancements: The TStringGrid inspector now correctly displays inherited properties (like Name) using GetPropList with the IncludeInherited flag. Editing the Name property in the grid instantly updates the TreeView.
