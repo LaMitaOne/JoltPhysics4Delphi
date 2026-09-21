@@ -67,7 +67,6 @@ type
     btnSpawnButton: TButton;
     chkSlowMotion: TCheckBox;
     SaveDialog1: TSaveDialog;
-    Timer1: TTimer;
     cbStatic: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
@@ -103,7 +102,6 @@ type
     procedure btnSpawnBombClick(Sender: TObject);
     procedure btnSpawnButtonClick(Sender: TObject);
     procedure chkSlowMotionClick(Sender: TObject);
-    procedure Timer1Timer(Sender: TObject);
     procedure cbStaticClick(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
@@ -193,7 +191,6 @@ end;
 procedure TForm1.FormShow(Sender: TObject);
 begin
   tmrStatsUpdater.Enabled := True;
-  Timer1.Enabled := True;
 end;
 
 procedure TForm1.btnToolDragThrowClick(Sender: TObject);
@@ -683,80 +680,6 @@ end;
 procedure TForm1.TimePicker1Change(Sender: TObject);
 begin
   FSandbox.DayNightTime := TImepicker1.Time;
-end;
-
-procedure TForm1.Timer1Timer(Sender: TObject);
-var
-  Stream: TFileStream;
-  Reader: TReader;
-  i, Count: Integer;
-  Actor: TA3DComponent;
-  JPos: JPH_RVec3;
-  JRot: JPH_Quat;
-  ShapeType: TShapeType;
-  Size: TVector3;
-  Friction, Restitution: Single;
-  LoadColor: TColorB;
-begin
-
-  if not Assigned(FSandbox) then Exit;
-  Timer1.Enabled := False;
-  // Clear the current scene dynamically (keeps floor, skybox and lights alive)
-  FSandbox.ClearDynamicItemsOnly;
-  tvSceneHierarchy.Items.Clear;
-  Stream := TFileStream.Create(ExtractFilepath(Application.ExeName)+'scenes\test.d3dfm', fmOpenRead);
-  try
-    Reader := TReader.Create(Stream, 4096);
-    try
-      Count := Reader.ReadInteger;
-      for i := 0 to Count - 1 do
-      begin
-        // 1. Read manually serialized properties from the stream
-        var AName: string := Reader.ReadStr;
-        ShapeType := TShapeType(Reader.ReadInteger);
-        JPos.x := Reader.ReadFloat;
-        JPos.y := Reader.ReadFloat;
-        JPos.z := Reader.ReadFloat;
-        JRot.x := Reader.ReadFloat;
-        JRot.y := Reader.ReadFloat;
-        JRot.z := Reader.ReadFloat;
-        JRot.w := Reader.ReadFloat;
-        Size.x := Reader.ReadFloat;
-        Size.y := Reader.ReadFloat;
-        Size.z := Reader.ReadFloat;
-        Friction := Reader.ReadFloat;
-        Restitution := Reader.ReadFloat;
-        LoadColor.r := Reader.ReadInteger;
-        LoadColor.g := Reader.ReadInteger;
-        LoadColor.b := Reader.ReadInteger;
-        LoadColor.a := Reader.ReadInteger;
-        // 2. Use safe engine constructor!
-        // This creates the Jolt Body properly without VCL RTTI crashes.
-        Actor := TA3DComponent.Create('', FSandbox.Engine, ShapeType, Size, False, @JPos, @JRot);
-        // 3. Overwrite the properties that were just created with the loaded ones
-        Actor.Name := AName;
-        Actor.Friction := Friction;
-        Actor.Restitution := Restitution;
-        Actor.ActColor := LoadColor;
-        Actor.TargetColor := LoadColor;
-        // 4. Make it visible and add to Sandbox list and VCL TreeView
-        Actor.Visible := True;
-        SetLength(FSandbox.FItems, Length(FSandbox.FItems) + 1);
-        FSandbox.FItems[High(FSandbox.FItems)] := Actor;
-        var NodeText: string;
-        if Actor.Name <> '' then
-          NodeText := Actor.Name
-        else
-          NodeText := 'Unnamed ' + GetEnumName(TypeInfo(TShapeType), Ord(Actor.ShapeType));
-        tvSceneHierarchy.Items.AddChild(nil, NodeText).Data := Actor;
-      end;
-    finally
-      Reader.Free;
-    end;
-  finally
-    Stream.Free;
-  end;
-  lblInfo.Caption := 'Scene loaded from: scenes\test.d3dfm';
 end;
 
 procedure TForm1.HandleObjectSelected(Sender: TObject; Actor: TA3DComponent);

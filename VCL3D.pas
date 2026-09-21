@@ -19,17 +19,12 @@ uses
 type
   TVCL3D = class
   private
-    class var
-      FSandboxSpawned: Boolean;
   public
     { Spawns 4 solid, static walls to create a closed sandbox environment }
     class procedure SpawnSandbox(Sandbox: TRaylibSandbox);
 
     { Spawns a grid of blocks sequentially to build a realistic wall }
     class procedure SpawnDynamicWall(Sandbox: TRaylibSandbox; Width, Height: Integer; SpawnFalling: Boolean = True; SpawnBomb: Boolean = False);
-
-    { Call this when the scene is cleared to allow Sandbox to be spawned again }
-    class procedure ResetSandboxFlag;
 
     { Spawns a 3D UI Button with OnClick Event }
     class procedure SpawnButton(Sandbox: TRaylibSandbox; const ACaption: string; APos, ASize: TVector3; AOnClick: TNotifyEvent);
@@ -38,10 +33,6 @@ type
 implementation
 { TVCL3D }
 
-class procedure TVCL3D.ResetSandboxFlag;
-begin
-  FSandboxSpawned := False;
-end;
 
 class procedure TVCL3D.SpawnSandbox(Sandbox: TRaylibSandbox);
 var

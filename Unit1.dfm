@@ -41,7 +41,7 @@ object Form1: TForm1
     Align = alLeft
     Caption = 'pnlLeft'
     TabOrder = 0
-    ExplicitHeight = 604
+    ExplicitHeight = 646
     object Splitter2: TSplitter
       Left = 1
       Top = 289
@@ -77,7 +77,7 @@ object Form1: TForm1
       Align = alClient
       Caption = 'Panel1'
       TabOrder = 1
-      ExplicitHeight = 306
+      ExplicitHeight = 348
       object StringGrid1: TStringGrid
         Left = 1
         Top = 1
@@ -94,7 +94,7 @@ object Form1: TForm1
         TabOrder = 0
         OnSelectCell = StringGrid1SelectCell
         OnSetEditText = StringGrid1SetEditText
-        ExplicitHeight = 304
+        ExplicitHeight = 346
       end
     end
   end
@@ -114,7 +114,7 @@ object Form1: TForm1
     ParentBackground = False
     ParentFont = False
     TabOrder = 1
-    ExplicitTop = 604
+    ExplicitTop = 646
     ExplicitWidth = 1096
     DesignSize = (
       1100
@@ -171,7 +171,7 @@ object Form1: TForm1
     Caption = 'pnlRight'
     TabOrder = 2
     ExplicitLeft = 896
-    ExplicitHeight = 604
+    ExplicitHeight = 646
     object PageControl1: TPageControl
       Left = 1
       Top = 1
@@ -186,7 +186,7 @@ object Form1: TForm1
       Font.Style = []
       ParentFont = False
       TabOrder = 0
-      ExplicitHeight = 602
+      ExplicitHeight = 644
       object tsScene: TTabSheet
         Caption = 'Scene'
         Font.Charset = DEFAULT_CHARSET
@@ -219,7 +219,7 @@ object Form1: TForm1
           Caption = 'Clear'
           TabOrder = 0
           OnClick = btnClearSceneClick
-          ExplicitTop = 260
+          ExplicitTop = 302
         end
         object btnSpawnCubes: TButton
           Left = 13
@@ -266,7 +266,7 @@ object Form1: TForm1
           Caption = 'Save'
           TabOrder = 5
           OnClick = btnSceneSaveClick
-          ExplicitTop = 322
+          ExplicitTop = 364
         end
         object btnSceneLoad: TButton
           Left = 125
@@ -277,7 +277,7 @@ object Form1: TForm1
           Caption = 'Load'
           TabOrder = 6
           OnClick = btnSceneLoadClick
-          ExplicitTop = 291
+          ExplicitTop = 333
         end
         object btnSpawn3DModel: TButton
           Left = 13
@@ -315,7 +315,7 @@ object Form1: TForm1
           ParentFont = False
           ReadOnly = True
           TabOrder = 9
-          ExplicitTop = 356
+          ExplicitTop = 398
         end
         object btnSelectPrev: TButton
           Left = 13
@@ -326,7 +326,7 @@ object Form1: TForm1
           Caption = '<'
           TabOrder = 10
           OnClick = btnSelectPrevClick
-          ExplicitTop = 322
+          ExplicitTop = 364
         end
         object btnSelectNext: TButton
           Left = 47
@@ -337,7 +337,7 @@ object Form1: TForm1
           Caption = '>'
           TabOrder = 11
           OnClick = btnSelectNextClick
-          ExplicitTop = 322
+          ExplicitTop = 364
         end
         object btnSpawnSandbox: TButton
           Left = 10
@@ -348,7 +348,7 @@ object Form1: TForm1
           Caption = 'Spawn Sandbox'
           TabOrder = 12
           OnClick = btnSpawnSandboxClick
-          ExplicitTop = 260
+          ExplicitTop = 302
         end
         object btnSpawnWall: TButton
           Left = 10
@@ -359,7 +359,7 @@ object Form1: TForm1
           Caption = 'Spawn Wall'
           TabOrder = 13
           OnClick = btnSpawnWallClick
-          ExplicitTop = 291
+          ExplicitTop = 333
         end
         object btnSpawnBomb: TButton
           Left = 13
@@ -605,11 +605,5 @@ object Form1: TForm1
     DefaultExt = 'd3dfm'
     Left = 840
     Top = 120
-  end
-  object Timer1: TTimer
-    Enabled = False
-    OnTimer = Timer1Timer
-    Left = 320
-    Top = 168
   end
 end
