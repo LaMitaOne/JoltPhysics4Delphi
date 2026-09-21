@@ -16,7 +16,8 @@ uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Math,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, RaylibSandbox, ModelEngine, TypInfo,
-  JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers, Vcl.Samples.Spin, VCL3D;
+  JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers, Vcl.Samples.Spin,
+  VCL3D;
 
 type
   TForm1 = class(TForm)
@@ -246,159 +247,32 @@ begin
   FSandbox.SetSlowMotion(chkSlowMotion.Checked);
 end;
 
-
 procedure TForm1.btnSceneSaveClick(Sender: TObject);
-var
-  Stream: TFileStream;
-  Writer: TWriter;
-  i: Integer;
-  Actor: TA3DComponent;
 begin
-  if not Assigned(FSandbox) then Exit;
+  if not Assigned(FSandbox) then
+    Exit;
 
   if SaveDialog1.Execute then
   begin
-    Stream := TFileStream.Create(SaveDialog1.FileName, fmCreate);
-    try
-      Writer := TWriter.Create(Stream, 4096);
-      try
-        Writer.WriteInteger(FSandbox.ItemCount);
-
-        for i := 0 to FSandbox.ItemCount - 1 do
-        begin
-          Actor := FSandbox.FItems[i];
-          if Assigned(Actor) then
-          begin
-            // Skip models for now to prevent FModel pointer corruption
-            if Actor.ShapeType = stModel then
-              Continue;
-
-            Writer.WriteStr(Actor.Name);
-            Writer.WriteInteger(Integer(Actor.ShapeType));
-
-            Writer.WriteFloat(Actor.Position.x);
-            Writer.WriteFloat(Actor.Position.y);
-            Writer.WriteFloat(Actor.Position.z);
-
-            Writer.WriteFloat(Actor.Quaternion.x);
-            Writer.WriteFloat(Actor.Quaternion.y);
-            Writer.WriteFloat(Actor.Quaternion.z);
-            Writer.WriteFloat(Actor.Quaternion.w);
-
-            Writer.WriteFloat(Actor.Scale.x);
-            Writer.WriteFloat(Actor.Scale.y);
-            Writer.WriteFloat(Actor.Scale.z);
-
-            Writer.WriteFloat(Actor.Friction);
-            Writer.WriteFloat(Actor.Restitution);
-
-            Writer.WriteInteger(Actor.ActColor.r);
-            Writer.WriteInteger(Actor.ActColor.g);
-            Writer.WriteInteger(Actor.ActColor.b);
-            Writer.WriteInteger(Actor.ActColor.a);
-          end;
-        end;
-        Writer.FlushBuffer;
-      finally
-        Writer.Free;
-      end;
-    finally
-      Stream.Free;
-    end;
+    // Delegated to the RaylibSandbox for better stability and thread safety
+    FSandbox.SaveSceneToFile(SaveDialog1.FileName);
     lblInfo.Caption := 'Scene saved to: ' + SaveDialog1.FileName;
   end;
 end;
 
 procedure TForm1.btnSceneLoadClick(Sender: TObject);
-var
-  Stream: TFileStream;
-  Reader: TReader;
-  i, Count: Integer;
-  Actor: TA3DComponent;
-  JPos: JPH_RVec3;
-  JRot: JPH_Quat;
-  ShapeType: TShapeType;
-  Size: TVector3;
-  Friction, Restitution: Single;
-  LoadColor: TColorB;
 begin
-  if not Assigned(FSandbox) then Exit;
+  if not Assigned(FSandbox) then
+    Exit;
 
   if not OpenDialog1.Execute then
     Exit;
 
-  // Soft reset
-  FSandbox.ClearDynamicItemsOnly;
-  tvSceneHierarchy.Items.Clear;
-
-  try
-    Stream := TFileStream.Create(OpenDialog1.FileName, fmOpenRead);
-    try
-      Reader := TReader.Create(Stream, 4096);
-      try
-        Count := Reader.ReadInteger;
-
-        for i := 0 to Count - 1 do
-        begin
-          var AName: string := Reader.ReadStr;
-          ShapeType := TShapeType(Reader.ReadInteger);
-
-          JPos.x := Reader.ReadFloat;
-          JPos.y := Reader.ReadFloat;
-          JPos.z := Reader.ReadFloat;
-
-          JRot.x := Reader.ReadFloat;
-          JRot.y := Reader.ReadFloat;
-          JRot.z := Reader.ReadFloat;
-          JRot.w := Reader.ReadFloat;
-
-          Size.x := Reader.ReadFloat;
-          Size.y := Reader.ReadFloat;
-          Size.z := Reader.ReadFloat;
-
-          Friction := Reader.ReadFloat;
-          Restitution := Reader.ReadFloat;
-
-          LoadColor.r := Reader.ReadInteger;
-          LoadColor.g := Reader.ReadInteger;
-          LoadColor.b := Reader.ReadInteger;
-          LoadColor.a := Reader.ReadInteger;
-
-          // Create the Actor natively
-          Actor := TA3DComponent.Create('', FSandbox.Engine, ShapeType, Size, False, @JPos, @JRot);
-          Actor.Name := AName;
-          Actor.Friction := Friction;
-          Actor.Restitution := Restitution;
-          Actor.ActColor := LoadColor;
-          Actor.TargetColor := LoadColor;
-          Actor.Visible := True;
-
-          SetLength(FSandbox.FItems, Length(FSandbox.FItems) + 1);
-          FSandbox.FItems[High(FSandbox.FItems)] := Actor;
-
-          var NodeText: string;
-          if Actor.Name <> '' then
-            NodeText := Actor.Name
-          else
-            NodeText := 'Unnamed ' + GetEnumName(TypeInfo(TShapeType), Ord(Actor.ShapeType));
-          tvSceneHierarchy.Items.AddChild(nil, NodeText).Data := Actor;
-
-          // Give Jolt Physics a tiny breather so Broadphase can catch up
-          // This prevents bodies from spawning at 0,0,0
-          Sleep(20);
-        end;
-      finally
-        Reader.Free;
-      end;
-    finally
-      Stream.Free;
-    end;
-  finally
-
-  end;
-
+  // Tell the sandbox thread to load the scene. The VCL remains responsive.
+  FSandbox.LoadSceneFromFile(OpenDialog1.FileName);
   lblInfo.Caption := 'Scene loaded from: ' + OpenDialog1.FileName;
 end;
+
 procedure TForm1.btnSelectNextClick(Sender: TObject);
 begin
   FSandbox.SelectNextObject;
@@ -419,12 +293,10 @@ begin
   TVCL3D.SpawnSandbox(FSandbox);
 end;
 
-
 procedure TForm1.btnSpawnWallClick(Sender: TObject);
 begin
-  TVCL3D.SpawnDynamicWall(FSandbox, 10,10, false, true);
+  TVCL3D.SpawnDynamicWall(FSandbox, 10, 10, false, true);
 end;
-
 
 procedure TForm1.btnSpawn3DModelClick(Sender: TObject);
 begin
@@ -481,7 +353,6 @@ procedure TForm1.btnClearSceneClick(Sender: TObject);
 begin
   FSandbox.SetBrush(TShapeType(-1));
   FSandbox.ClearItems;
-
 
   lblInfo.Caption := 'Scene Cleared.';
 end;
@@ -595,7 +466,7 @@ var
   VecVal: TVector3;
   Rx, Ry, Rz: Single;
   CY, SY, CP, SP, CR, SR: Single;
-  CYCP, SYCP, CYSP, SYSP: Single;
+  CYCP, SYSP, CYSP, SYCP: Single;
 begin
   if FIsUpdatingGrid or (ARow = 0) or not Assigned(FSelectedComponent) then
     Exit;
@@ -835,20 +706,13 @@ begin
   Actor := TA3DComponent(Node.Data);
   if Assigned(Actor) then
   begin
-    // Clear previous glow states on all items in the background
-    for i := 0 to FSandbox.ItemCount - 1 do
-      if Assigned(FSandbox.FItems[i]) then
-        FSandbox.FItems[i].TealGlow := False;
-    // Apply new selection state (make it glow teal in the 3D scene)
-    Actor.TealGlow := True;
     FSelectedComponent := Actor;
     // Notify the Raylib Sandbox engine about the new selection
     FSandbox.SetSelectedActor(Actor);
     // Update the Object Inspector grid with the selected Actor's properties
     LoadPropertiesIntoGrid(Actor);
     // Update the status label at the bottom
-    lblInfo.Caption := Format('Selected: %s | Pos: %.1f, %.1f, %.1f',
-      [Actor.Name, Actor.Position.x, Actor.Position.y, Actor.Position.z]);
+    lblInfo.Caption := Format('Selected: %s | Pos: %.1f, %.1f, %.1f', [Actor.Name, Actor.Position.x, Actor.Position.y, Actor.Position.z]);
   end;
 end;
 
@@ -900,8 +764,9 @@ initialization
   // CRITICAL: Register the class so TReader.ReadComponent can instantiate it!
   // TReader is paranoid and refuses to create classes it doesn't know.
   RegisterClass(TA3DComponent);
+
+
 finalization
-  // Optional, aber sauber:
   UnRegisterClass(TA3DComponent);
 
 end.

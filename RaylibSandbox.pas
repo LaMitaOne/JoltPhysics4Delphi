@@ -254,6 +254,12 @@ type
     FTimeScale: Single;
     FSlowMotionActive: Boolean;
 
+    // Scene Save/Load Queues
+    FSaveSceneQueued: Boolean;
+    FQueuedSavePath: string;
+    FLoadSceneQueued: Boolean;
+    FQueuedLoadPath: string;
+
     procedure UpdateBomb(dt: Single);
     procedure ExplodeBomb;
 
@@ -305,6 +311,10 @@ type
     procedure PlaySpawnSound;
     procedure DrawMeshBox(Pos: TVector3; Scale: TVector3; Color: TColorB);
     procedure DrawMeshSphere(Pos: TVector3; Radius: Single; Color: TColorB);
+
+    // Internal execution in the main thread
+    procedure ExecuteSceneSave(const FileName: string);
+    procedure ExecuteSceneLoad(const FileName: string);
   protected
     procedure Resize; override;
     procedure CreateWindowHandle(const Params: TCreateParams); override;
@@ -314,7 +324,7 @@ type
     FItems: TArray<TA3DComponent>;
     FMouseLeftHandled: Boolean;
     FSandboxSpawned: Boolean;
-    FSpawnStatic : Boolean;
+    FSpawnStatic: Boolean;
     function ItemCount: Integer;
     procedure ClearItems;
     procedure DeleteSelectedActor;
@@ -351,6 +361,10 @@ type
     property MaxRenderDistance: Single read FMaxRenderDistance write SetMaxRenderDistance;
     procedure ReattachLoadedActor(Actor: TA3DComponent);
     procedure ClearDynamicItemsOnly;
+
+    // Called from VCL to safely queue save/load in the render thread
+    procedure SaveSceneToFile(const FileName: string);
+    procedure LoadSceneFromFile(const FileName: string);
   published
     property Align;
     property Anchors;
@@ -427,7 +441,7 @@ begin
   rlPopMatrix();
 end;
 
-function GetTealGlowColor(intensity: Single): TColorB;
+function GetCollisionHighlightingColor(intensity: Single): TColorB;
 begin
   if intensity < 0 then
     intensity := 0;
@@ -498,6 +512,12 @@ begin
   // Initialize Slow Motion System
   FTimeScale := 1.0; // Default to normal speed
   FSlowMotionActive := False;
+
+  // Init Scene Load/Save flags
+  FSaveSceneQueued := False;
+  FLoadSceneQueued := False;
+  FQueuedSavePath := '';
+  FQueuedLoadPath := '';
 end;
 
 destructor TRaylibSandbox.Destroy;
@@ -558,9 +578,6 @@ begin
   if FDayNightRhythmActive <> Value then
     FDayNightRhythmActive := Value;
 end;
-
-
-
 
 procedure TRaylibSandbox.SetDayNightTime(const Value: Single);
 begin
@@ -872,7 +889,11 @@ begin
           end;
         except
           on E: Exception do
+          begin
             DoEngineException(E.Message, 'EngineInit');
+            // Fallback to ensure we don't freeze if InitWindow fails catastrophically
+            FInitialized := True;
+          end;
         end;
       finally
         try
@@ -2302,6 +2323,32 @@ var
   StartTime, EndTime, Freq: Int64;
   SunAngle, nDaytime: Single;
 begin
+  // Handle Scene Save
+  if FSaveSceneQueued then
+  begin
+    FLock.Enter;
+    try
+      FSaveSceneQueued := False;
+      ExecuteSceneSave(FQueuedSavePath);
+      FQueuedSavePath := '';
+    finally
+      FLock.Leave;
+    end;
+  end;
+
+  // Handle Scene Load
+  if FLoadSceneQueued then
+  begin
+    FLock.Enter;
+    try
+      FLoadSceneQueued := False;
+      ExecuteSceneLoad(FQueuedLoadPath);
+      FQueuedLoadPath := '';
+    finally
+      FLock.Leave;
+    end;
+  end;
+
   if FLoadModelQueued then
   begin
     FLock.Enter;
@@ -2436,7 +2483,7 @@ begin
         if (Abs(ItemVel.x) > 2.0) or (Abs(ItemVel.y) > 2.0) or (Abs(ItemVel.z) > 2.0) then
           PItemData(FItems[i].UserData)^.LastHitTime := GetTime();
         IsTeal := (GetTime() - PItemData(FItems[i].UserData)^.LastHitTime) < 0.3;
-        FItems[i].TealGlow := IsTeal;
+        FItems[i].CollisionHighlighting := IsTeal;
       end;
     end;
   if FDragging and Assigned(FItemSelected) and (FGizmoMode = gmDragAndThrow) then
@@ -2698,7 +2745,7 @@ var
     A: 255
   );
   begin
-    if A.TealGlow then
+    if A.CollisionHighlighting then
       Exit(COL_TEAL);
 
     // If the Actor has a custom color assigned (like spawned walls), use it!
@@ -3075,22 +3122,22 @@ begin
         rlPushMatrix();
         rlTranslatef(0.0, -0.5, 0.0);
 
-        // Update ModelMat for the mesh offset
+      // Update ModelMat for the mesh offset
         ModelMat := rlGetMatrixTransform();
         SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
 
         DrawModel(FPrismModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(FItemSelected));
         rlPopMatrix();
 
-        // Re-update ModelMat for the wireframe
+      // Re-update ModelMat for the wireframe
         ModelMat := rlGetMatrixTransform();
         SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
 
-        // Rotate the wireframe by 90 degrees on the Y axis to match the mesh
+      // Rotate the wireframe by 90 degrees on the Y axis to match the mesh
         rlPushMatrix();
         rlRotatef(90.0, 0.0, 1.0, 0.0);
 
-        // Update ModelMat for the wireframe rotation
+      // Update ModelMat for the wireframe rotation
         ModelMat := rlGetMatrixTransform();
         SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
 
@@ -3566,10 +3613,10 @@ begin
     // Clear previous glow states
     for i := 0 to High(FItems) do
       if Assigned(FItems[i]) then
-        FItems[i].TealGlow := False;
+        FItems[i].CollisionHighlighting := False;
 
     // Apply new selection state
-    Actor.TealGlow := True;
+    Actor.CollisionHighlighting := True;
     FItemSelected := Actor; // Update engine state
 
     // Notify the VCL Form to update TreeView and Inspector
@@ -3597,10 +3644,10 @@ begin
     // Clear previous glow states
     for i := 0 to High(FItems) do
       if Assigned(FItems[i]) then
-        FItems[i].TealGlow := False;
+        FItems[i].CollisionHighlighting := False;
 
     // Apply new selection state
-    Actor.TealGlow := True;
+    Actor.CollisionHighlighting := True;
     FItemSelected := Actor; // Update engine state
 
     // Notify the VCL Form to update TreeView and Inspector
@@ -3848,6 +3895,7 @@ begin
     FLock.Leave;
   end;
 end;
+
 procedure TRaylibSandbox.ReattachLoadedActor(Actor: TA3DComponent);
 var
   JPos: JPH_RVec3;
@@ -3866,18 +3914,211 @@ begin
   JRot.z := Actor.Quaternion.z;
   JRot.w := Actor.Quaternion.w;
   // Create the body in Jolt
-  Actor.FBodyID := JPH_BodyInterface_CreateAndAddBody(
-    FEngine.BodyInterface,
-    JPH_BodyCreationSettings_Create3(
-      Actor.FShape,
-      @JPos,
-      @JRot,
-      JPH_MotionType_Dynamic,
-      0 // Default ObjectLayer, adjust if you save/load layers
-    ),
-    JPH_Activation_Activate
-  );
+  Actor.FBodyID := JPH_BodyInterface_CreateAndAddBody(FEngine.BodyInterface, JPH_BodyCreationSettings_Create3(Actor.FShape, @JPos, @JRot, JPH_MotionType_Dynamic, 0 // Default ObjectLayer, adjust if you save/load layers
+  ), JPH_Activation_Activate);
   Actor.Visible := True;
+end;
+
+// ============================================================================
+// SCENE SAVING & LOADING (Executed in main thread)
+// ============================================================================
+
+procedure TRaylibSandbox.SaveSceneToFile(const FileName: string);
+begin
+  FLock.Enter;
+  try
+    FQueuedSavePath := FileName;
+    FSaveSceneQueued := True;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+procedure TRaylibSandbox.LoadSceneFromFile(const FileName: string);
+begin
+  FLock.Enter;
+  try
+    FQueuedLoadPath := FileName;
+    FLoadSceneQueued := True;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+procedure TRaylibSandbox.ExecuteSceneSave(const FileName: string);
+var
+  Stream: TFileStream;
+  Writer: TWriter;
+  i: Integer;
+  Actor: TA3DComponent;
+begin
+  if not Assigned(FEngine) then
+    Exit;
+
+  Stream := TFileStream.Create(FileName, fmCreate);
+  try
+    Writer := TWriter.Create(Stream, 4096);
+    try
+      Writer.WriteInteger(Length(FItems));
+
+      for i := 0 to High(FItems) do
+      begin
+        Actor := FItems[i];
+        if Assigned(Actor) then
+        begin
+          if Actor.ShapeType = stModel then
+            Continue;
+
+          Writer.WriteStr(Actor.Name);
+          Writer.WriteInteger(Integer(Actor.ShapeType));
+
+          Writer.WriteFloat(Actor.Position.x);
+          Writer.WriteFloat(Actor.Position.y);
+          Writer.WriteFloat(Actor.Position.z);
+
+          Writer.WriteFloat(Actor.Quaternion.x);
+          Writer.WriteFloat(Actor.Quaternion.y);
+          Writer.WriteFloat(Actor.Quaternion.z);
+          Writer.WriteFloat(Actor.Quaternion.w);
+
+          Writer.WriteFloat(Actor.Scale.x);
+          Writer.WriteFloat(Actor.Scale.y);
+          Writer.WriteFloat(Actor.Scale.z);
+
+          Writer.WriteFloat(Actor.Friction);
+          Writer.WriteFloat(Actor.Restitution);
+
+          Writer.WriteInteger(Actor.ActColor.r);
+          Writer.WriteInteger(Actor.ActColor.g);
+          Writer.WriteInteger(Actor.ActColor.b);
+          Writer.WriteInteger(Actor.ActColor.a);
+
+          // Save ModelPath if the actor is a model, otherwise -
+          if Actor.ShapeType = stModel then
+            Writer.WriteStr(Actor.FModelPath)
+          else
+            Writer.WriteStr('-');
+        end;
+      end;
+      Writer.FlushBuffer;
+    finally
+      Writer.Free;
+    end;
+  finally
+    Stream.Free;
+  end;
+end;
+
+procedure TRaylibSandbox.ExecuteSceneLoad(const FileName: string);
+var
+  Stream: TFileStream;
+  Reader: TReader;
+  i, Count: Integer;
+  Actor: TA3DComponent;
+  JPos: JPH_RVec3;
+  JRot: JPH_Quat;
+  ShapeType: TShapeType;
+  Size: TVector3;
+  Friction, Restitution: Single;
+  LoadColor: TColorB;
+  AName, ModelPath: string;
+begin
+  if not Assigned(FEngine) then
+    Exit;
+
+  if not System.SysUtils.FileExists(FileName) then
+    Exit;
+
+  // Soft reset the scene
+  ClearDynamicItemsOnly;
+
+  try
+    Stream := TFileStream.Create(FileName, fmOpenRead);
+    try
+      Reader := TReader.Create(Stream, 4096);
+      try
+        Count := Reader.ReadInteger;
+
+        for i := 0 to Count - 1 do
+        begin
+          AName := Reader.ReadStr;
+          ShapeType := TShapeType(Reader.ReadInteger);
+
+          JPos.x := Reader.ReadFloat;
+          JPos.y := Reader.ReadFloat;
+          JPos.z := Reader.ReadFloat;
+
+          JRot.x := Reader.ReadFloat;
+          JRot.y := Reader.ReadFloat;
+          JRot.z := Reader.ReadFloat;
+          JRot.w := Reader.ReadFloat;
+
+          Size.x := Reader.ReadFloat;
+          Size.y := Reader.ReadFloat;
+          Size.z := Reader.ReadFloat;
+
+          Friction := Reader.ReadFloat;
+          Restitution := Reader.ReadFloat;
+
+          LoadColor.r := Reader.ReadInteger;
+          LoadColor.g := Reader.ReadInteger;
+          LoadColor.b := Reader.ReadInteger;
+          LoadColor.a := Reader.ReadInteger;
+
+          // Read ModelPath ('-' if not a model)
+          ModelPath := Reader.ReadStr;
+
+          // Create the Actor natively
+          Actor := TA3DComponent.Create('', FEngine, ShapeType, Size, False, @JPos, @JRot);
+          Actor.Name := AName;
+          Actor.Friction := Friction;
+          Actor.Restitution := Restitution;
+          Actor.ActColor := LoadColor;
+          Actor.TargetColor := LoadColor;
+          Actor.Visible := True;
+
+          // Load model mesh if it's a model
+          if (ShapeType = stModel) and (ModelPath <> '-') then
+          begin
+            Actor.FModelPath := ModelPath;
+            var LoadedModel := LoadModel(PAnsiChar(AnsiString(ModelPath)));
+            if LoadedModel.meshes <> nil then
+            begin
+              if (LoadedModel.materialCount > 0) and (LoadedModel.materials <> nil) then
+              begin
+                for var matIdx := 0 to LoadedModel.materialCount - 1 do
+                  LoadedModel.materials[matIdx].shader := FLightShader;
+              end;
+              Actor.FModel := LoadedModel;
+              var BBox := GetModelBoundingBox(LoadedModel);
+              var MeshSize := Vector3Create(BBox.max.x - BBox.min.x, BBox.max.y - BBox.min.y, BBox.max.z - BBox.min.z);
+              Actor.FMeshSize := MeshSize;
+              Actor.FModelOffset := Vector3Create(-BBox.min.x * Size.x, -BBox.min.y * Size.y - 0.5, -BBox.min.z * Size.z);
+            end;
+          end
+          else
+            Actor.FModelPath := '';
+
+          SetLength(FItems, Length(FItems) + 1);
+          FItems[High(FItems)] := Actor;
+
+          // Notify VCL Form about the spawned actor so it gets added to the TreeView
+          DoActorSpawned(Actor, High(FItems));
+
+          // Give Jolt Physics a tiny breather so Broadphase can catch up
+          // This prevents bodies from spawning at 0,0,0
+          Sleep(1);
+        end;
+      finally
+        Reader.Free;
+      end;
+    finally
+      Stream.Free;
+    end;
+  except
+    on E: Exception do
+      DoEngineException(E.Message, 'LoadSceneFromFile');
+  end;
 end;
 
 end.

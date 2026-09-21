@@ -111,7 +111,7 @@ type
     FQuaternion: TQuaternion;
     FUserData: Pointer;
     FOnCollision: TCollisionEvent;
-    FTealGlow: Boolean;
+    FCollisionHighlighting: Boolean;
     FActColor: TColorB;
     FTargetColor: TColorB;
     FActAlpha: Single;
@@ -130,6 +130,7 @@ type
     FIsDead: boolean;
     FModelTransform: TMatrix;
     FButtonTexture: TTexture2D;
+    FModelPath : String;
     constructor Create(AOwner: TComponent); overload; override;
     constructor Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean = False; APos: PJPH_RVec3 = nil; ARot: PJPH_Quat = nil); reintroduce; overload;
     destructor Destroy; override;
@@ -151,7 +152,7 @@ type
     procedure ReattachToPhysics;
     property BodyID: JPH_BodyID read FBodyID;
     property UserData: Pointer read FUserData write FUserData;
-    property TealGlow: Boolean read FTealGlow write FTealGlow;
+    property CollisionHighlighting: Boolean read FCollisionHighlighting write FCollisionHighlighting;
   published
     property ShapeType: TShapeType read FShapeType write FShapeType;
     property Position: TVector3 read FPosition write SetPosition;
@@ -394,7 +395,7 @@ begin
   FActAlpha := 1.0;
   FTargetAlpha := 1.0;
   FVisible := True;
-  FTealGlow := False;
+  FCollisionHighlighting := False;
   FModel.meshes := nil;
   FMeshSize := Vector3Create(1, 1, 1);
   FEngine := nil;
