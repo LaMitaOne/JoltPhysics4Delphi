@@ -2,7 +2,7 @@ object Form1: TForm1
   Left = 0
   Top = 0
   Caption = 'MRX Engine Editor - Prototype'
-  ClientHeight = 647
+  ClientHeight = 689
   ClientWidth = 1100
   Color = 4276545
   Font.Charset = DEFAULT_CHARSET
@@ -19,7 +19,7 @@ object Form1: TForm1
     Left = 200
     Top = 0
     Width = 5
-    Height = 605
+    Height = 647
     ExplicitLeft = 201
     ExplicitHeight = 441
   end
@@ -27,7 +27,7 @@ object Form1: TForm1
     Left = 895
     Top = 0
     Width = 5
-    Height = 605
+    Height = 647
     Align = alRight
     ExplicitLeft = 208
     ExplicitTop = 8
@@ -37,7 +37,7 @@ object Form1: TForm1
     Left = 0
     Top = 0
     Width = 200
-    Height = 605
+    Height = 647
     Align = alLeft
     Caption = 'pnlLeft'
     TabOrder = 0
@@ -73,7 +73,7 @@ object Form1: TForm1
       Left = 1
       Top = 297
       Width = 198
-      Height = 307
+      Height = 349
       Align = alClient
       Caption = 'Panel1'
       TabOrder = 1
@@ -82,7 +82,7 @@ object Form1: TForm1
         Left = 1
         Top = 1
         Width = 196
-        Height = 305
+        Height = 347
         Align = alClient
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clBlack
@@ -100,7 +100,7 @@ object Form1: TForm1
   end
   object pnlBottom: TPanel
     Left = 0
-    Top = 605
+    Top = 647
     Width = 1100
     Height = 42
     Align = alBottom
@@ -166,7 +166,7 @@ object Form1: TForm1
     Left = 900
     Top = 0
     Width = 200
-    Height = 605
+    Height = 647
     Align = alRight
     Caption = 'pnlRight'
     TabOrder = 2
@@ -176,7 +176,7 @@ object Form1: TForm1
       Left = 1
       Top = 1
       Width = 198
-      Height = 603
+      Height = 645
       ActivePage = tsScene
       Align = alClient
       Font.Charset = DEFAULT_CHARSET
@@ -189,14 +189,20 @@ object Form1: TForm1
       ExplicitHeight = 602
       object tsScene: TTabSheet
         Caption = 'Scene'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clSilver
+        Font.Height = -12
+        Font.Name = 'Segoe UI'
+        Font.Style = []
+        ParentFont = False
         DesignSize = (
           190
-          573)
+          615)
         object Shape1: TShape
           Left = 0
           Top = 0
           Width = 190
-          Height = 573
+          Height = 615
           Align = alClient
           Brush.Color = clBlack
           ExplicitLeft = 88
@@ -206,7 +212,7 @@ object Form1: TForm1
         end
         object btnClearScene: TButton
           Left = 125
-          Top = 261
+          Top = 303
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -253,7 +259,7 @@ object Form1: TForm1
         end
         object btnSceneSave: TButton
           Left = 125
-          Top = 323
+          Top = 365
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -264,7 +270,7 @@ object Form1: TForm1
         end
         object btnSceneLoad: TButton
           Left = 125
-          Top = 292
+          Top = 334
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -293,7 +299,7 @@ object Form1: TForm1
         end
         object Memo1: TMemo
           Left = 16
-          Top = 357
+          Top = 399
           Width = 161
           Height = 201
           Anchors = [akLeft, akBottom]
@@ -313,7 +319,7 @@ object Form1: TForm1
         end
         object btnSelectPrev: TButton
           Left = 13
-          Top = 323
+          Top = 365
           Width = 28
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -324,7 +330,7 @@ object Form1: TForm1
         end
         object btnSelectNext: TButton
           Left = 47
-          Top = 323
+          Top = 365
           Width = 28
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -335,7 +341,7 @@ object Form1: TForm1
         end
         object btnSpawnSandbox: TButton
           Left = 10
-          Top = 261
+          Top = 303
           Width = 109
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -346,7 +352,7 @@ object Form1: TForm1
         end
         object btnSpawnWall: TButton
           Left = 10
-          Top = 292
+          Top = 334
           Width = 109
           Height = 25
           Anchors = [akLeft, akBottom]
@@ -373,10 +379,37 @@ object Form1: TForm1
           TabOrder = 15
           OnClick = btnSpawnButtonClick
         end
+        object cbStatic: TCheckBox
+          Left = 128
+          Top = 21
+          Width = 57
+          Height = 17
+          Hint = 'spawn static'
+          Caption = 'static'
+          Color = clBlack
+          Ctl3D = True
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clSilver
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentColor = False
+          ParentCtl3D = False
+          ParentFont = False
+          TabOrder = 16
+          StyleElements = [seClient, seBorder]
+          OnClick = cbStaticClick
+        end
       end
       object tsEngine: TTabSheet
         Caption = 'Engine'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clSilver
+        Font.Height = -12
+        Font.Name = 'Segoe UI'
+        Font.Style = []
         ImageIndex = 1
+        ParentFont = False
         object Label1: TLabel
           Left = 16
           Top = 56

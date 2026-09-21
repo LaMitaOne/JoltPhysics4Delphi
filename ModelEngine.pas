@@ -1,7 +1,7 @@
 ﻿unit ModelEngine;
 
 {==============================================================================*
- *  ModelEngine v0.58 - Actor Layer combining Raylib rendering with Jolt Physics
+ *  ModelEngine v0.59 - Actor Layer combining Raylib rendering with Jolt Physics
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -396,6 +396,13 @@ begin
   FVisible := True;
   FTealGlow := False;
   FModel.meshes := nil;
+  FMeshSize := Vector3Create(1, 1, 1);
+  FEngine := nil;
+  FShape := nil;
+  FBodyID := 0;
+  FModel.meshes := nil;
+  FModel.materials := nil;
+  FModel.materialCount := 0;
   FMeshSize := Vector3Create(1, 1, 1);
 end;
 

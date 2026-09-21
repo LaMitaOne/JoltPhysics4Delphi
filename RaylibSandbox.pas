@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.58 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.59 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -314,6 +314,7 @@ type
     FItems: TArray<TA3DComponent>;
     FMouseLeftHandled: Boolean;
     FSandboxSpawned: Boolean;
+    FSpawnStatic : Boolean;
     function ItemCount: Integer;
     procedure ClearItems;
     procedure DeleteSelectedActor;
@@ -458,6 +459,7 @@ begin
   FSpawnQueue := 0;
   FSpawnTimer := 0.0;
   FSpawnShape := stBox;
+  FSpawnStatic := False;
   FClearItemsQueued := False;
   FShootCooldown := 0.0;
   FIsBrushActive := false;
@@ -556,6 +558,9 @@ begin
   if FDayNightRhythmActive <> Value then
     FDayNightRhythmActive := Value;
 end;
+
+
+
 
 procedure TRaylibSandbox.SetDayNightTime(const Value: Single);
 begin
@@ -1047,7 +1052,7 @@ begin
   JRot.y := RandQuat.y;
   JRot.z := RandQuat.z;
   JRot.w := RandQuat.w;
-  Obj := TA3DComponent.Create('', FEngine, FSpawnShape, Size, False, @JPos, @JRot);
+  Obj := TA3DComponent.Create('', FEngine, FSpawnShape, Size, FSpawnStatic, @JPos, @JRot);
   Obj.Name := Data^.Name;
   Obj.Friction := 0.2;
   Obj.Restitution := 0.2;
@@ -1850,7 +1855,7 @@ begin
     NewRot.z := FItemSelected.Quaternion.z;
     NewRot.w := FItemSelected.Quaternion.w;
     NewSize := FItemSelected.Scale;
-    NewActor := TA3DComponent.Create('', FEngine, FItemSelected.ShapeType, NewSize, False, @NewPos, @NewRot);
+    NewActor := TA3DComponent.Create('', FEngine, FItemSelected.ShapeType, NewSize, FSpawnStatic, @NewPos, @NewRot);
     NewActor.Friction := FItemSelected.Friction;
     NewActor.Restitution := FItemSelected.Restitution;
     NewActor.TargetColor := FItemSelected.TargetColor;
@@ -2181,7 +2186,7 @@ begin
   JRot.y := 0;
   JRot.z := 0;
   JRot.w := 1;
-  Obj := TA3DComponent.Create('', FEngine, FBrushShape, Size, False, @JPos, @JRot);
+  Obj := TA3DComponent.Create('', FEngine, FBrushShape, Size, FSpawnStatic, @JPos, @JRot);
   Obj.Name := Data^.Name;
 
   if FBrushShape = stModel then
@@ -3812,7 +3817,6 @@ begin
     FDragging := False;
     FItemSelected := nil;
     FSpawnQueue := 0;
-
     // Only clear dynamic items, keep FFloorActor and Engine alive!
     var i: Integer;
     for i := High(FItems) downto 0 do
@@ -3836,7 +3840,6 @@ begin
         FProjectiles[i] := nil;
       end;
     end;
-
     SetLength(FProjectiles, 0);
     SetLength(FItems, 0);
     FBombActor := nil;
@@ -3845,7 +3848,6 @@ begin
     FLock.Leave;
   end;
 end;
-
 procedure TRaylibSandbox.ReattachLoadedActor(Actor: TA3DComponent);
 var
   JPos: JPH_RVec3;
@@ -3853,10 +3855,8 @@ var
 begin
   if not Assigned(Actor) or not Assigned(FEngine) then
     Exit;
-
   // Reassign the engine pointer in case it was lost during serialization
   Actor.FEngine := FEngine;
-
   // Recreate the physics body based on loaded transform and scale
   JPos.x := Actor.Position.x;
   JPos.y := Actor.Position.y;
@@ -3865,7 +3865,6 @@ begin
   JRot.y := Actor.Quaternion.y;
   JRot.z := Actor.Quaternion.z;
   JRot.w := Actor.Quaternion.w;
-
   // Create the body in Jolt
   Actor.FBodyID := JPH_BodyInterface_CreateAndAddBody(
     FEngine.BodyInterface,
@@ -3878,7 +3877,6 @@ begin
     ),
     JPH_Activation_Activate
   );
-
   Actor.Visible := True;
 end;
 
