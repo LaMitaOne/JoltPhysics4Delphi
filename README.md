@@ -11,7 +11,7 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.58)     
+   Status: Work in Progress (Alpha v0.59)     
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
       
 ✨ Features
@@ -80,6 +80,12 @@ Since the original C API is massive, there is still a lot to cover. Here is what
 
   Latest Changes:  
      
+   v0.59:   
+
+     Load now works with scenes including lot more objects.
+     We need give jolt little time after creating each object in its physical world, then it works fine.     
+     Added Checkbox cbSpawnStatic for new spawned objects.     
+          
    v0.58:   
 
      Scene Serialization (Save/Load): Implemented a custom, high-performance binary scene format (.d3dfm). Uses manual TFileStream and TWriter/TReader serialization to bypass VCL RTTI streaming crashes. Safely writes and restores object names, shape types, transforms (position, rotation, scale), colors, and physics properties. Still more to test but ...sometimes...works :D   
