@@ -11,22 +11,41 @@ Sample video: https://youtu.be/EaJqNMYcxJo
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Alpha v0.59)     
-   The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 50% of the API (over 1,200 lines of Delphi bindings). While complex systems like vehicles and ragdolls are still to do, the core simulation functionality—rigid bodies, advanced shapes, constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.     
-      
-✨ Features
-
-Core Physics System (Jolt Physics)
-
-     World Creation: Physics system initialization, gravity setup, and broadphase optimization.
-     Rigid Bodies: Static and Dynamic actors with full transform syncing (Position & Rotation).
-     Collision Shapes: Box, Sphere, Capsule, Cylinder, and Convex Model physics wrappers.
-     Physics Interactions: Apply forces, impulses, and set linear/angular velocities.
-     Raycasting: Built-in 3D raycasting from screen coordinates to the physics world.
-     Safe Editing: Dynamic Detach/Reattach system. Objects are safely removed from the physics simulation during Gizmo editing and cleanly re-attached upon mouse release, preventing crashes or physics jitter.
-     Dynamic Scaling: Rebuilds native Jolt Shapes safely on the fly, including an automatic fallback to a 0.0 convex radius for paper-thin walls.
-     Multi-threading: Utilizes Jolt's built-in thread pool and job system for maximum CPU performance.
-
+   Status: Work in Progress (Beta v0.60)       
+   The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 85% of the API (over 1,500 lines of Delphi bindings).     
+While some highly specific low-level telemetry and niche constraints are still missing, the wrapper now includes comprehensive support for advanced game engine systems. This includes Ragdolls, Soft Body configuration, advanced Shape Casting (Sweep tests), Vehicles, and Table-based Collision Groups. The core simulation functionality—rigid bodies, complex shapes, all standard constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.             
+       
+✨ Features     
+    
+Core Physics System (Jolt Physics)    
+    
+    World Creation: Initializes the physics system, sets up gravity, and optimizes the broadphase for efficient collision detection.
+    Rigid Bodies: Supports static, kinematic, and dynamic actors with full transform syncing for position and rotation.   
+    Collision Shapes: Provides wrappers for Box, Sphere, Capsule, Cylinder, Tapered shapes, Convex Hulls, Compound shapes, Meshes, and Heightfields.
+    Physics Interactions: Allows the application of forces, impulses, and precise control over linear and angular velocities.    
+    
+Advanced Collision & Queries    
+    
+    Raycasting: Offers built-in 3D raycasting to query the physics world from screen coordinates or specific origins.
+    Shape Casting (Sweeps): Implements advanced CastShape and CollideShape queries to sweep complex shapes across the world, which is essential for character movement and projectile collision.    
+    Table-based Layers: Provides explicit, large-scale BroadPhase and ObjectLayer management for complex and highly customized collision filtering.
+    Collision Groups: Features advanced GroupFilter and SubGroupID management to define intricate collision rules, such as ignoring specific ragdoll limbs or attached objects.    
+    
+Complex Game Systems    
+    
+    Ragdolls & Skeletons: Delivers full skeleton mapping, joint configuration (like Hinge and SwingTwist), and runtime ragdoll control for activation and deactivation.    
+    Soft Bodies: Lays the foundation for deformable physics objects by allowing the creation of soft bodies from scratch using vertices and edges.
+    Vehicles: Implements a comprehensive vehicle setup, including engines, transmissions, anti-roll bars, tracks, and driver inputs for wheeled, tracked, and motorcycle controllers.    
+    Advanced Constraints: Supports mechanical joints like Cone, SwingTwist, SixDOF, and Gear constraints for complex physics simulations.
+    Virtual Characters: Features an advanced CharacterVirtual implementation with contact listeners and extended update settings for smooth stair walking and stepping down.
+       
+Engine Utilities & Safety    
+     
+    Safe Editing: Uses a dynamic detach and reattach system that safely removes objects from the physics simulation during gizmo editing and cleanly re-attaches them upon mouse release to prevent crashes or jitter.      
+    Dynamic Scaling: Safely rebuilds native Jolt shapes on the fly, including an automatic fallback to a 0.0 convex radius to support paper-thin walls.
+    Multi-threading: Utilizes Jolt's built-in thread pool and job system to distribute physics calculations across CPU cores for maximum performance.
+    Debug Rendering: Includes extensible DebugRenderer bindings, such as DrawSettings, wireframes, and bounding boxes, to easily visualize the physics world directly in the engine.     
+    
 Rendering & Environment (Raylib + Custom GLSL)
 
      VCL Integration: Includes a TRaylibSandbox component that embeds a Raylib 3D window inside a standard Delphi VCL form, running smoothly in a background thread without blocking the UI.
@@ -68,18 +87,30 @@ The repository consists of three main units:
 🛠️ What's Missing? (Roadmap)     
       
 Since the original C API is massive, there is still a lot to cover. Here is what is currently missing but planned for future updates:    
-    
-    Complete locking BodyInterface (BodyLockInterface) for safe multi-threaded access.
-    Character virtual controllers (JPH_CharacterVirtual for kinematic movement).
-    Soft Body simulation (creating and updating soft body shared settings).
-    Ragdoll & Skeleton systems (joint mapping, skeletal animations).
-    Complete Vehicle system (Wheeled, Tracked, Motorcycles, transmissions, differentials).
-    Custom memory allocators (currently relying on JPH_TempAllocatorMalloc).
-
+     
+    Complete Locking BodyInterface: Full implementation of `BodyLockRead`, `BodyLockWrite`, and multi-lock interfaces for safe, manual multi-threaded access.
+    Advanced Shape Casting Collectors: Wrappers for `AllHit`, `ClosestHit`, and `AnyHit` collector types to easily gather multiple collision results from `CastShape` and `CollideShape`.
+    Vehicle Runtime Telemetry: Getting real-time data from vehicles (current RPM, gear, wheel contact normals) and implementing the remaining `MotorcycleController` steering setup.
+    Advanced Constraints: Adding the remaining niche joints (`PathConstraint`, `RackAndPinionConstraint`, `PulleyConstraint`).
+    Physics State Serialization: Implementing `SaveState` and `RestoreState` for saving and loading exact physics snapshots (useful for savegames).
+    Custom Memory Allocators: Currently relying on `JPH_TempAllocatorMalloc`; future updates will expose ways to hook in custom memory allocation strategies.
+    Missing Math Helpers: Expanding the math wrapper (Matrix inverses, quaternion to Euler angles, full vector arithmetic).    
+     
   Exe and sample project included    
 
   Latest Changes:  
+    
+  v0.60:
      
+     Implemented Advanced Collision Queries (CastShape/CollideShape) and Sweep tests.   
+     Added full Ragdoll/Skeleton configuration (joint mapping, group filters, activation).   
+     Exposed Soft Body creation APIs (adding vertices/edges, SoftBodyCreationSettings).   
+     Expanded Vehicle system (engines, transmissions, tracks, anti-roll bars, driver inputs).   
+     Added remaining constraints (Cone, SwingTwist, SixDOF, Gear).   
+     Implemented Table-based BroadPhase/Layer filters and Collision Group management.   
+     Extended Body Interface (MoveKinematic, PointVelocity, InverseInertia).   
+     Added PhysicsStepListener vtables and expanded Debug Renderer bindings (DrawSettings).   
+        
    v0.59:   
 
      Load now works with scenes including lot more objects.
