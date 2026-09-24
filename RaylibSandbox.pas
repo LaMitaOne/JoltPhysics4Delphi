@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.59 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.60 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -568,9 +568,21 @@ begin
 end;
 
 procedure TRaylibSandbox.SetHighlightCollision(const Value: Boolean);
+var
+  i: Integer;
 begin
   if FHighlightCollision <> Value then
+  begin
     FHighlightCollision := Value;
+    if not FHighlightCollision then
+    begin
+      for i := 0 to High(FItems) do
+      begin
+        if Assigned(FItems[i]) and (FItems[i] <> FItemSelected) then
+          FItems[i].CollisionHighlighting := False;
+      end;
+    end;
+  end;
 end;
 
 procedure TRaylibSandbox.SetDayNightRhythmActive(const Value: Boolean);
@@ -2473,19 +2485,32 @@ begin
     end;
   end;
   if FHighlightCollision then
+  begin
     for i := 0 to High(FItems) do
     begin
       if Assigned(FItems[i]) and (FItems[i].UserData <> nil) then
       begin
         if PItemData(FItems[i].UserData)^.IsProjectile then
           Continue;
+
         ItemVel := FItems[i].GetLinearVelocity;
         if (Abs(ItemVel.x) > 2.0) or (Abs(ItemVel.y) > 2.0) or (Abs(ItemVel.z) > 2.0) then
           PItemData(FItems[i].UserData)^.LastHitTime := GetTime();
+
         IsTeal := (GetTime() - PItemData(FItems[i].UserData)^.LastHitTime) < 0.3;
-        FItems[i].CollisionHighlighting := IsTeal;
+
+        FItems[i].CollisionHighlighting := IsTeal or (FItems[i] = FItemSelected);
       end;
     end;
+  end
+  else
+  begin
+    for i := 0 to High(FItems) do
+    begin
+      if Assigned(FItems[i]) then
+        FItems[i].CollisionHighlighting := (FItems[i] = FItemSelected);
+    end;
+  end;
   if FDragging and Assigned(FItemSelected) and (FGizmoMode = gmDragAndThrow) then
   begin
     Dir.x := FDragTargetPos.x - FItemSelected.Position.x;
@@ -3918,7 +3943,6 @@ begin
   ), JPH_Activation_Activate);
   Actor.Visible := True;
 end;
-
 // ============================================================================
 // SCENE SAVING & LOADING (Executed in main thread)
 // ============================================================================

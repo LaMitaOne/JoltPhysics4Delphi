@@ -1,7 +1,7 @@
 unit VCL3D;
 
 {==============================================================================*
- *  VCL3D v0.57 - High-Level Spawning Utilities for TRaylibSandbox
+ *  VCL3D v0.60 - High-Level Spawning Utilities for TRaylibSandbox
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *
