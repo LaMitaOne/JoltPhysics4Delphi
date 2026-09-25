@@ -9,11 +9,6 @@ unit JoltPhysics;
  *    Jolt Physics is a fast, multi-threaded physics engine originally written
  *    in C++ by Jorrit Rouwe. The C API allows usage from other languages.
  *
- *  IMPORTANT NOTE FOR GITHUB USERS:
- *    This is the FIRST EVER Delphi wrapper for Jolt Physics!
- *    It allows Delphi developers to use this high-performance physics engine
- *    natively via the C API. Please report any issues or contribute!
- *
  *  Status:
  *    This wrapper is a work-in-progress. The core functionality (world setup,
  *    body creation, shape creation, ray casting, transforms, forces/impulses)
