@@ -2025,7 +2025,8 @@ var
   RotAxis, WorldAxis, CamForward, MoveDir: TVector3;
   LocalMove: TVector3;
   CamDot: Single;
-  CurrentMeshHeight, StartMeshHeight, MeshHeightDiff: Single;
+  // Variables for Y-Lift ground stabilization
+  OldScaleY, NewScaleY, YLift: Single;
 begin
   MouseDeltaX := FMousePos.x - FGizmoStartMouse.x;
   MouseDeltaY := FMousePos.y - FGizmoStartMouse.y;
@@ -2104,10 +2105,19 @@ begin
       EndScale.z := EnsureRange(EndScale.z + ScaleChange, 0.05, 100);
     end;
 
-    if FItemSelected.ShapeType = stModel then
-      FItemSelected.Scale := Vector3Create(EndScale.x + 0.1, EndScale.y + 0.1, EndScale.z + 0.1)
-    else
-      FItemSelected.Scale := EndScale;
+    FItemSelected.Scale := EndScale;
+
+    // Y-LIFT STABILIZATION
+    // Now that models are perfectly centered, they behave like primitives.
+    // We lift the Y-Position by half the height change to keep the bottom on the ground.
+    if FGizmoAxis = 2 then
+    begin
+      OldScaleY := FGizmoStartVal.y;
+      NewScaleY := EndScale.y;
+      YLift := (NewScaleY - OldScaleY) * 0.5;
+
+      FItemSelected.SetPosition(Vector3Create(FGizmoStartPos.x, FGizmoStartPos.y + YLift, FGizmoStartPos.z));
+    end;
   end;
 end;
 
@@ -2404,6 +2414,14 @@ begin
 
   // Default Y-Offset for primitives (Cube etc. has height 1, so 0.5)
   YOffset := 0.5;
+
+  // FOR CAPSULES: Because the engine code (Scale.y * 0.5 + 0.5) results in a 1.0 height
+  // for a base scale of 1.0, we need to lift it by 1.0 to sit perfectly on the ground!
+  if FBrushShape = stCapsule then
+    YOffset := 1.0;
+
+  if FBrushShape = stPrism then
+    YOffset := 0.0;
 
   // FOR MODELS: Calculate exactly half the height of the scaled model!
   if FBrushShape = stModel then
@@ -3471,12 +3489,16 @@ begin
     else if FBrushShape = stPyramid then
     begin
       rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
+      // Rotate 45 degrees so a flat face points forward, matching the spawned mesh!
+      rlRotatef(45.0, 0.0, 1.0, 0.0);
       DrawCylinderEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.0, 0.5, 4, Fade(WHITE, 0.4));
       DrawCylinderWiresEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.0, 0.5, 4, YELLOW);
     end
     else if FBrushShape = stPrism then
     begin
       rlTranslatef(FGhostPos.x, SurfaceY, FGhostPos.z);
+      // Rotate 90 degrees for a 3-sided prism so it matches the spawned visual mesh
+      rlRotatef(90.0, 0.0, 1.0, 0.0);
       DrawCylinderEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.5, 0.5, 3, Fade(WHITE, 0.4));
       DrawCylinderWiresEx(Vector3Create(0, 0.75, 0), Vector3Create(0, -0.75, 0), 0.5, 0.5, 3, YELLOW);
     end
@@ -4076,7 +4098,6 @@ begin
   Obj.ActColor := Req.Color;
 
 
-
   // If it's the bomb, set up the explosion timer
   if Req.Name = 'THE_BOMB' then
   begin
@@ -4349,7 +4370,7 @@ begin
 
           // Save ModelPath if the actor is a model, otherwise -
           if Actor.ShapeType = stModel then
-            Writer.WriteStr(Actor.FModelPath)
+            Writer.WriteStr(Actor.ModelPath)
           else
             Writer.WriteStr('-');
         end;
@@ -4434,7 +4455,7 @@ begin
           // Load model mesh if it's a model
           if (ShapeType = stModel) and (ModelPath <> '-') then
           begin
-            Actor.FModelPath := ModelPath;
+            Actor.ModelPath := ModelPath;
             var LoadedModel := LoadModel(PAnsiChar(AnsiString(ModelPath)));
             if LoadedModel.meshes <> nil then
             begin
@@ -4451,7 +4472,7 @@ begin
             end;
           end
           else
-            Actor.FModelPath := '';
+            Actor.ModelPath := '';
 
           SetLength(FItems, Length(FItems) + 1);
           FItems[High(FItems)] := Actor;

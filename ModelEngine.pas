@@ -102,6 +102,7 @@ type
     procedure SetRestitution(const Value: Single);
     procedure SetMass(const Value: Single);
     procedure SetName(const Value: string);
+    procedure SetModelPath(const Value: string);
   protected
     FShapeType: TShapeType;
     FVisible: boolean;
@@ -178,6 +179,7 @@ type
     property HoverColor: TColorB read FHoverColor write FHoverColor;
     property Caption: string read FButtonCaption write FButtonCaption;
     property Name: string read FName write SetName;
+    property ModelPath: string read FModelPath write SetName;
   end;
 
 implementation
@@ -715,6 +717,14 @@ begin
   if FName <> Value then
   begin
     FName := Value;
+  end;
+end;
+
+procedure TA3DComponent.SetModelPath(const Value: string);
+begin
+  if FModelPath <> Value then
+  begin
+    FModelPath := Value;
   end;
 end;
 
