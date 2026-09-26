@@ -14,7 +14,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Math,
-  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Winapi.UxTheme,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, RaylibSandbox, ModelEngine, TypInfo,
   JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers, Vcl.Samples.Spin,
   VCL3D;
@@ -70,6 +70,7 @@ type
     SaveDialog1: TSaveDialog;
     cbStatic: TCheckBox;
     btnSpawnScreens: TButton;
+    lblstatic: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
     procedure btnSpawnSpheresClick(Sender: TObject);
@@ -106,6 +107,8 @@ type
     procedure cbStaticClick(Sender: TObject);
     procedure tvSceneHierarchyKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure btnSpawnScreensClick(Sender: TObject);
+    procedure StringGrid1DrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState);
+    procedure tvSceneHierarchyAdvancedCustomDrawItem(Sender: TCustomTreeView; Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage; var PaintImages, DefaultDraw: Boolean);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TA3DComponent;
@@ -156,10 +159,16 @@ begin
 end;
 
 procedure TForm1.FormCreate(Sender: TObject);
+const
+  clrBackground = clBlack;
+  clrFontSilver = clSilver;
 begin
   Caption := 'RaylibSandbox & JoltPhysics - Prototype';
   Width := 1200;
   Height := 800;
+
+  // --- DARK MODE INTEGRATION ---
+  // StringGrid Setup
   StringGrid1.FixedCols := 1;
   StringGrid1.FixedRows := 1;
   StringGrid1.ColCount := 2;
@@ -168,6 +177,21 @@ begin
   StringGrid1.Cells[1, 0] := 'Value';
   StringGrid1.Options := StringGrid1.Options + [goEditing, goAlwaysShowEditor];
   StringGrid1.ColWidths[0] := 120;
+
+  StringGrid1.Color := clrBackground;
+  StringGrid1.Font.Color := clrFontSilver;
+  StringGrid1.FixedColor := clrBackground;
+
+  // TreeView Setup
+  tvSceneHierarchy.Color := clrBackground;
+  tvSceneHierarchy.Font.Color := clrFontSilver;
+
+  // Bottom Panel & Info Label
+  pnlBottom.Color := clrBackground;
+  lblInfo.Color := clrBackground;
+  lblInfo.Font.Color := clrFontSilver;
+  // -----------------------------
+
   FSandbox := TRaylibSandbox.Create(Self);
   FSandbox.Parent := Self;
   FSandbox.Align := alClient;
@@ -183,6 +207,57 @@ procedure TForm1.FormShow(Sender: TObject);
 begin
   tmrStatsUpdater.Enabled := True;
 end;
+
+// --- DARK MODE DRAWING METHODS ---
+procedure TForm1.StringGrid1DrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState);
+var
+  Grid: TStringGrid;
+  CellText: string;
+begin
+  Grid := Sender as TStringGrid;
+  CellText := Grid.Cells[ACol, ARow];
+
+  if gdFixed in State then
+  begin
+    Grid.Canvas.Brush.Color := clBlack;
+    Grid.Canvas.Font.Color := clSilver;
+    Grid.Canvas.Font.Style := [fsBold];
+  end
+  else
+  begin
+    Grid.Canvas.Brush.Color := clBlack;
+    Grid.Canvas.Font.Color := clSilver;
+    Grid.Canvas.Font.Style := [];
+
+    if gdSelected in State then
+    begin
+      Grid.Canvas.Brush.Color := $00404040;
+      Grid.Canvas.Font.Color := clWhite;
+    end;
+  end;
+
+  // Zeile zeichnen
+  Grid.Canvas.FillRect(Rect);
+  Grid.Canvas.TextRect(Rect, CellText, [tfVerticalCenter, tfLeft, tfSingleLine]);
+end;
+
+procedure TForm1.tvSceneHierarchyAdvancedCustomDrawItem(Sender: TCustomTreeView; Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage; var PaintImages, DefaultDraw: Boolean);
+begin
+  if Stage = cdPrePaint then
+  begin
+    if cdsSelected in State then
+    begin
+      Sender.Canvas.Brush.Color := $00404040;
+      Sender.Canvas.Font.Color := clWhite;
+    end
+    else
+    begin
+      Sender.Canvas.Brush.Color := clBlack;
+      Sender.Canvas.Font.Color := clSilver;
+    end;
+  end;
+end;
+// --------------------------------
 
 procedure TForm1.btnToolDragThrowClick(Sender: TObject);
 begin
@@ -299,7 +374,6 @@ begin
   if OpenDialog1.Execute then
   begin
     FSandbox.LoadCustomModel(OpenDialog1.FileName);
-   // lblInfo.Caption := 'Brush: 3D Model Selected.';
   end;
 end;
 
@@ -347,8 +421,8 @@ end;
 
 procedure TForm1.btnClearSceneClick(Sender: TObject);
 begin
-  FSandbox.SetBrush(TShapeType(-1));
   FSandbox.ClearItems;
+  StringGrid1.Visible := False;
 
   lblInfo.Caption := 'Scene Cleared.';
 end;
@@ -573,9 +647,9 @@ var
 begin
   FSelectedComponent := AActor;
   LoadPropertiesIntoGrid(AActor);
+  StringGrid1.Visible := Assigned(AActor);
   if Assigned(AActor) then
   begin
-    Idx := -1;
     for Idx := 0 to FSandbox.ItemCount - 1 do
       if FSandbox.FItems[Idx] = AActor then
         Break;
@@ -695,7 +769,6 @@ end;
 procedure TForm1.tvSceneHierarchyChange(Sender: TObject; Node: TTreeNode);
 var
   Actor: TA3DComponent;
-  i: Integer;
 begin
   // If nothing is selected, or the Node has no Data (Actor), clear selection
   if (Node = nil) or (Node.Data = nil) then
@@ -803,4 +876,3 @@ finalization
   UnRegisterClass(TA3DComponent);
 
 end.
-

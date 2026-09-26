@@ -988,6 +988,7 @@ begin
     FCustomSpawnQueue := nil;
     FBombActor := nil;
     FBombExploded := False;
+    SetBrush(TShapeType(-1));
   finally
     FLock.Leave;
   end;

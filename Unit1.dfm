@@ -4,7 +4,7 @@ object Form1: TForm1
   Caption = 'MRX Engine Editor - Prototype'
   ClientHeight = 689
   ClientWidth = 1100
-  Color = 4276545
+  Color = clBlack
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -12
@@ -38,7 +38,8 @@ object Form1: TForm1
     Width = 200
     Height = 647
     Align = alLeft
-    Caption = 'pnlLeft'
+    Color = clBlack
+    ParentBackground = False
     TabOrder = 0
     ExplicitHeight = 646
     object Splitter2: TSplitter
@@ -57,7 +58,7 @@ object Form1: TForm1
       Width = 198
       Height = 288
       Align = alTop
-      Color = 4539717
+      Color = clBlack
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clSilver
       Font.Height = -12
@@ -66,6 +67,7 @@ object Form1: TForm1
       Indent = 19
       ParentFont = False
       TabOrder = 0
+      OnAdvancedCustomDrawItem = tvSceneHierarchyAdvancedCustomDrawItem
       OnChange = tvSceneHierarchyChange
       OnKeyUp = tvSceneHierarchyKeyUp
     end
@@ -75,7 +77,8 @@ object Form1: TForm1
       Width = 198
       Height = 349
       Align = alClient
-      Caption = 'Panel1'
+      Color = clBlack
+      ParentBackground = False
       TabOrder = 1
       ExplicitHeight = 348
       object StringGrid1: TStringGrid
@@ -92,6 +95,8 @@ object Form1: TForm1
         Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goColSizing, goFixedRowDefAlign]
         ParentFont = False
         TabOrder = 0
+        Visible = False
+        OnDrawCell = StringGrid1DrawCell
         OnSelectCell = StringGrid1SelectCell
         OnSetEditText = StringGrid1SetEditText
         ExplicitHeight = 346
@@ -170,8 +175,6 @@ object Form1: TForm1
     Align = alRight
     Caption = 'pnlRight'
     TabOrder = 2
-    ExplicitLeft = 896
-    ExplicitHeight = 646
     object PageControl1: TPageControl
       Left = 1
       Top = 1
@@ -186,7 +189,6 @@ object Form1: TForm1
       Font.Style = []
       ParentFont = False
       TabOrder = 0
-      ExplicitHeight = 644
       object tsScene: TTabSheet
         Caption = 'Scene'
         Font.Charset = DEFAULT_CHARSET
@@ -210,21 +212,33 @@ object Form1: TForm1
           ExplicitWidth = 65
           ExplicitHeight = 65
         end
+        object lblstatic: TLabel
+          Left = 146
+          Top = 21
+          Width = 41
+          Height = 15
+          Caption = 'static'
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clSilver
+          Font.Height = -12
+          Font.Name = 'Segoe UI'
+          Font.Style = []
+          ParentFont = False
+        end
         object btnClearScene: TButton
           Left = 125
-          Top = 303
+          Top = 272
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Clear'
           TabOrder = 0
           OnClick = btnClearSceneClick
-          ExplicitTop = 302
         end
         object btnSpawnCubes: TButton
           Left = 13
           Top = 17
-          Width = 109
+          Width = 98
           Height = 25
           Caption = 'Spawn Cubes'
           TabOrder = 1
@@ -233,7 +247,7 @@ object Form1: TForm1
         object btnSpawnSpheres: TButton
           Left = 13
           Top = 46
-          Width = 109
+          Width = 98
           Height = 25
           Caption = 'Spawn Spheres'
           TabOrder = 2
@@ -242,7 +256,7 @@ object Form1: TForm1
         object btnSpawnPyramids: TButton
           Left = 13
           Top = 75
-          Width = 109
+          Width = 98
           Height = 25
           Caption = 'Spawn Pyramids'
           TabOrder = 3
@@ -251,7 +265,7 @@ object Form1: TForm1
         object btnSpawnCapsules: TButton
           Left = 13
           Top = 104
-          Width = 109
+          Width = 98
           Height = 25
           Caption = 'Spawn Capsule'
           TabOrder = 4
@@ -259,30 +273,28 @@ object Form1: TForm1
         end
         object btnSceneSave: TButton
           Left = 125
-          Top = 365
+          Top = 334
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Save'
           TabOrder = 5
           OnClick = btnSceneSaveClick
-          ExplicitTop = 364
         end
         object btnSceneLoad: TButton
           Left = 125
-          Top = 334
+          Top = 303
           Width = 52
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Load'
           TabOrder = 6
           OnClick = btnSceneLoadClick
-          ExplicitTop = 333
         end
         object btnSpawn3DModel: TButton
           Left = 13
           Top = 166
-          Width = 109
+          Width = 98
           Height = 25
           Caption = 'Spawn 3d model'
           TabOrder = 7
@@ -291,7 +303,7 @@ object Form1: TForm1
         object btnSpawnPrisms: TButton
           Left = 13
           Top = 135
-          Width = 109
+          Width = 98
           Height = 25
           Caption = 'Spawn Prism'
           TabOrder = 8
@@ -342,7 +354,7 @@ object Form1: TForm1
         object btnSpawnSandbox: TButton
           Left = 13
           Top = 272
-          Width = 109
+          Width = 98
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Spawn Sandbox'
@@ -352,7 +364,7 @@ object Form1: TForm1
         object btnSpawnWall: TButton
           Left = 13
           Top = 303
-          Width = 109
+          Width = 98
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Spawn Wall'
@@ -362,7 +374,7 @@ object Form1: TForm1
         object btnSpawnBomb: TButton
           Left = 13
           Top = 197
-          Width = 109
+          Width = 98
           Height = 25
           Caption = 'Spawn Bomb'
           TabOrder = 14
@@ -371,7 +383,7 @@ object Form1: TForm1
         object btnSpawnButton: TButton
           Left = 13
           Top = 228
-          Width = 109
+          Width = 98
           Height = 25
           Caption = 'Spawn Button'
           TabOrder = 15
@@ -383,7 +395,6 @@ object Form1: TForm1
           Width = 57
           Height = 17
           Hint = 'spawn static'
-          Caption = 'static'
           Color = clBlack
           Ctl3D = True
           Font.Charset = DEFAULT_CHARSET
@@ -401,7 +412,7 @@ object Form1: TForm1
         object btnSpawnScreens: TButton
           Left = 13
           Top = 334
-          Width = 109
+          Width = 98
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Spawn Screens'
