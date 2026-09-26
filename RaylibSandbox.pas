@@ -157,7 +157,7 @@ type
     FShadowMap: TRenderTexture2D;
     FDefaultMat: TMaterial;
     FWhiteTex: TTexture2D;
-    FDefaultWhiteTex: TTexture2D; // Sichere Basis-Textur für Standard-Modelle
+    FDefaultWhiteTex: TTexture2D; // Safe base texture for standard models
     FLightCam: TCamera3D;
     FShadowMapLoc: Integer;
     FLightViewLoc: Integer;
@@ -174,7 +174,6 @@ type
     FSkyboxModel: TModel;
     FSkyboxShader: TShader;
     FSkyboxDaytimeLoc: Integer;
-    FSkyboxDayRotationLoc: Integer;
     FSkyboxViewLoc: Integer;
     FSkyboxProjLoc: Integer;
     FSkyboxTex: TTexture2D;
@@ -211,6 +210,7 @@ type
     FGizmoDragging: Boolean;
     FGizmoStartMouse: TVector2;
     FGizmoStartVal: TVector3;
+    FGizmoStartPos: TVector3; // Needed for Y-Lift calculation in Scale Mode!
     FGizmoStartQuat: TQuaternion;
     FCtrlWasPressed: Boolean;
     FMouseLeftPressed: Boolean;
@@ -311,12 +311,11 @@ type
     procedure PlayTestSound;
     procedure PlayImpactSound;
     procedure PlaySpawnSound;
-    procedure DrawMeshBox(Pos: TVector3; Scale: TVector3; Color: TColorB);
-    procedure DrawMeshSphere(Pos: TVector3; Radius: Single; Color: TColorB);
 
     // Internal execution in the main thread
     procedure ExecuteSceneSave(const FileName: string);
     procedure ExecuteSceneLoad(const FileName: string);
+
   protected
     procedure Resize; override;
     procedure CreateWindowHandle(const Params: TCreateParams); override;
@@ -337,6 +336,7 @@ type
     procedure SetSimulationRunning(AValue: Boolean);
     procedure LoadCustomModel(const FilePath: string);
     function GetSimulationRunning: Boolean;
+    function GetActorBoundingBoxWS(Actor: TA3DComponent): TBoundingBox;
     procedure SpawnAtMouse(Pos: TVector3);
     procedure SelectNextObject;
     procedure SelectPrevObject;
@@ -425,24 +425,6 @@ begin
 
   // Free the CPU-side image data
   UnloadImage(Img);
-end;
-
-procedure TRaylibSandbox.DrawMeshBox(Pos: TVector3; Scale: TVector3; Color: TColorB);
-begin
-  rlPushMatrix();
-  rlTranslatef(Pos.x, Pos.y, Pos.z);
-  rlScalef(Scale.x, Scale.y, Scale.z);
-  DrawCube(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, Color);
-  rlPopMatrix();
-end;
-
-procedure TRaylibSandbox.DrawMeshSphere(Pos: TVector3; Radius: Single; Color: TColorB);
-begin
-  rlPushMatrix();
-  rlTranslatef(Pos.x, Pos.y, Pos.z);
-  rlScalef(Radius, Radius, Radius);
-  DrawSphere(Vector3Create(0, 0, 0), 1.0, Color);
-  rlPopMatrix();
 end;
 
 function GetCollisionHighlightingColor(intensity: Single): TColorB;
@@ -821,8 +803,6 @@ end;
 
 procedure TRaylibSandbox.StartThread;
 var
-  FilePath: string;
-  floorMesh: TMesh;
   AudioRes: Integer;
 begin
   if FThreadActive then
@@ -1116,7 +1096,7 @@ begin
     if FDraggingRMB then
     begin
       FCamYaw := FCamYaw - (p.x - FLastMouse.x) * 0.006;
-      FCamPitch := EnsureRange(FCamPitch + (p.y - FLastMouse.y) * 0.006, 0.05, 1.5);
+      FCamPitch := EnsureRange(FCamPitch + (p.y - FLastMouse.y) * 0.006, 0.05, 1.53);
       FCameraMoved := True;
     end;
     FDraggingRMB := True;
@@ -1153,11 +1133,11 @@ begin
     FCamera.target.z := FCamera.target.z + rightZ * panSpeed;
     FCameraMoved := True;
   end;
-  FCamera.target.x := EnsureRange(FCamera.target.x, -80.0, 80.0);
-  FCamera.target.z := EnsureRange(FCamera.target.z, -80.0, 80.0);
+  FCamera.target.x := EnsureRange(FCamera.target.x, -450.0, 450.0);
+  FCamera.target.z := EnsureRange(FCamera.target.z, -450.0, 450.0);
   if GetMouseWheelMove() <> 0 then
   begin
-    FCamDist := EnsureRange(FCamDist - GetMouseWheelMove() * 3.0, 10, 100);
+    FCamDist := EnsureRange(FCamDist - GetMouseWheelMove() * 3.0, 10, 250);
     FCameraMoved := True;
   end;
   FCamera.position := Vector3Create(FCamera.target.x + Cos(FCamPitch) * Sin(FCamYaw) * FCamDist, FCamera.target.y + Sin(FCamPitch) * FCamDist, FCamera.target.z + Cos(FCamPitch) * Cos(FCamYaw) * FCamDist);
@@ -1590,21 +1570,15 @@ begin
       FGizmoDragging := False;
       FGizmoAxis := 0;
       if Assigned(FItemSelected) then
+      begin
+        // CRITICAL FIX: Force the physics engine to accept the new shape size immediately!
+        // Otherwise Jolt will reject the reattach and slowly push the object out of the ground.
+        FItemSelected.Scale := FItemSelected.Scale;
+        FItemSelected.SetPosition(FItemSelected.Position);
         FItemSelected.ReattachToPhysics;
-    end
-    else
-    begin
-      if (FGizmoMode = gmTranslate) then
-      begin
-        FGizmoStartMouse := FMousePos;
-        FGizmoStartVal := FItemSelected.Position;
-      end
-      else if (FGizmoMode = gmScale) then
-      begin
-        FGizmoStartMouse := FMousePos;
-        FGizmoStartVal := FItemSelected.Scale;
       end;
     end;
+    // CRITICAL: DO NOT update FGizmoStartMouse here!
     Exit;
   end;
 
@@ -1612,18 +1586,36 @@ begin
   begin
     if bLeftMouseDown then
     begin
-      GScaleX := EnsureRange(FItemSelected.Scale.x + 1.0, 1.0, 100.0);
-      GScaleY := EnsureRange(FItemSelected.Scale.y + 1.0, 1.0, 100.0);
-      GScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 100.0);
+      // Calculate default gizmo bounds for primitives
+      GScaleX := EnsureRange((FItemSelected.Scale.x * 0.5) + 1.0, 1.0, 100.0);
+      GScaleY := EnsureRange((FItemSelected.Scale.y * 0.5) + 1.0, 1.0, 100.0);
+      GScaleZ := EnsureRange((FItemSelected.Scale.z * 0.5) + 1.0, 1.0, 100.0);
+
+      // Increase the thickness of the invisible click-box for primitives
+      var ClickRadius: Single := 0.4;
+
+      if FItemSelected.ShapeType = stModel then
+      begin
+        var BBox := GetModelBoundingBox(FItemSelected.FModel);
+        var PhysRadius := Max(BBox.max.x - BBox.min.x, Max(BBox.max.y - BBox.min.y, BBox.max.z - BBox.min.z)) * Max(FItemSelected.Scale.x, Max(FItemSelected.Scale.y, FItemSelected.Scale.z)) * 0.5;
+
+        // Make arms reach outside the mesh
+        GScaleX := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+        GScaleY := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+        GScaleZ := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+
+        // Make the invisible click-box thicker so the mouse ray definitely hits the arrow before the mesh!
+        ClickRadius := 1.0;
+      end;
 
       if FGizmoMode = gmTranslate then
       begin
-        // Increased RayRadius for much more reliable grabbing
-        if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.4, ray, FGizmoAxis) then
+        if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), ClickRadius, ray, FGizmoAxis) then
         begin
           FGizmoDragging := True;
           FGizmoStartMouse := FMousePos;
           FGizmoStartVal := FItemSelected.Position;
+          FGizmoStartPos := FItemSelected.Position; // Save position for Scale mode
           FGizmoStartQuat := FItemSelected.Quaternion;
           FMouseLeftHandled := True;
           FItemSelected.DetachFromPhysics;
@@ -1632,12 +1624,12 @@ begin
       end
       else if FGizmoMode = gmRotate then
       begin
-        // Increased RayRadius
-        if CheckGizmoRingHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.35, ray, FGizmoAxis) then
+        if CheckGizmoRingHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), ClickRadius, ray, FGizmoAxis) then
         begin
           FGizmoDragging := True;
           FGizmoStartMouse := FMousePos;
           FGizmoStartVal := FItemSelected.Position;
+          FGizmoStartPos := FItemSelected.Position; // Save position for Scale mode
           FGizmoStartQuat := FItemSelected.Quaternion;
           FMouseLeftHandled := True;
           FItemSelected.DetachFromPhysics;
@@ -1646,12 +1638,12 @@ begin
       end
       else if FGizmoMode = gmScale then
       begin
-        // Increased RayRadius
-        if CheckGizmoScaleHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.4, ray, FGizmoAxis) then
+        if CheckGizmoScaleHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), ClickRadius, ray, FGizmoAxis) then
         begin
           FGizmoDragging := True;
           FGizmoStartMouse := FMousePos;
           FGizmoStartVal := FItemSelected.Scale;
+          FGizmoStartPos := FItemSelected.Position; // Save position to calculate Y-Lift
           FGizmoStartQuat := FItemSelected.Quaternion;
           FMouseLeftHandled := True;
           FItemSelected.DetachFromPhysics;
@@ -1776,6 +1768,7 @@ begin
   if FShootCooldown > 0 then
     Exit;
 
+  // CRITICAL OBJECT SELECTION BLOCK
   if bLeftMouseDown then
   begin
     if not FDragging then
@@ -1790,14 +1783,11 @@ begin
         if FItems[i] = nil then
           Continue;
 
-        HalfH := FItems[i].Scale.y * 0.5;
-        itemBox.min := Vector3Create(FItems[i].position.x - (FItems[i].Scale.x * 0.5), FItems[i].position.y - HalfH, FItems[i].position.z - (FItems[i].Scale.z * 0.5));
-        itemBox.max := Vector3Create(FItems[i].position.x + (FItems[i].Scale.x * 0.5), FItems[i].position.y + HalfH, FItems[i].position.z + (FItems[i].Scale.z * 0.5));
+        itemBox := GetActorBoundingBoxWS(FItems[i]);
 
         TempHit := GetRayCollisionBox(ray, itemBox);
         if TempHit.hit then
         begin
-          // Check if this object is closer to the camera than the previous closest
           if TempHit.distance < ClosestDist then
           begin
             ClosestDist := TempHit.distance;
@@ -1814,7 +1804,7 @@ begin
           FItemSelected := ClosestActor;
           DoObjectSelected(FItemSelected);
         end;
-        FDragging := True;
+        FDragging := True; // JUST MARK IT, DO NOT DETACH FROM PHYSICS HERE!
       end
       else
       begin
@@ -2035,17 +2025,20 @@ var
   RotAxis, WorldAxis, CamForward, MoveDir: TVector3;
   LocalMove: TVector3;
   CamDot: Single;
-  PitchAxis: TVector3;
+  CurrentMeshHeight, StartMeshHeight, MeshHeightDiff: Single;
 begin
   MouseDeltaX := FMousePos.x - FGizmoStartMouse.x;
   MouseDeltaY := FMousePos.y - FGizmoStartMouse.y;
 
-  // Calculate camera forward vector
+  if Abs(MouseDeltaX) < 0.5 then
+    MouseDeltaX := 0;
+  if Abs(MouseDeltaY) < 0.5 then
+    MouseDeltaY := 0;
+
   CamForward := Vector3Normalize(Vector3Subtract(FCamera.target, FCamera.position));
 
   if FGizmoMode = gmTranslate then
   begin
-    // Determine local axis of the object being dragged (including object rotation)
     WorldAxis := Vector3Create(0, 0, 0);
     if FGizmoAxis = 1 then
       WorldAxis := Vector3Create(1, 0, 0)
@@ -2054,16 +2047,14 @@ begin
     else if FGizmoAxis = 3 then
       WorldAxis := Vector3Create(0, 0, 1);
 
-    // Rotate base vector (1,0,0 etc) by object quaternion
     WorldAxis := Vector3RotateByQuaternion(WorldAxis, FItemSelected.Quaternion);
 
-    // Create a direction vector from pure 2D mouse movement
-    MoveDir := Vector3Create(MouseDeltaX * 0.1, -MouseDeltaY * 0.1, 0);
+    var ScreenRight := Vector3Create(1, 0, 0);
+    var ScreenUp := Vector3Create(0, 1, 0);
 
-    // Projection: Project mouse movement onto the axis we are dragging
+    MoveDir := Vector3Add(Vector3Scale(ScreenRight, MouseDeltaX * 0.1), Vector3Scale(ScreenUp, -MouseDeltaY * 0.1));
+
     CamDot := Vector3DotProduct(WorldAxis, MoveDir);
-
-    // The delta is now applied exactly along the arrow (WorldAxis)
     LocalMove := Vector3Scale(WorldAxis, CamDot);
 
     NewPos := Vector3Add(FGizmoStartVal, LocalMove);
@@ -2088,21 +2079,35 @@ begin
     begin
       RotDelta := QuaternionFromAxisAngle(RotAxis, DegToRad(RotAngle));
       FItemSelected.SetRotation(QuaternionMultiply(RotDelta, FGizmoStartQuat));
-      FGizmoStartMouse := FMousePos;
-      FGizmoStartQuat := FItemSelected.Quaternion;
+      if (Abs(FMousePos.x - FGizmoStartMouse.x) > 0.5) or (Abs(FMousePos.y - FGizmoStartMouse.y) > 0.5) then
+      begin
+        FGizmoStartMouse := FMousePos;
+        FGizmoStartQuat := FItemSelected.Quaternion;
+      end;
     end;
   end
   else if FGizmoMode = gmScale then
   begin
-    ScaleChange := (MouseDeltaX * 0.05) + (-MouseDeltaY * 0.05);
+    ScaleChange := (MouseDeltaX * 0.01) + (-MouseDeltaY * 0.01);
     EndScale := FGizmoStartVal;
+
     if FGizmoAxis = 1 then
-      EndScale.x := EnsureRange(EndScale.x + ScaleChange, 0.05, 100)
+    begin
+      EndScale.x := EnsureRange(EndScale.x + ScaleChange, 0.05, 100);
+    end
     else if FGizmoAxis = 2 then
-      EndScale.y := EnsureRange(EndScale.y + ScaleChange, 0.05, 100)
+    begin
+      EndScale.y := EnsureRange(EndScale.y + ScaleChange, 0.05, 100);
+    end
     else if FGizmoAxis = 3 then
+    begin
       EndScale.z := EnsureRange(EndScale.z + ScaleChange, 0.05, 100);
-    FItemSelected.Scale := EndScale;
+    end;
+
+    if FItemSelected.ShapeType = stModel then
+      FItemSelected.Scale := Vector3Create(EndScale.x + 0.1, EndScale.y + 0.1, EndScale.z + 0.1)
+    else
+      FItemSelected.Scale := EndScale;
   end;
 end;
 
@@ -2251,6 +2256,91 @@ begin
   FItemSelected := AActor;
 end;
 
+function TRaylibSandbox.GetActorBoundingBoxWS(Actor: TA3DComponent): TBoundingBox;
+var
+  LocalBBox: TBoundingBox;
+  Corners: array[0..7] of TVector3;
+  RotatedCorners: array[0..7] of TVector3;
+  RotQuat: TQuaternion;
+  InvScale: TVector3;
+  i: Integer;
+  MinV, MaxV: TVector3;
+  Sx, Sy, Sz: Single;
+  HasSize: Boolean;
+begin
+  Result.min := Vector3Create(0, 0, 0);
+  Result.max := Vector3Create(0, 0, 0);
+
+  if not Assigned(Actor) then
+    Exit;
+  if Actor.ShapeType = stModel then
+  begin
+    if Actor.FModel.meshes = nil then
+      Exit;
+    LocalBBox := GetModelBoundingBox(Actor.FModel);
+  end
+  else
+  begin
+    LocalBBox.min := Vector3Create(-0.5, -0.5, -0.5);
+    LocalBBox.max := Vector3Create(0.5, 0.5, 0.5);
+  end;
+
+  Sx := Actor.Scale.x;
+  Sy := Actor.Scale.y;
+  Sz := Actor.Scale.z;
+  if Sx <= 0 then
+    Sx := 0.0001;
+  if Sy <= 0 then
+    Sy := 0.0001;
+  if Sz <= 0 then
+    Sz := 0.0001;
+
+  InvScale := Vector3Create(1.0 / Sx, 1.0 / Sy, 1.0 / Sz);
+  LocalBBox.min := Vector3Multiply(LocalBBox.min, InvScale);
+  LocalBBox.max := Vector3Multiply(LocalBBox.max, InvScale);
+
+  Corners[0] := Vector3Create(LocalBBox.min.x, LocalBBox.min.y, LocalBBox.min.z);
+  Corners[1] := Vector3Create(LocalBBox.max.x, LocalBBox.min.y, LocalBBox.min.z);
+  Corners[2] := Vector3Create(LocalBBox.min.x, LocalBBox.max.y, LocalBBox.min.z);
+  Corners[3] := Vector3Create(LocalBBox.max.x, LocalBBox.max.y, LocalBBox.min.z);
+  Corners[4] := Vector3Create(LocalBBox.min.x, LocalBBox.min.y, LocalBBox.max.z);
+  Corners[5] := Vector3Create(LocalBBox.max.x, LocalBBox.min.y, LocalBBox.max.z);
+  Corners[6] := Vector3Create(LocalBBox.min.x, LocalBBox.max.y, LocalBBox.max.z);
+  Corners[7] := Vector3Create(LocalBBox.max.x, LocalBBox.max.y, LocalBBox.max.z);
+
+  RotQuat := Actor.Quaternion;
+
+  HasSize := False;
+  for i := 0 to 7 do
+  begin
+    RotatedCorners[i] := Vector3RotateByQuaternion(Corners[i], RotQuat);
+    if not HasSize then
+    begin
+      MinV := RotatedCorners[i];
+      MaxV := RotatedCorners[i];
+      HasSize := True;
+    end
+    else
+    begin
+      if RotatedCorners[i].x < MinV.x then
+        MinV.x := RotatedCorners[i].x;
+      if RotatedCorners[i].y < MinV.y then
+        MinV.y := RotatedCorners[i].y;
+      if RotatedCorners[i].z < MinV.z then
+        MinV.z := RotatedCorners[i].z;
+      if RotatedCorners[i].x > MaxV.x then
+        MaxV.x := RotatedCorners[i].x;
+      if RotatedCorners[i].y > MaxV.y then
+        MaxV.y := RotatedCorners[i].y;
+      if RotatedCorners[i].z > MaxV.z then
+        MaxV.z := RotatedCorners[i].z;
+    end;
+  end;
+
+  Result.min := Vector3Add(MinV, Actor.Position);
+  Result.max := Vector3Add(MaxV, Actor.Position);
+end;
+
 procedure TRaylibSandbox.SpawnAtMouse(Pos: TVector3);
 var
   Obj: TA3DComponent;
@@ -2262,6 +2352,7 @@ var
   YOffset: Single;
   BBox: TBoundingBox;
   MeshSize: TVector3;
+  MaxDim, MeshH, UniformScale: Single;
 begin
   oldLen := Length(FItems);
   SetLength(FItems, oldLen + 1);
@@ -2288,24 +2379,39 @@ begin
         Data^.Name := 'Placed_Bomb_' + IntToStr(oldLen);
     end;
   end;
+
   Size := Vector3Create(1, 1, 1);
   if FBrushShape = stPrism then
     Size := Vector3Create(1, 1.5, 1)
   else if FBrushShape = stPyramid then
-    Size := Vector3Create(1, 1.5, 1)
-  else if FBrushShape = stModel then
+    Size := Vector3Create(1, 1.5, 1);
+
+  if FBrushShape = stModel then
   begin
     BBox := GetModelBoundingBox(FCustomModel);
     MeshSize := Vector3Create(BBox.max.x - BBox.min.x, BBox.max.y - BBox.min.y, BBox.max.z - BBox.min.z);
 
-    if (MeshSize.x > 0) and (MeshSize.y > 0) and (MeshSize.z > 0) then
-      Size := Vector3Create(1.0 / MeshSize.x, 1.0 / MeshSize.y, 1.0 / MeshSize.z);
+    MaxDim := Max(MeshSize.x, Max(MeshSize.y, MeshSize.z));
+    if MaxDim <= 0 then
+      MaxDim := 1.0;
+    UniformScale := 1.0 / MaxDim;
+
+    // Pass size to Jolt Physics and add 0.1 to force Jolt to lift the object higher
+    Size := Vector3Create((MeshSize.x * UniformScale) + 0.1, (MeshSize.y * UniformScale) + 0.1, (MeshSize.z * UniformScale) + 0.1);
   end;
 
   JPos.x := Pos.x;
 
-  // Set spawn offset so the object sits perfectly on the ground (Y=0)
+  // Default Y-Offset for primitives (Cube etc. has height 1, so 0.5)
   YOffset := 0.5;
+
+  // FOR MODELS: Calculate exactly half the height of the scaled model!
+  if FBrushShape = stModel then
+  begin
+    MeshH := (MeshSize.y * UniformScale);
+    // Half height of the model + half padding (0.05)
+    YOffset := (MeshH * 0.5) + 0.05;
+  end;
 
   JPos.y := Pos.y + YOffset;
   JPos.z := Pos.z;
@@ -2313,6 +2419,7 @@ begin
   JRot.y := 0;
   JRot.z := 0;
   JRot.w := 1;
+
   Obj := TA3DComponent.Create('', FEngine, FBrushShape, Size, FSpawnStatic, @JPos, @JRot);
   Obj.Name := Data^.Name;
 
@@ -2320,7 +2427,20 @@ begin
   begin
     Obj.FModel := FCustomModel;
     Obj.FMeshSize := MeshSize;
-    Obj.FModelOffset := Vector3Create(-BBox.min.x * Size.x, -BBox.min.y * Size.y - 0.5, -BBox.min.z * Size.z);
+
+    MeshH := BBox.max.y - BBox.min.y;
+    MaxDim := Max(BBox.max.x - BBox.min.x, Max(MeshH, BBox.max.z - BBox.min.z));
+    if MaxDim <= 0 then
+      MaxDim := 1.0;
+    UniformScale := 1.0 / MaxDim;
+
+    // Shift the mesh so its origin sits perfectly in the center of the Jolt collider
+    var NormMinY := BBox.min.y * UniformScale;
+    var CenterX := ((BBox.max.x + BBox.min.x) / 2) * UniformScale;
+    var CenterZ := ((BBox.max.z + BBox.min.z) / 2) * UniformScale;
+    // Push Y from bottom to center (Jolt standard goes from -0.5 to +0.5)
+    Obj.FModelOffset := Vector3Create(-CenterX, -NormMinY - (MeshH * UniformScale * 0.5) + 0.5, -CenterZ);
+
     FCustomModel.meshes := nil;
   end;
 
@@ -2335,11 +2455,9 @@ begin
     Obj.Restitution := 0.2;
     Obj.TargetColor := RED;
     Obj.ActColor := RED;
-
     Obj.FModel := FSphereModel;
     FBombActor := Obj;
-        // Activate the bomb timer
-    FBombTimer := 2.0; // 2 seconds until boom
+    FBombTimer := 2.0;
     FBombExploded := False;
     if Assigned(FItemSelected) then
     begin
@@ -2562,9 +2680,23 @@ begin
   if FInitialized and Assigned(FItemSelected) and not FGizmoDragging and not FDragging and not FPopupOpen and (FGizmoMode <> gmNone) then
   begin
     HoverRay := GetScreenToWorldRay(FMousePos, FCamera);
-    HoverScaleX := EnsureRange(FItemSelected.Scale.x + 1.0, 1.0, 100.0);
-    HoverScaleY := EnsureRange(FItemSelected.Scale.y + 1.0, 1.0, 100.0);
-    HoverScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 100.0);
+
+    // Calculate default hover scale
+    HoverScaleX := EnsureRange((FItemSelected.Scale.x * 0.5) + 1.0, 1.0, 100.0);
+    HoverScaleY := EnsureRange((FItemSelected.Scale.y * 0.5) + 1.0, 1.0, 100.0);
+    HoverScaleZ := EnsureRange((FItemSelected.Scale.z * 0.5) + 1.0, 1.0, 100.0);
+
+    // FOR MODELS: Scale the hover boxes to match the new giant gizmo arms!
+    if FItemSelected.ShapeType = stModel then
+    begin
+      var BBox := GetModelBoundingBox(FItemSelected.FModel);
+      var PhysRadius := Max(BBox.max.x - BBox.min.x, Max(BBox.max.y - BBox.min.y, BBox.max.z - BBox.min.z)) * Max(FItemSelected.Scale.x, Max(FItemSelected.Scale.y, FItemSelected.Scale.z)) * 0.5;
+
+      HoverScaleX := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+      HoverScaleY := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+      HoverScaleZ := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+    end;
+
     if FGizmoMode = gmTranslate then
     begin
       if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(HoverScaleX, HoverScaleY, HoverScaleZ), 0.4, HoverRay, HoverAxis) then
@@ -3305,7 +3437,18 @@ begin
         SurfaceY := FGhostPos.y + (1.0 * 0.5);
     end
     else if FBrushShape = stModel then
-      SurfaceY := FGhostPos.y + 0.5;
+    begin
+      // Calculate exact Y-Offset for models based on their true bounding box height
+      var GBBOX := GetModelBoundingBox(FCustomModel);
+      var GMeshH: Single := GBBOX.max.y - GBBOX.min.y;
+      var GMaxDim: Single := Max(GBBOX.max.x - GBBOX.min.x, Max(GMeshH, GBBOX.max.z - GBBOX.min.z));
+      if GMaxDim <= 0 then
+        GMaxDim := 1.0;
+      var GUniformScale: Single := 1.0 / GMaxDim;
+
+      // Half height of the model + half padding (0.05)
+      SurfaceY := FGhostPos.y + ((GMeshH * GUniformScale) * 0.5) + 0.05;
+    end;
 
     if FBrushShape = stBox then
     begin
@@ -3343,19 +3486,27 @@ begin
       if FCustomModel.meshes <> nil then
       begin
         var GBBOX := GetModelBoundingBox(FCustomModel);
-
         var GMeshSize := Vector3Create(GBBOX.max.x - GBBOX.min.x, GBBOX.max.y - GBBOX.min.y, GBBOX.max.z - GBBOX.min.z);
-        var GScale: TVector3;
-        if (GMeshSize.x > 0) and (GMeshSize.y > 0) and (GMeshSize.z > 0) then
-          GScale := Vector3Create(1.0 / GMeshSize.x, 1.0 / GMeshSize.y, 1.0 / GMeshSize.z)
-        else
-          GScale := Vector3Create(1, 1, 1);
-        rlTranslatef(-GBBOX.min.x * GScale.x, -GBBOX.min.y * GScale.y - 0.5, -GBBOX.min.z * GScale.z);
-        rlScalef(GScale.x, GScale.y, GScale.z);
+        var GMaxDim: Single := Max(GMeshSize.x, Max(GMeshSize.y, GMeshSize.z));
+        if GMaxDim <= 0 then
+          GMaxDim := 1.0;
+        var GUniformScale: Single := 1.0 / GMaxDim;
+
+        // Calculate the center of the scaled mesh
+        var GCenterX := ((GBBOX.max.x + GBBOX.min.x) / 2) * GUniformScale;
+        var GCenterZ := ((GBBOX.max.z + GBBOX.min.z) / 2) * GUniformScale;
+        var GMeshH: Single := GMeshSize.y * GUniformScale;
+
+        rlTranslatef(-GCenterX, -GMeshH * 0.5, -GCenterZ);
+
+        // CRITICAL: Temporarily reset the model's transform to identity (1.0 scale)
+        // because the vertices are ALREADY scaled, and DrawModel would scale them again!
+        var OldTransform: TMatrix := FCustomModel.transform;
+        FCustomModel.transform := MatrixIdentity();
         DrawModel(FCustomModel, Vector3Create(0, 0, 0), 1.0, Fade(WHITE, 0.4));
-      end
-      else
-        DrawModel(FCustomModel, Vector3Create(0, 0.5, 0), 1.0, Fade(WHITE, 0.4));
+        // Restore the original transform so we don't break the model for the actual spawn
+        FCustomModel.transform := OldTransform;
+      end;
       DrawCubeWires(Vector3Create(0, 0, 0), 1, 1, 1, YELLOW);
     end
     else if FBrushShape = stBomb then
@@ -3425,16 +3576,36 @@ var
   TipX, TipY, TipZ: TVector3;
   NegTipX, NegTipY, NegTipZ: TVector3;
   ArrowRadius, HandleSize: Single;
+  BBox: TBoundingBox;
+  PhysRadius: Single;
 begin
   Pos := FItemSelected.Position;
-  ScaleX := EnsureRange(FItemSelected.Scale.x + 1.0, 1.0, 100.0);
-  ScaleY := EnsureRange(FItemSelected.Scale.y + 1.0, 1.0, 100.0);
-  ScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 100.0);
+
+  // Default gizmo length for primitives
+  ScaleX := EnsureRange((FItemSelected.Scale.x * 0.5) + 1.0, 1.0, 100.0);
+  ScaleY := EnsureRange((FItemSelected.Scale.y * 0.5) + 1.0, 1.0, 100.0);
+  ScaleZ := EnsureRange((FItemSelected.Scale.z * 0.5) + 1.0, 1.0, 100.0);
+
+  // FOR MODELS: Calculate the actual physical radius so the gizmo arms reach outside the mesh!
+  if FItemSelected.ShapeType = stModel then
+  begin
+    BBox := GetModelBoundingBox(FItemSelected.FModel);
+
+    // Calculate how big the model is after applying the model's internal transform and the Actor's scale
+    PhysRadius := Max(BBox.max.x - BBox.min.x, Max(BBox.max.y - BBox.min.y, BBox.max.z - BBox.min.z)) * Max(FItemSelected.Scale.x, Max(FItemSelected.Scale.y, FItemSelected.Scale.z)) * 0.5;
+
+    // Make the gizmo arms slightly larger than the object's physical radius
+    ScaleX := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+    ScaleY := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+    ScaleZ := EnsureRange(PhysRadius + 1.5, 1.5, 150.0);
+  end;
+
   ArrowRadius := 0.08;
   HandleSize := ArrowRadius * 2.5;
   ColX := RED;
   ColY := GREEN;
   ColZ := BLUE;
+
   if FGizmoDragging then
   begin
     if FGizmoAxis = 1 then
@@ -3453,21 +3624,25 @@ begin
     else if FGizmoHoverAxis = 3 then
       ColZ := YELLOW;
   end;
+
   AxisX := Vector3RotateByQuaternion(Vector3Create(1, 0, 0), FItemSelected.Quaternion);
   AxisY := Vector3RotateByQuaternion(Vector3Create(0, 1, 0), FItemSelected.Quaternion);
   AxisZ := Vector3RotateByQuaternion(Vector3Create(0, 0, 1), FItemSelected.Quaternion);
+
   EndX := Vector3Add(Pos, Vector3Scale(AxisX, ScaleX));
   EndY := Vector3Add(Pos, Vector3Scale(AxisY, ScaleY));
   EndZ := Vector3Add(Pos, Vector3Scale(AxisZ, ScaleZ));
   NegEndX := Vector3Subtract(Pos, Vector3Scale(AxisX, ScaleX));
   NegEndY := Vector3Subtract(Pos, Vector3Scale(AxisY, ScaleY));
   NegEndZ := Vector3Subtract(Pos, Vector3Scale(AxisZ, ScaleZ));
+
   TipX := Vector3Add(Pos, Vector3Scale(AxisX, ScaleX + (ArrowRadius * 3)));
   TipY := Vector3Add(Pos, Vector3Scale(AxisY, ScaleY + (ArrowRadius * 3)));
   TipZ := Vector3Add(Pos, Vector3Scale(AxisZ, ScaleZ + (ArrowRadius * 3)));
   NegTipX := Vector3Subtract(Pos, Vector3Scale(AxisX, ScaleX + (ArrowRadius * 3)));
   NegTipY := Vector3Subtract(Pos, Vector3Scale(AxisY, ScaleY + (ArrowRadius * 3)));
   NegTipZ := Vector3Subtract(Pos, Vector3Scale(AxisZ, ScaleZ + (ArrowRadius * 3)));
+
   if FGizmoMode = gmTranslate then
   begin
     DrawCylinderEx(Pos, EndX, ArrowRadius, ArrowRadius, 8, ColX);
@@ -3806,7 +3981,6 @@ var
   JPos: JPH_RVec3;
   JRot: JPH_Quat;
   Obj: TA3DComponent;
-  BombPos: TVector3;
   BombReq: TSpawnRequest;
 begin
   if Length(FCustomSpawnQueue) = 0 then
@@ -3923,6 +4097,7 @@ begin
           FMPVPlayer := TMPVPlayer.Create(640, 360);
 
           FMPVPlayer.LoadFile(ExtractFilePath(ParamStr(0)) + 'ressources\video\test.mp4');
+          //FMPVPlayer.LoadFile( 'D:\test2.mp4');
         except
           on E: Exception do
           begin
