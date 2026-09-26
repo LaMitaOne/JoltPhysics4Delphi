@@ -175,6 +175,8 @@ object Form1: TForm1
     Align = alRight
     Caption = 'pnlRight'
     TabOrder = 2
+    ExplicitLeft = 896
+    ExplicitHeight = 646
     object PageControl1: TPageControl
       Left = 1
       Top = 1
@@ -189,6 +191,7 @@ object Form1: TForm1
       Font.Style = []
       ParentFont = False
       TabOrder = 0
+      ExplicitHeight = 644
       object tsScene: TTabSheet
         Caption = 'Scene'
         Font.Charset = DEFAULT_CHARSET
@@ -213,9 +216,9 @@ object Form1: TForm1
           ExplicitHeight = 65
         end
         object lblstatic: TLabel
-          Left = 146
+          Left = 143
           Top = 21
-          Width = 41
+          Width = 28
           Height = 15
           Caption = 'static'
           Font.Charset = DEFAULT_CHARSET
@@ -226,9 +229,9 @@ object Form1: TForm1
           ParentFont = False
         end
         object btnClearScene: TButton
-          Left = 125
-          Top = 272
-          Width = 52
+          Left = 65
+          Top = 581
+          Width = 33
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Clear'
@@ -272,9 +275,9 @@ object Form1: TForm1
           OnClick = btnSpawnCapsulesClick
         end
         object btnSceneSave: TButton
-          Left = 125
-          Top = 334
-          Width = 52
+          Left = 144
+          Top = 581
+          Width = 33
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Save'
@@ -282,9 +285,9 @@ object Form1: TForm1
           OnClick = btnSceneSaveClick
         end
         object btnSceneLoad: TButton
-          Left = 125
-          Top = 303
-          Width = 52
+          Left = 105
+          Top = 581
+          Width = 33
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Load'
@@ -310,10 +313,10 @@ object Form1: TForm1
           OnClick = btnSpawnPrismsClick
         end
         object Memo1: TMemo
-          Left = 16
-          Top = 399
-          Width = 161
-          Height = 201
+          Left = 13
+          Top = 352
+          Width = 164
+          Height = 222
           Anchors = [akLeft, akBottom]
           BevelInner = bvNone
           BevelOuter = bvNone
@@ -327,46 +330,41 @@ object Form1: TForm1
           ParentFont = False
           ReadOnly = True
           TabOrder = 9
-          ExplicitTop = 398
         end
         object btnSelectPrev: TButton
           Left = 13
-          Top = 365
-          Width = 28
+          Top = 581
+          Width = 20
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = '<'
           TabOrder = 10
           OnClick = btnSelectPrevClick
-          ExplicitTop = 364
         end
         object btnSelectNext: TButton
-          Left = 47
-          Top = 365
-          Width = 28
+          Left = 39
+          Top = 581
+          Width = 20
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = '>'
           TabOrder = 11
           OnClick = btnSelectNextClick
-          ExplicitTop = 364
         end
         object btnSpawnSandbox: TButton
           Left = 13
-          Top = 272
+          Top = 259
           Width = 98
           Height = 25
-          Anchors = [akLeft, akBottom]
           Caption = 'Spawn Sandbox'
           TabOrder = 12
           OnClick = btnSpawnSandboxClick
         end
         object btnSpawnWall: TButton
           Left = 13
-          Top = 303
+          Top = 290
           Width = 98
           Height = 25
-          Anchors = [akLeft, akBottom]
           Caption = 'Spawn Wall'
           TabOrder = 13
           OnClick = btnSpawnWallClick
@@ -390,9 +388,9 @@ object Form1: TForm1
           OnClick = btnSpawnButtonClick
         end
         object cbStatic: TCheckBox
-          Left = 128
+          Left = 125
           Top = 21
-          Width = 57
+          Width = 25
           Height = 17
           Hint = 'spawn static'
           Color = clBlack
@@ -411,10 +409,9 @@ object Form1: TForm1
         end
         object btnSpawnScreens: TButton
           Left = 13
-          Top = 334
+          Top = 321
           Width = 98
           Height = 25
-          Anchors = [akLeft, akBottom]
           Caption = 'Spawn Screens'
           TabOrder = 17
           OnClick = btnSpawnScreensClick
@@ -431,7 +428,7 @@ object Form1: TForm1
         ParentFont = False
         object Label1: TLabel
           Left = 16
-          Top = 56
+          Top = 8
           Width = 58
           Height = 15
           Caption = 'Target FPS:'
@@ -444,14 +441,14 @@ object Form1: TForm1
         end
         object lblDaynightspeed: TLabel
           Left = 32
-          Top = 324
+          Top = 142
           Width = 35
           Height = 15
           Caption = 'Speed:'
         end
         object cbFPS: TComboBox
           Left = 16
-          Top = 77
+          Top = 29
           Width = 145
           Height = 23
           Font.Charset = DEFAULT_CHARSET
@@ -482,7 +479,7 @@ object Form1: TForm1
         end
         object chkDistanceCulling: TCheckBox
           Left = 16
-          Top = 129
+          Top = 81
           Width = 105
           Height = 17
           Caption = 'Distance culling'
@@ -502,7 +499,7 @@ object Form1: TForm1
         end
         object cbFrustumCulling: TCheckBox
           Left = 16
-          Top = 106
+          Top = 58
           Width = 129
           Height = 17
           Caption = 'Frustum culling'
@@ -522,7 +519,7 @@ object Form1: TForm1
         end
         object chkHighlightCollision: TCheckBox
           Left = 16
-          Top = 368
+          Top = 186
           Width = 145
           Height = 17
           Caption = 'Highlight Collision'
@@ -531,7 +528,7 @@ object Form1: TForm1
         end
         object chkDayNightRythm: TCheckBox
           Left = 16
-          Top = 294
+          Top = 112
           Width = 105
           Height = 17
           Caption = 'DayNight rythm'
@@ -551,7 +548,7 @@ object Form1: TForm1
         end
         object TimePicker1: TTimePicker
           Left = 127
-          Top = 290
+          Top = 108
           Width = 57
           Height = 25
           Font.Charset = DEFAULT_CHARSET
@@ -566,7 +563,7 @@ object Form1: TForm1
         end
         object SpDistance: TSpinEdit
           Left = 127
-          Top = 126
+          Top = 78
           Width = 57
           Height = 24
           EditorEnabled = False
@@ -578,7 +575,7 @@ object Form1: TForm1
         end
         object seDayNightspeed: TSpinEdit
           Left = 127
-          Top = 321
+          Top = 139
           Width = 57
           Height = 24
           MaxValue = 1000
@@ -589,7 +586,7 @@ object Form1: TForm1
         end
         object chkSlowMotion: TCheckBox
           Left = 16
-          Top = 209
+          Top = 219
           Width = 105
           Height = 17
           Caption = 'Slow Motion'

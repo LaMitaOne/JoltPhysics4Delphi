@@ -11,14 +11,12 @@ unit Unit1;
  *    to the background physics and rendering thread.
  *==============================================================================}
 interface
-
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Math,
   System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Winapi.UxTheme,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, RaylibSandbox, ModelEngine, TypInfo,
   JoltPhysics, Vcl.Grids, Raylib, Vcl.Menus, Vcl.WinXPickers, Vcl.Samples.Spin,
   VCL3D;
-
 type
   TForm1 = class(TForm)
     pnlLeft: TPanel;
@@ -125,13 +123,10 @@ type
   public
     { Public declarations }
   end;
-
 var
   Form1: TForm1;
-
 implementation
 {$R *.dfm}
-
 function StrToVector3(const S: string; Default: TVector3): TVector3;
 var
   Parts: TArray<string>;
@@ -152,12 +147,10 @@ begin
     if TryStrToFloat(Trim(Parts[2]), v) then
       Result.z := v;
 end;
-
 function Vector3ToStr(const V: TVector3): string;
 begin
   Result := Format('%.2f, %.2f, %.2f', [V.x, V.y, V.z], TFormatSettings.Create('en-US'));
 end;
-
 procedure TForm1.FormCreate(Sender: TObject);
 const
   clrBackground = clBlack;
@@ -166,7 +159,6 @@ begin
   Caption := 'RaylibSandbox & JoltPhysics - Prototype';
   Width := 1200;
   Height := 800;
-
   // --- DARK MODE INTEGRATION ---
   // StringGrid Setup
   StringGrid1.FixedCols := 1;
@@ -177,21 +169,17 @@ begin
   StringGrid1.Cells[1, 0] := 'Value';
   StringGrid1.Options := StringGrid1.Options + [goEditing, goAlwaysShowEditor];
   StringGrid1.ColWidths[0] := 120;
-
   StringGrid1.Color := clrBackground;
   StringGrid1.Font.Color := clrFontSilver;
   StringGrid1.FixedColor := clrBackground;
-
   // TreeView Setup
   tvSceneHierarchy.Color := clrBackground;
   tvSceneHierarchy.Font.Color := clrFontSilver;
-
   // Bottom Panel & Info Label
   pnlBottom.Color := clrBackground;
   lblInfo.Color := clrBackground;
   lblInfo.Font.Color := clrFontSilver;
   // -----------------------------
-
   FSandbox := TRaylibSandbox.Create(Self);
   FSandbox.Parent := Self;
   FSandbox.Align := alClient;
@@ -202,12 +190,10 @@ begin
   FSandbox.OnEngineException := HandleEngineException;
   FSandbox.OnObjectSelected := HandleObjectSelected;
 end;
-
 procedure TForm1.FormShow(Sender: TObject);
 begin
   tmrStatsUpdater.Enabled := True;
 end;
-
 // --- DARK MODE DRAWING METHODS ---
 procedure TForm1.StringGrid1DrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState);
 var
@@ -216,7 +202,6 @@ var
 begin
   Grid := Sender as TStringGrid;
   CellText := Grid.Cells[ACol, ARow];
-
   if gdFixed in State then
   begin
     Grid.Canvas.Brush.Color := clBlack;
@@ -228,19 +213,16 @@ begin
     Grid.Canvas.Brush.Color := clBlack;
     Grid.Canvas.Font.Color := clSilver;
     Grid.Canvas.Font.Style := [];
-
     if gdSelected in State then
     begin
       Grid.Canvas.Brush.Color := $00404040;
       Grid.Canvas.Font.Color := clWhite;
     end;
   end;
-
   // Zeile zeichnen
   Grid.Canvas.FillRect(Rect);
   Grid.Canvas.TextRect(Rect, CellText, [tfVerticalCenter, tfLeft, tfSingleLine]);
 end;
-
 procedure TForm1.tvSceneHierarchyAdvancedCustomDrawItem(Sender: TCustomTreeView; Node: TTreeNode; State: TCustomDrawState; Stage: TCustomDrawStage; var PaintImages, DefaultDraw: Boolean);
 begin
   if Stage = cdPrePaint then
@@ -258,65 +240,53 @@ begin
   end;
 end;
 // --------------------------------
-
 procedure TForm1.btnToolDragThrowClick(Sender: TObject);
 begin
   // Activate Drag & Throw Tool (Gizmo Mode gmDragAndThrow)
   FSandbox.SetGizmoMode(gmDragAndThrow);
   lblInfo.Caption := 'Tool: Drag & Throw Active.';
 end;
-
 procedure TForm1.btnSpawnButtonClick(Sender: TObject);
 begin
   TVCL3D.SpawnButton(FSandbox, 'Button', Vector3Create(0, 5, 0), Vector3Create(4, 1, 0.5), My3DButtonClick);
 end;
-
 procedure TForm1.My3DButtonClick(Sender: TObject);
 begin
   ShowMessage('Hello World vom 3D Button!');
 end;
-
 procedure TForm1.cbFPSChange(Sender: TObject);
 begin
   // TargetFPS is just an indicator, real limit is removed in RaylibSandbox to allow 144+ FPS if VSync is off
   FSandbox.TargetFPS := StrToInt(cbFPS.Items[cbFPS.ItemIndex]);
 end;
-
 procedure TForm1.cbFrustumCullingClick(Sender: TObject);
 begin
   FSandbox.FrustumCulling := cbFrustumCulling.Checked;
 end;
-
 procedure TForm1.cbStaticClick(Sender: TObject);
 begin
   FSandbox.FSpawnStatic := cbStatic.Checked;
 end;
-
 procedure TForm1.chkDayNightRythmClick(Sender: TObject);
 begin
   FSandbox.DayNightRhythmActive := chkDayNightRythm.Checked;
 end;
-
 procedure TForm1.chkDistanceCullingClick(Sender: TObject);
 begin
   FSandbox.DistanceCulling := chkDistanceCulling.Checked;
 end;
-
 procedure TForm1.chkHighlightCollisionClick(Sender: TObject);
 begin
   FSandbox.HighlightCollision := chkHighlightCollision.Checked;
 end;
-
 procedure TForm1.chkSlowMotionClick(Sender: TObject);
 begin
   FSandbox.SetSlowMotion(chkSlowMotion.Checked);
 end;
-
 procedure TForm1.btnSceneSaveClick(Sender: TObject);
 begin
   if not Assigned(FSandbox) then
     Exit;
-
   if SaveDialog1.Execute then
   begin
     // Delegated to the RaylibSandbox for better stability and thread safety
@@ -324,51 +294,41 @@ begin
     lblInfo.Caption := 'Scene saved to: ' + SaveDialog1.FileName;
   end;
 end;
-
 procedure TForm1.btnSceneLoadClick(Sender: TObject);
 begin
   if not Assigned(FSandbox) then
     Exit;
-
   if not OpenDialog1.Execute then
     Exit;
-
   // Tell the sandbox thread to load the scene. The VCL remains responsive.
   FSandbox.LoadSceneFromFile(OpenDialog1.FileName);
   lblInfo.Caption := 'Scene loaded from: ' + OpenDialog1.FileName;
 end;
-
 procedure TForm1.btnSelectNextClick(Sender: TObject);
 begin
   FSandbox.SelectNextObject;
 end;
-
 procedure TForm1.btnSelectPrevClick(Sender: TObject);
 begin
   FSandbox.SelectPrevObject;
 end;
-
 procedure TForm1.btnShootClick(Sender: TObject);
 begin
   FSandbox.PublicShootBall;
 end;
-
 procedure TForm1.btnSpawnSandboxClick(Sender: TObject);
 begin
   TVCL3D.SpawnSandbox(FSandbox);
 end;
-
 procedure TForm1.btnSpawnScreensClick(Sender: TObject);
 begin
   TVCL3D.SpawnMonitorWall(FSandbox);
   lblInfo.Caption := 'Multiview: 2x5 Monitor Wall spawned.';
 end;
-
 procedure TForm1.btnSpawnWallClick(Sender: TObject);
 begin
   TVCL3D.SpawnDynamicWall(FSandbox, 10, 10, false, true);
 end;
-
 procedure TForm1.btnSpawn3DModelClick(Sender: TObject);
 begin
   if OpenDialog1.Execute then
@@ -376,57 +336,48 @@ begin
     FSandbox.LoadCustomModel(OpenDialog1.FileName);
   end;
 end;
-
 procedure TForm1.btnSpawnBombClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stBomb);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Bomb Selected.';
 end;
-
 procedure TForm1.btnSpawnCapsulesClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stCapsule);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Capsule Selected.';
 end;
-
 procedure TForm1.btnSpawnCubesClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stBox);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Cube Selected.';
 end;
-
 procedure TForm1.btnSpawnSpheresClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stSphere);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Sphere Selected.';
 end;
-
 procedure TForm1.btnSpawnPyramidsClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stPyramid);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Pyramid Selected.';
 end;
-
 procedure TForm1.btnSpawnPrismsClick(Sender: TObject);
 begin
   FSandbox.SetBrush(stPrism);
   FSandbox.SetGizmoMode(gmTranslate);
   lblInfo.Caption := 'Brush: Prism Selected.';
 end;
-
 procedure TForm1.btnClearSceneClick(Sender: TObject);
 begin
   FSandbox.ClearItems;
   StringGrid1.Visible := False;
-
   lblInfo.Caption := 'Scene Cleared.';
 end;
-
 procedure TForm1.btnPlayPauseClick(Sender: TObject);
 begin
   if FSandbox.GetSimulationRunning then
@@ -443,7 +394,6 @@ begin
   end;
 end;
 // === Object Inspector Logic ===
-
 procedure TForm1.LoadPropertiesIntoGrid(AComponent: TA3DComponent);
 var
   PropList: PPropList;
@@ -458,6 +408,7 @@ begin
   try
     if not Assigned(AComponent) then
     begin
+      StringGrid1.Hide;
       StringGrid1.RowCount := 2;
       StringGrid1.Cells[0, 1] := '';
       StringGrid1.Cells[1, 1] := '';
@@ -470,6 +421,7 @@ begin
       StringGrid1.RowCount := Count + 1;
       StringGrid1.Cells[0, 0] := 'Property';
       StringGrid1.Cells[1, 0] := 'Value';
+      StringGrid1.Show;
       for i := 0 to Count - 1 do
       begin
         PropInfo := PropList^[i];
@@ -519,12 +471,10 @@ begin
     FIsUpdatingGrid := False;
   end;
 end;
-
 procedure TForm1.StringGrid1SelectCell(Sender: TObject; ACol, ARow: Integer; var CanSelect: Boolean);
 begin
   CanSelect := (ACol = 1) and (ARow > 0) and Assigned(FSelectedComponent);
 end;
-
 procedure TForm1.StringGrid1SetEditText(Sender: TObject; ACol, ARow: Integer; const Value: string);
 var
   PropName: string;
@@ -546,7 +496,6 @@ begin
     FSelectedComponent.Name := Value;
     RefreshHierarchy;
   end;
-
   PropInfo := GetPropInfo(FSelectedComponent, PropName);
   if not Assigned(PropInfo) then
     Exit;
@@ -617,12 +566,10 @@ begin
       lblInfo.Caption := 'ERR SetProp: ' + E.Message;
   end;
 end;
-
 procedure TForm1.TimePicker1Change(Sender: TObject);
 begin
   FSandbox.DayNightTime := TImepicker1.Time;
 end;
-
 procedure TForm1.HandleObjectSelected(Sender: TObject; Actor: TA3DComponent);
 begin
   TThread.Queue(nil,
@@ -634,13 +581,11 @@ begin
         tvSceneHierarchy.Items.Clear;
         RefreshHierarchy;
       end;
-
       SelectActorInUI(Actor);
       if Assigned(Actor) then
         FSandbox.SetSelectedActor(Actor);
     end);
 end;
-
 procedure TForm1.SelectActorInUI(AActor: TA3DComponent);
 var
   Idx: Integer;
@@ -676,18 +621,15 @@ begin
     end;
   end;
 end;
-
 procedure TForm1.SpDistanceChange(Sender: TObject);
 begin
   FSandbox.MaxRenderDistance := SpDistance.Value;
 end;
-
 procedure TForm1.HandleViewportReady(Sender: TObject);
 begin
   lblInfo.Caption := 'Engine Viewport Ready.';
   btnPlayPause.Caption := 'PAUSE';
 end;
-
 procedure TForm1.HandleActorSpawned(Sender: TObject; const Args: TActorEventArgs);
 var
   NodeText: string;
@@ -707,19 +649,16 @@ begin
     Node.Data := Args.Actor;
   end;
 end;
-
 procedure TForm1.HandleSceneCleared(Sender: TObject);
 begin
   tvSceneHierarchy.Items.Clear;
   lblInfo.Caption := 'Scene Cleared.';
   LoadPropertiesIntoGrid(nil);
 end;
-
 procedure TForm1.HandleEngineException(Sender: TObject; const Args: TEngineExceptionEventArgs);
 begin
   lblInfo.Caption := Format('ERR [%s]: %s', [Args.Context, Args.Message]);
 end;
-
 procedure TForm1.tmrStatsUpdaterTimer(Sender: TObject);
 var
   TotalObjects: Integer;
@@ -729,18 +668,14 @@ var
 begin
   if not Assigned(FSandbox) then
     Exit;
-
   TotalObjects := FSandbox.ItemCount;
-
   if FSandbox.GetSimulationRunning then
     SimStatus := 'Running'
   else
     SimStatus := 'Paused';
-
   SelectedInfo := 'None';
   if Assigned(FSelectedComponent) then
     SelectedInfo := Format('%s (ID: %d)', [GetEnumName(TypeInfo(TShapeType), Ord(FSelectedComponent.ShapeType)), FSelectedComponent.BodyID]);
-
   Memo1.Lines.BeginUpdate;
   try
     Memo1.Lines.Clear;
@@ -765,7 +700,6 @@ begin
     Memo1.Lines.EndUpdate;
   end;
 end;
-
 procedure TForm1.tvSceneHierarchyChange(Sender: TObject; Node: TTreeNode);
 var
   Actor: TA3DComponent;
@@ -791,7 +725,6 @@ begin
     lblInfo.Caption := Format('Selected: %s | Pos: %.1f, %.1f, %.1f', [Actor.Name, Actor.Position.x, Actor.Position.y, Actor.Position.z]);
   end;
 end;
-
 procedure TForm1.tvSceneHierarchyKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
 var
   ActorToDelete: TA3DComponent;
@@ -802,26 +735,21 @@ begin
     if (tvSceneHierarchy.Selected <> nil) and (tvSceneHierarchy.Selected.Data <> nil) then
     begin
       ActorToDelete := TA3DComponent(tvSceneHierarchy.Selected.Data);
-
       if Assigned(ActorToDelete) then
       begin
         // CRITICAL: Disable brush mode so the delete click doesn't instantly spawn a standard cube
         FSandbox.FIsBrushActive := False;
         FSandbox.FGhostVisible := False;
-
         // Tell the sandbox to delete the selected actor
         FSandbox.SetSelectedActor(ActorToDelete);
         FSandbox.DeleteSelectedActor;
-
         // Clear UI selection
         FSelectedComponent := nil;
-
         Key := 0; // Consume the key press
       end;
     end;
   end;
 end;
-
 procedure TForm1.RefreshHierarchy;
 var
   i: Integer;
@@ -853,26 +781,21 @@ begin
     tvSceneHierarchy.Items.EndUpdate;
   end;
 end;
-
 procedure TForm1.seDayNightspeedChange(Sender: TObject);
 var
   UserVal: Integer;
   ActualSpeed: Single;
 begin
   UserVal := seDayNightspeed.Value;
-
   // Scale 1-100 to 0.001-0.1
   ActualSpeed := UserVal / 1000.0;
   FSandbox.DayNightSpeed := ActualSpeed;
 end;
-
 initialization
   // CRITICAL: Register the class so TReader.ReadComponent can instantiate it!
   // TReader is paranoid and refuses to create classes it doesn't know.
   RegisterClass(TA3DComponent);
 
-
 finalization
   UnRegisterClass(TA3DComponent);
-
 end.

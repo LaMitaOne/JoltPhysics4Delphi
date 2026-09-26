@@ -87,7 +87,7 @@ type
 
   TA3DComponent = class(TComponent)
   private
-  FName: string;
+    FName: string;
     FFriction: Single;
     FRestitution: Single;
     FMass: Single;
@@ -131,7 +131,7 @@ type
     FIsDead: boolean;
     FModelTransform: TMatrix;
     FButtonTexture: TTexture2D;
-    FModelPath : String;
+    FModelPath: string;
     FVideoTexture: TTexture2D;
     constructor Create(AOwner: TComponent); overload; override;
     constructor Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean = False; APos: PJPH_RVec3 = nil; ARot: PJPH_Quat = nil); reintroduce; overload;

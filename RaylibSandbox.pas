@@ -1467,9 +1467,7 @@ begin
   begin
     if not FRightClickWasPressed then
     begin
-      if not FIsBrushActive and (FGizmoMode <> gmNone) then
-        PlayTestSound;
-      if not FIsBrushActive and (FGizmoMode <> gmNone) then
+      if not FIsBrushActive then
       begin
         FPopupOpen := True;
         FPopupPos := FMousePos;
@@ -1701,71 +1699,6 @@ begin
   else
     FGhostVisible := False;
 
-  if CheckButton(0, 10, 40, 40) then
-  begin
-    if not FSpawnButton1WasDown then
-    begin
-      SpawnObjects(30, stBox);
-      FSpawnButton1WasDown := True;
-    end;
-    FMouseLeftHandled := True;
-    Exit;
-  end
-  else
-    FSpawnButton1WasDown := False;
-
-  if CheckButton(40, 10, 40, 40) then
-  begin
-    if not FSpawnButton2WasDown then
-    begin
-      SpawnObjects(30, stSphere);
-      FSpawnButton2WasDown := True;
-    end;
-    FMouseLeftHandled := True;
-    Exit;
-  end
-  else
-    FSpawnButton2WasDown := False;
-
-  if CheckButton(80, 10, 40, 40) then
-  begin
-    if not FSpawnButton3WasDown then
-    begin
-      SpawnObjects(30, stCapsule);
-      FSpawnButton3WasDown := True;
-    end;
-    FMouseLeftHandled := True;
-    Exit;
-  end
-  else
-    FSpawnButton3WasDown := False;
-
-  if CheckButton(120, 10, 40, 40) then
-  begin
-    if not FSpawnButton4WasDown then
-    begin
-      SpawnObjects(30, stPyramid);
-      FSpawnButton4WasDown := True;
-    end;
-    FMouseLeftHandled := True;
-    Exit;
-  end
-  else
-    FSpawnButton4WasDown := False;
-
-  if CheckButton(160, 10, 40, 40) then
-  begin
-    if not FSpawnButton5WasDown then
-    begin
-      SpawnObjects(30, stPrism);
-      FSpawnButton5WasDown := True;
-    end;
-    FMouseLeftHandled := True;
-    Exit;
-  end
-  else
-    FSpawnButton5WasDown := False;
-
   if FShootCooldown > 0 then
     Exit;
 
@@ -1784,7 +1717,12 @@ begin
         if FItems[i] = nil then
           Continue;
 
-        itemBox := GetActorBoundingBoxWS(FItems[i]);
+        HalfX := FItems[i].Scale.x * 0.5;
+        HalfY := FItems[i].Scale.y * 0.5;
+        HalfZ := FItems[i].Scale.z * 0.5;
+
+        itemBox.min := Vector3Create(FItems[i].Position.x - HalfX, FItems[i].Position.y - HalfY, FItems[i].Position.z - HalfZ);
+        itemBox.max := Vector3Create(FItems[i].Position.x + HalfX, FItems[i].Position.y + HalfY, FItems[i].Position.z + HalfZ);
 
         TempHit := GetRayCollisionBox(ray, itemBox);
         if TempHit.hit then
@@ -1829,7 +1767,9 @@ var
   NewHover: Integer;
   IconRect: TRectangle;
 begin
+  FMousePos := GetMousePosition();
   NewHover := -1;
+
   for I := 0 to 4 do
   begin
     IconRect.x := FPopupPos.x + 4 + (I * 34);
@@ -1893,101 +1833,105 @@ var
   NewData: PItemData;
   OldLen: Integer;
 begin
-  case Index of
-    0:
-      begin
-        SetBrush(stBox);
-        SpawnAtMouse(FGhostPos);
-        FIsBrushActive := False;
-      end;
-    1:
-      begin
-        SetBrush(stSphere);
-        SpawnAtMouse(FGhostPos);
-        FIsBrushActive := False;
-      end;
-    2:
-      begin
-        SetBrush(stCapsule);
-        SpawnAtMouse(FGhostPos);
-        FIsBrushActive := False;
-      end;
-    3:
-      begin
-        SetBrush(stPyramid);
-        SpawnAtMouse(FGhostPos);
-        FIsBrushActive := False;
-      end;
-    4:
-      begin
-        SetBrush(stPrism);
-        SpawnAtMouse(FGhostPos);
-        FIsBrushActive := False;
-      end;
-  end;
-  if (Index < 0) or (Index > High(FPopupSegments)) then
-    Exit;
-  if FPopupSegments[Index] = 'Delete' then
+  if (Index >= 0) and (Index <= High(FPopupSegments)) then
   begin
-    // Disable brush to prevent immediate spawn of a standard cube on the same click
-    FIsBrushActive := False;
-    FGhostVisible := False;
-    DeleteSelectedActor;
-  end
-  else if FPopupSegments[Index] = 'Duplicate' then
-  begin
-    if not Assigned(FItemSelected) then
+    if FPopupSegments[Index] = 'Delete' then
+    begin
+      FIsBrushActive := False;
+      FGhostVisible := False;
+      DeleteSelectedActor;
       Exit;
-    OldLen := Length(FItems);
-    SetLength(FItems, OldLen + 1);
+    end
+    else if FPopupSegments[Index] = 'Duplicate' then
+    begin
+      if not Assigned(FItemSelected) then
+        Exit;
 
-    // Lift the duplicate slightly so it doesn't get stuck in the original
-    NewPos.x := FItemSelected.Position.x + 1.0;
-    NewPos.y := FItemSelected.Position.y + (FItemSelected.Scale.y * 0.5);
-    NewPos.z := FItemSelected.Position.z;
+      OldLen := Length(FItems);
+      SetLength(FItems, OldLen + 1);
 
-    NewRot.x := FItemSelected.Quaternion.x;
-    NewRot.y := FItemSelected.Quaternion.y;
-    NewRot.z := FItemSelected.Quaternion.z;
-    NewRot.w := FItemSelected.Quaternion.w;
-    NewSize := FItemSelected.Scale;
+      NewPos.x := FItemSelected.Position.x + 1.0;
+      NewPos.y := FItemSelected.Position.y + (FItemSelected.Scale.y * 0.5);
+      NewPos.z := FItemSelected.Position.z;
 
-    // Create the duplicate with exact properties
-    NewActor := TA3DComponent.Create('', FEngine, FItemSelected.ShapeType, NewSize, FSpawnStatic, @NewPos, @NewRot);
-    NewActor.Friction := FItemSelected.Friction;
-    NewActor.Restitution := FItemSelected.Restitution;
-    NewActor.TargetColor := FItemSelected.TargetColor;
-    NewActor.ActColor := FItemSelected.ActColor;
+      NewRot.x := FItemSelected.Quaternion.x;
+      NewRot.y := FItemSelected.Quaternion.y;
+      NewRot.z := FItemSelected.Quaternion.z;
+      NewRot.w := FItemSelected.Quaternion.w;
+      NewSize := FItemSelected.Scale;
 
-    New(NewData);
-    FillChar(NewData^, SizeOf(TItemData), 0);
-    NewData^.SpawnTime := GetTime();
-    NewData^.IsProjectile := False;
-    case NewActor.ShapeType of
-      stBox:
-        NewData^.Name := 'Cube_' + IntToStr(OldLen);
-      stSphere:
-        NewData^.Name := 'Sphere_' + IntToStr(OldLen);
-      stPyramid:
-        NewData^.Name := 'Pyramid_' + IntToStr(OldLen);
-      stPrism:
-        NewData^.Name := 'Prism_' + IntToStr(OldLen);
-      stCapsule:
-        NewData^.Name := 'Capsule_' + IntToStr(OldLen);
+      NewActor := TA3DComponent.Create('', FEngine, FItemSelected.ShapeType, NewSize, FSpawnStatic, @NewPos, @NewRot);
+      NewActor.Friction := FItemSelected.Friction;
+      NewActor.Restitution := FItemSelected.Restitution;
+      NewActor.TargetColor := FItemSelected.TargetColor;
+      NewActor.ActColor := FItemSelected.ActColor;
+
+      New(NewData);
+      FillChar(NewData^, SizeOf(TItemData), 0);
+      NewData^.SpawnTime := GetTime();
+      NewData^.IsProjectile := False;
+      case NewActor.ShapeType of
+        stBox:
+          NewData^.Name := 'Cube_' + IntToStr(OldLen);
+        stSphere:
+          NewData^.Name := 'Sphere_' + IntToStr(OldLen);
+        stPyramid:
+          NewData^.Name := 'Pyramid_' + IntToStr(OldLen);
+        stPrism:
+          NewData^.Name := 'Prism_' + IntToStr(OldLen);
+        stCapsule:
+          NewData^.Name := 'Capsule_' + IntToStr(OldLen);
+      end;
+      NewActor.UserData := NewData;
+      NewActor.Visible := True;
+
+      FItems[OldLen] := NewActor;
+      PlaySpawnSound;
+      DoActorSpawned(NewActor, OldLen);
+      DoObjectSelected(NewActor);
+      FItemSelected := NewActor;
+
+      Exit;
     end;
-    NewActor.UserData := NewData;
-    NewActor.Visible := True;
-
-    // Assign it to the array
-    FItems[OldLen] := NewActor;
-
-    PlaySpawnSound;
-    DoActorSpawned(NewActor, OldLen);
-    DoObjectSelected(NewActor);
-
-    // Update the sandbox's internal selection explicitly
-    FItemSelected := NewActor;
   end;
+
+  if (Index >= 0) and (Index <= 4) then
+  begin
+    case Index of
+      0:
+        begin
+          SetBrush(stBox);
+          SpawnAtMouse(FGhostPos);
+          FIsBrushActive := False;
+        end;
+      1:
+        begin
+          SetBrush(stSphere);
+          SpawnAtMouse(FGhostPos);
+          FIsBrushActive := False;
+        end;
+      2:
+        begin
+          SetBrush(stCapsule);
+          SpawnAtMouse(FGhostPos);
+          FIsBrushActive := False;
+        end;
+      3:
+        begin
+          SetBrush(stPyramid);
+          SpawnAtMouse(FGhostPos);
+          FIsBrushActive := False;
+        end;
+      4:
+        begin
+          SetBrush(stPrism);
+          SpawnAtMouse(FGhostPos);
+          FIsBrushActive := False;
+        end;
+    end;
+  end;
+
+  FMouseLeftPressed := True;
   FMouseLeftHandled := True;
 end;
 
@@ -2006,6 +1950,11 @@ begin
     end;
   if SelectedIdx >= 0 then
   begin
+    if FItemSelected.FBodyID <> 0 then
+    begin
+      JPH_BodyInterface_RemoveAndDestroyBody(FEngine.BodyInterface, FItemSelected.FBodyID);
+      FItemSelected.FBodyID := 0;
+    end;
     FItemSelected.Visible := False;
     FItemSelected.Free;
     for I := SelectedIdx to High(FItems) - 1 do
@@ -4332,6 +4281,7 @@ begin
     Exit;
 
   Stream := TFileStream.Create(FileName, fmCreate);
+  FLock.Enter;
   try
     Writer := TWriter.Create(Stream, 4096);
     try
@@ -4382,6 +4332,7 @@ begin
     end;
   finally
     Stream.Free;
+    FLock.Leave;
   end;
 end;
 
