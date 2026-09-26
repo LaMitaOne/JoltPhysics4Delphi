@@ -155,6 +155,7 @@ type
     FAmbientLoc: Integer;
     FDiffuseLoc: Integer;
     FShadowMap: TRenderTexture2D;
+    FShadowMapDirty: Boolean;
     FDefaultMat: TMaterial;
     FWhiteTex: TTexture2D;
     FDefaultWhiteTex: TTexture2D; // Safe base texture for standard models
@@ -1308,6 +1309,73 @@ begin
     FDragging := False;
     Exit;
   end;
+
+  // ==========================================
+  // HUD SPAWN BUTTONS (Rain Spawns)
+  // ==========================================
+  var LocalMouseY: Integer := Trunc(FMousePos.y);
+
+  if CheckButton(0, 10, 40, 40) then
+  begin
+    if not FSpawnButton1WasDown then
+    begin
+      SpawnObjects(30, stBox);
+      FSpawnButton1WasDown := True;
+    end;
+    FMouseLeftHandled := True;
+    Exit;
+  end
+  else
+    FSpawnButton1WasDown := False;
+  if CheckButton(40, 10, 40, 40) then
+  begin
+    if not FSpawnButton2WasDown then
+    begin
+      SpawnObjects(30, stSphere);
+      FSpawnButton2WasDown := True;
+    end;
+    FMouseLeftHandled := True;
+    Exit;
+  end
+  else
+    FSpawnButton2WasDown := False;
+  if CheckButton(80, 10, 40, 40) then
+  begin
+    if not FSpawnButton3WasDown then
+    begin
+      SpawnObjects(30, stCapsule);
+      FSpawnButton3WasDown := True;
+    end;
+    FMouseLeftHandled := True;
+    Exit;
+  end
+  else
+    FSpawnButton3WasDown := False;
+  if CheckButton(120, 10, 40, 40) then
+  begin
+    if not FSpawnButton4WasDown then
+    begin
+      SpawnObjects(30, stPyramid);
+      FSpawnButton4WasDown := True;
+    end;
+    FMouseLeftHandled := True;
+    Exit;
+  end
+  else
+    FSpawnButton4WasDown := False;
+  if CheckButton(160, 10, 40, 40) then
+  begin
+    if not FSpawnButton5WasDown then
+    begin
+      SpawnObjects(30, stPrism);
+      FSpawnButton5WasDown := True;
+    end;
+    FMouseLeftHandled := True;
+    Exit;
+  end
+  else
+    FSpawnButton5WasDown := False;
+
 
   // Handle Delete Key directly inside the sandbox thread
   if (GetAsyncKeyState(VK_DELETE) and $1) <> 0 then
@@ -2513,6 +2581,7 @@ var
   Dist: single;
   NewVel: TVector3;
   StartTime, EndTime, Freq: Int64;
+  ShadowNeedsUpdate: Boolean;
   SunAngle, nDaytime: Single;
 begin
   // Handle Scene Save
@@ -2734,6 +2803,8 @@ begin
   end;
 
   // Only advance day/night cycle if the rhythm is active
+  ShadowNeedsUpdate := False;
+
   if FDayNightRhythmActive then
   begin
     FDayTime := FDayTime + (FDaySpeed * dt);
@@ -2741,13 +2812,20 @@ begin
       FDayTime := FDayTime - 1.0;
     if FDayTime < 0.0 then
       FDayTime := FDayTime + 1.0;
+    ShadowNeedsUpdate := True; // Sonne bewegt sich!
   end;
 
   SunAngle := Lerp(-90, 270, FDayTime) * DEG2RAD;
   nDaytime := Sin(SunAngle);
 
   FSunPos := Vector3Create(Cos(SunAngle) * 100.0, Sin(SunAngle) * 100.0, 50.0);
-  FLightPos := FSunPos;
+
+  // Wenn ein Objekt verschoben wurde (Gizmo), Schatten updaten!
+  if FGizmoDragging or FDragging then
+    ShadowNeedsUpdate := True;
+
+  // 2. Das Dirty-Flag an RenderShadowMap übergeben
+  FShadowMapDirty := ShadowNeedsUpdate;
 
   // Center the shadow camera between all active objects
   FLightCam.target := FCamera.target; // Fallback: Look where the camera looks
@@ -2818,7 +2896,11 @@ end;
 procedure TRaylibSandbox.RenderGame;
 begin
   // Render the Shadow Map from the light's perspective
-  RenderShadowMap;
+  if FShadowMapDirty then
+  begin
+    RenderShadowMap;
+    FShadowMapDirty := False;
+  end;
 
   // Render the main scene
   BeginDrawing();
@@ -4198,6 +4280,8 @@ begin
       begin
         if FItems[i].FButtonTexture.id > 0 then
           UnloadTexture(FItems[i].FButtonTexture);
+        if (FItems[i].FVideoTexture.id > 0) and (not Assigned(FMPVPlayer) or (FItems[i].FVideoTexture.id <> FMPVPlayer.Target.texture.id)) then
+          UnloadTexture(FItems[i].FVideoTexture);
         FItems[i].Visible := False;
         FItems[i].Free;
         FItems[i] := nil;
