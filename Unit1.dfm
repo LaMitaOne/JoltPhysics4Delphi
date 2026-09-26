@@ -12,7 +12,6 @@ object Form1: TForm1
   Font.Style = []
   Position = poScreenCenter
   OnCreate = FormCreate
-  OnKeyDown = FormKeyDown
   OnShow = FormShow
   TextHeight = 15
   object Splitter1: TSplitter
@@ -68,6 +67,7 @@ object Form1: TForm1
       ParentFont = False
       TabOrder = 0
       OnChange = tvSceneHierarchyChange
+      OnKeyUp = tvSceneHierarchyKeyUp
     end
     object Panel1: TPanel
       Left = 1
@@ -340,26 +340,24 @@ object Form1: TForm1
           ExplicitTop = 364
         end
         object btnSpawnSandbox: TButton
-          Left = 10
-          Top = 303
+          Left = 13
+          Top = 272
           Width = 109
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Spawn Sandbox'
           TabOrder = 12
           OnClick = btnSpawnSandboxClick
-          ExplicitTop = 302
         end
         object btnSpawnWall: TButton
-          Left = 10
-          Top = 334
+          Left = 13
+          Top = 303
           Width = 109
           Height = 25
           Anchors = [akLeft, akBottom]
           Caption = 'Spawn Wall'
           TabOrder = 13
           OnClick = btnSpawnWallClick
-          ExplicitTop = 333
         end
         object btnSpawnBomb: TButton
           Left = 13
@@ -399,6 +397,16 @@ object Form1: TForm1
           TabOrder = 16
           StyleElements = [seClient, seBorder]
           OnClick = cbStaticClick
+        end
+        object btnSpawnScreens: TButton
+          Left = 13
+          Top = 334
+          Width = 109
+          Height = 25
+          Anchors = [akLeft, akBottom]
+          Caption = 'Spawn Screens'
+          TabOrder = 17
+          OnClick = btnSpawnScreensClick
         end
       end
       object tsEngine: TTabSheet

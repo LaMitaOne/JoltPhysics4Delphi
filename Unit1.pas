@@ -1,7 +1,7 @@
 unit Unit1;
 
 {==============================================================================*
- *  Mainform of raylib sandbox & jolt phsics v0.60
+ *  Mainform of raylib sandbox & jolt phsics v0.61
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *
@@ -69,6 +69,7 @@ type
     chkSlowMotion: TCheckBox;
     SaveDialog1: TSaveDialog;
     cbStatic: TCheckBox;
+    btnSpawnScreens: TButton;
     procedure FormCreate(Sender: TObject);
     procedure btnSpawnCubesClick(Sender: TObject);
     procedure btnSpawnSpheresClick(Sender: TObject);
@@ -78,7 +79,6 @@ type
     procedure btnPlayPauseClick(Sender: TObject);
     procedure StringGrid1SetEditText(Sender: TObject; ACol, ARow: Integer; const Value: string);
     procedure StringGrid1SelectCell(Sender: TObject; ACol, ARow: Integer; var CanSelect: Boolean);
-    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure btnToolDragThrowClick(Sender: TObject);
     procedure btnSpawnCapsulesClick(Sender: TObject);
     procedure cbFPSChange(Sender: TObject);
@@ -104,6 +104,8 @@ type
     procedure btnSpawnButtonClick(Sender: TObject);
     procedure chkSlowMotionClick(Sender: TObject);
     procedure cbStaticClick(Sender: TObject);
+    procedure tvSceneHierarchyKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure btnSpawnScreensClick(Sender: TObject);
   private
     FSandbox: TRaylibSandbox;
     FSelectedComponent: TA3DComponent;
@@ -175,18 +177,6 @@ begin
   FSandbox.OnSceneCleared := HandleSceneCleared;
   FSandbox.OnEngineException := HandleEngineException;
   FSandbox.OnObjectSelected := HandleObjectSelected;
-end;
-
-procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-begin
-  if Key = VK_DELETE then
-  begin
-    if Assigned(FSelectedComponent) then
-    begin
-      FSandbox.DeleteSelectedActor;
-      Key := 0;
-    end;
-  end;
 end;
 
 procedure TForm1.FormShow(Sender: TObject);
@@ -291,6 +281,12 @@ end;
 procedure TForm1.btnSpawnSandboxClick(Sender: TObject);
 begin
   TVCL3D.SpawnSandbox(FSandbox);
+end;
+
+procedure TForm1.btnSpawnScreensClick(Sender: TObject);
+begin
+  TVCL3D.SpawnMonitorWall(FSandbox);
+  lblInfo.Caption := 'Multiview: 2x5 Monitor Wall spawned.';
 end;
 
 procedure TForm1.btnSpawnWallClick(Sender: TObject);
@@ -558,6 +554,13 @@ begin
   TThread.Queue(nil,
     procedure
     begin
+      // If an object was deleted, Actor is nil. We need to rebuild the TreeView.
+      if not Assigned(Actor) then
+      begin
+        tvSceneHierarchy.Items.Clear;
+        RefreshHierarchy;
+      end;
+
       SelectActorInUI(Actor);
       if Assigned(Actor) then
         FSandbox.SetSelectedActor(Actor);
@@ -713,6 +716,36 @@ begin
     LoadPropertiesIntoGrid(Actor);
     // Update the status label at the bottom
     lblInfo.Caption := Format('Selected: %s | Pos: %.1f, %.1f, %.1f', [Actor.Name, Actor.Position.x, Actor.Position.y, Actor.Position.z]);
+  end;
+end;
+
+procedure TForm1.tvSceneHierarchyKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
+var
+  ActorToDelete: TA3DComponent;
+begin
+  // Check if the Delete key was pressed
+  if Key = VK_DELETE then
+  begin
+    if (tvSceneHierarchy.Selected <> nil) and (tvSceneHierarchy.Selected.Data <> nil) then
+    begin
+      ActorToDelete := TA3DComponent(tvSceneHierarchy.Selected.Data);
+
+      if Assigned(ActorToDelete) then
+      begin
+        // CRITICAL: Disable brush mode so the delete click doesn't instantly spawn a standard cube
+        FSandbox.FIsBrushActive := False;
+        FSandbox.FGhostVisible := False;
+
+        // Tell the sandbox to delete the selected actor
+        FSandbox.SetSelectedActor(ActorToDelete);
+        FSandbox.DeleteSelectedActor;
+
+        // Clear UI selection
+        FSelectedComponent := nil;
+
+        Key := 0; // Consume the key press
+      end;
+    end;
   end;
 end;
 

@@ -131,6 +131,7 @@ type
     FModelTransform: TMatrix;
     FButtonTexture: TTexture2D;
     FModelPath : String;
+    FVideoTexture: TTexture2D;
     constructor Create(AOwner: TComponent); overload; override;
     constructor Create(const AModelPath: string; AParent: TModelEngine; AShapeType: TShapeType; ASize: TVector3; IsStatic: Boolean = False; APos: PJPH_RVec3 = nil; ARot: PJPH_Quat = nil); reintroduce; overload;
     destructor Destroy; override;

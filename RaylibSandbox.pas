@@ -1,7 +1,7 @@
 ﻿unit RaylibSandbox;
 
 {==============================================================================*
- *  RaylibSandbox v0.60 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
+ *  RaylibSandbox v0.61 - VCL Wrapper for a multi-threaded Raylib + Jolt Editor
  *------------------------------------------------------------------------------
  *  Author : Lara Miriam Tamy Reschke / LamitaOne
  *  License: Follows the licensing of the original Jolt Physics project.
@@ -61,7 +61,7 @@ uses
   Winapi.Windows, Winapi.MultiMon, Winapi.MMSystem, System.SysUtils,
   System.Classes, System.Math, System.SyncObjs, Vcl.Controls, Vcl.Forms,
   Vcl.Graphics, Raylib, RayMath, rlgl, ModelEngine, JoltPhysics,
-  MiniAudio4Delphi;
+  MiniAudio4Delphi, MPVManager, MPVEmbedded;
 
 type
   PItemData = ^TItemData;
@@ -88,6 +88,7 @@ type
     BaseColor: TColorB;
     HoverColor: TColorB;
     OnClick: TNotifyEvent;
+    GenerateTestTexture: Boolean;
   end;
 
   TRaylibSandbox = class;
@@ -202,10 +203,8 @@ type
     FOnObjectSelected: TObjectSelectedEvent;
     FOnViewportRightClick: TNotifyEngineEvent;
     FBrushShape: TShapeType;
-    FIsBrushActive: Boolean;
     FSimulationRunning: Boolean;
     FGhostPos: TVector3;
-    FGhostVisible: Boolean;
     FGizmoMode: TGizmoMode;
     FGizmoAxis: Integer;
     FGizmoHoverAxis: Integer;
@@ -259,6 +258,9 @@ type
     FQueuedSavePath: string;
     FLoadSceneQueued: Boolean;
     FQueuedLoadPath: string;
+
+    // Video System
+    FMPVPlayer: TMPVPlayer;
 
     procedure UpdateBomb(dt: Single);
     procedure ExplodeBomb;
@@ -325,6 +327,8 @@ type
     FMouseLeftHandled: Boolean;
     FSandboxSpawned: Boolean;
     FSpawnStatic: Boolean;
+    FGhostVisible: Boolean;
+    FIsBrushActive: Boolean;
     function ItemCount: Integer;
     procedure ClearItems;
     procedure DeleteSelectedActor;
@@ -649,9 +653,8 @@ const
   VERT: AnsiString = '#version 330' + #10 + 'in vec3 vertexPosition;' + #10 + 'in vec3 vertexNormal;' + #10 + 'in vec2 vertexTexCoord;' + #10 + 'in vec4 vertexColor;' + #10 + 'uniform mat4 mvp;' + #10 + 'uniform mat4 matModel;' + #10 + 'uniform mat4 lightView;' + #10 + 'uniform mat4 lightProj;' + #10 + 'out vec3 vNormal;' + #10 + 'out vec2 vTexCoord;' + #10 + 'out vec4 vColor;' + #10 + 'out vec4 vWorldPos;' + #10 + 'out vec4 vLightSpacePos;' + #10 + 'void main()' + #10 + '{' + #10 +
     '  vWorldPos = matModel * vec4(vertexPosition, 1.0);' + #10 + '  vNormal = normalize(mat3(matModel) * vertexNormal);' + #10 + '  vTexCoord = vertexTexCoord;' + #10 + '  vColor = vertexColor;' + #10 + '  vLightSpacePos = lightProj * lightView * vWorldPos;' + #10 + '  gl_Position = mvp * vec4(vertexPosition, 1.0);' + #10 + '}';
   FRAG: AnsiString = '#version 330' + #10 + 'in vec3 vNormal;' + #10 + 'in vec2 vTexCoord;' + #10 + 'in vec4 vColor;' + #10 + 'in vec4 vWorldPos;' + #10 + 'in vec4 vLightSpacePos;' + #10 + 'uniform vec3 lightPos;' + #10 + 'uniform vec3 viewPos;' + #10 + 'uniform vec4 ambient;' + #10 + 'uniform vec4 diffuse;' + #10 + 'uniform sampler2D texture0;' + #10 + 'uniform sampler2D shadowMap;' + #10 + 'uniform float shadowBias;' + #10 + 'out vec4 finalColor;' + #10 + 'void main()' + #10 + '{' + #10 +
-    '  vec3 lightDir = normalize(lightPos - vWorldPos.xyz);' + #10 + '  vec3 normal = normalize(vNormal);' + #10 + '  float diff = max(dot(normal, lightDir), 0.0);' + #10 + '  vec4 texColor = texture(texture0, vTexCoord);' + #10 + 'vec4 baseColor = vec4(vColor.rgb, vColor.a) * texColor;' + #10 + '  vec4 ambientColor = ambient * baseColor;' + #10 + '  vec4 diffuseColor = diffuse * diff * baseColor;' + #10 + '  vec3 projCoords = vLightSpacePos.xyz / vLightSpacePos.w;' + #10 +
-    '  projCoords = projCoords * 0.5 + 0.5;' + #10 + '  float shadow = 0.0;' + #10 + '  if(projCoords.z <= 1.0 && projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 && projCoords.y <= 1.0) {' + #10 + '    float closestDepth = texture(shadowMap, projCoords.xy).r;' + #10 + '    float currentDepth = projCoords.z;' + #10 + '    shadow = currentDepth - shadowBias > closestDepth ? 1.0 : 0.0;' + #10 + '  }' + #10 + '  finalColor = ambientColor + diffuseColor * (1.0 - shadow);' + #10 + '}';
-  // Procedural Skybox Shader
+    '  vec3 lightDir = normalize(lightPos - vWorldPos.xyz);' + #10 + '  vec3 normal = normalize(vNormal);' + #10 + '  float diff = max(dot(normal, lightDir), 0.0);' + #10 + '  vec4 texColor = texture(texture0, vTexCoord);' + #10 + 'vec4 baseColor = vec4(vColor.rgb, 1.0) * vec4(texColor.rgb, 1.0);' + #10 + '  vec4 ambientColor = ambient * baseColor;' + #10 + '  vec4 diffuseColor = diffuse * diff * baseColor;' + #10 + '  vec3 projCoords = vLightSpacePos.xyz / vLightSpacePos.w;' + #10 +
+    '  projCoords = projCoords * 0.5 + 0.5;' + #10 + '  float shadow = 0.0;' + #10 + '  if(projCoords.z <= 1.0 && projCoords.x >= 0.0 && projCoords.x <= 1.0 && projCoords.y >= 0.0 && projCoords.y <= 1.0) {' + #10 + '    float closestDepth = texture(shadowMap, projCoords.xy).r;' + #10 + '    float currentDepth = projCoords.z;' + #10 + '    shadow = currentDepth - shadowBias > closestDepth ? 1.0 : 0.0;' + #10 + '  }' + #10 + '  finalColor = ambientColor + diffuseColor * (1.0 - shadow);' + #10 + '}';  // Procedural Skybox Shader
   SKYBOX_VERT: AnsiString = '#version 330' + #10 + 'in vec3 vertexPosition;' + #10 + 'out vec3 fragPosition;' + #10 + 'uniform mat4 projection;' + #10 + 'uniform mat4 view;' + #10 + 'void main()' + #10 + '{' + #10 + '  fragPosition = vertexPosition;' + #10 + '  mat4 rotView = mat4(mat3(view));' + #10 + // Remove translation
     '  vec4 clipPos = projection * rotView * vec4(vertexPosition, 1.0);' + #10 + '  gl_Position = clipPos.xyww;' + #10 + // Force depth to 1.0 (background)
     '}';
@@ -953,6 +956,8 @@ begin
             FreeMem(FAudioEngine);
             FAudioEngine := nil;
           end;
+          if Assigned(FMPVPlayer) then
+            FreeAndNil(FMPVPlayer);
           CloseWindow();
         except
           on E: Exception do
@@ -1091,6 +1096,7 @@ begin
   Obj.Restitution := 0.2;
   Obj.UserData := Data;
   Obj.Visible := True;
+
   FItems[oldLen] := Obj;
   DoActorSpawned(Obj, oldLen);
 end;
@@ -1311,7 +1317,7 @@ var
   bLeftMouseClicked: Boolean;
   R: TRect;
 begin
- // PREVENT BACKGROUND CLICKS: Only process input if the mouse cursor
+  // PREVENT BACKGROUND CLICKS: Only process input if the mouse cursor
   // is actually hovering over the Raylib window area!
   GetWindowRect(FRaylibWnd, R);
   GetCursorPos(p);
@@ -1319,6 +1325,26 @@ begin
   begin
     FMouseLeftPressed := False;
     FDragging := False;
+    Exit;
+  end;
+
+  // Handle Delete Key directly inside the sandbox thread
+  if (GetAsyncKeyState(VK_DELETE) and $1) <> 0 then
+  begin
+    if Assigned(FItemSelected) then
+    begin
+      // Disable brush to prevent instant respawn of a standard cube
+      FIsBrushActive := False;
+      FGhostVisible := False;
+      DeleteSelectedActor;
+      Exit;
+    end;
+  end;
+
+  // Prevent background clicks and accidental brushing when the popup menu is open
+  if FPopupOpen then
+  begin
+    HandlePopupInput;
     Exit;
   end;
 
@@ -1353,6 +1379,7 @@ begin
   bLeftMouseDown := (GetAsyncKeyState(VK_LBUTTON) and $8000) <> 0;
   bLeftMouseClicked := bLeftMouseDown and not FMouseLeftPressed;
   FMouseLeftPressed := bLeftMouseDown;
+
   if (GetAsyncKeyState(VK_CONTROL) and $8000) <> 0 then
   begin
     if not FCtrlWasPressed then
@@ -1373,11 +1400,6 @@ begin
   end
   else
     FCtrlWasPressed := False;
-  if FPopupOpen then
-  begin
-    HandlePopupInput;
-    Exit;
-  end;
 
   ray := GetScreenToWorldRay(FMousePos, FCamera);
 
@@ -1471,9 +1493,10 @@ begin
         FPopupOpen := True;
         FPopupPos := FMousePos;
 
-  // If gmNone is active, we do strictly nothing else (no object dragging)
+        // If gmNone is active, we do strictly nothing else (no object dragging)
         if FGizmoMode = gmNone then
           Exit;
+
         groundBox.min := Vector3Create(-1000, -0.1, -1000);
         groundBox.max := Vector3Create(1000, 0.1, 1000);
         hitInfo := GetRayCollisionBox(ray, groundBox);
@@ -1483,6 +1506,7 @@ begin
           FGhostPos.y := 0;
           FGhostPos.z := hitInfo.point.z;
         end;
+
         if Assigned(FItemSelected) then
         begin
           SetLength(FPopupSegments, 2);
@@ -1501,12 +1525,15 @@ begin
   end
   else
     FRightClickWasPressed := False;
+
   if (GetAsyncKeyState(VK_MBUTTON) and $8000) <> 0 then
   begin
     FGhostVisible := False;
     Exit;
   end;
+
   ray := GetScreenToWorldRay(FMousePos, FCamera);
+
   if FGizmoMode = gmDragAndThrow then
   begin
     if FDragging and Assigned(FItemSelected) then
@@ -1554,6 +1581,7 @@ begin
     end;
     Exit;
   end;
+
   if FGizmoDragging then
   begin
     UpdateGizmoInteraction;
@@ -1579,6 +1607,7 @@ begin
     end;
     Exit;
   end;
+
   if Assigned(FItemSelected) and not FIsBrushActive then
   begin
     if bLeftMouseDown then
@@ -1586,9 +1615,11 @@ begin
       GScaleX := EnsureRange(FItemSelected.Scale.x + 1.0, 1.0, 100.0);
       GScaleY := EnsureRange(FItemSelected.Scale.y + 1.0, 1.0, 100.0);
       GScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 100.0);
+
       if FGizmoMode = gmTranslate then
       begin
-        if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.25, ray, FGizmoAxis) then
+        // Increased RayRadius for much more reliable grabbing
+        if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.4, ray, FGizmoAxis) then
         begin
           FGizmoDragging := True;
           FGizmoStartMouse := FMousePos;
@@ -1601,7 +1632,8 @@ begin
       end
       else if FGizmoMode = gmRotate then
       begin
-        if CheckGizmoRingHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.2, ray, FGizmoAxis) then
+        // Increased RayRadius
+        if CheckGizmoRingHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.35, ray, FGizmoAxis) then
         begin
           FGizmoDragging := True;
           FGizmoStartMouse := FMousePos;
@@ -1614,7 +1646,8 @@ begin
       end
       else if FGizmoMode = gmScale then
       begin
-        if CheckGizmoScaleHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.25, ray, FGizmoAxis) then
+        // Increased RayRadius
+        if CheckGizmoScaleHit(FItemSelected.Position, Vector3Create(GScaleX, GScaleY, GScaleZ), 0.4, ray, FGizmoAxis) then
         begin
           FGizmoDragging := True;
           FGizmoStartMouse := FMousePos;
@@ -1627,6 +1660,7 @@ begin
       end;
     end;
   end;
+
   bIsModelBrush := FIsBrushActive and (FBrushShape = stModel);
   if FIsBrushActive then
   begin
@@ -1673,6 +1707,7 @@ begin
   end
   else
     FGhostVisible := False;
+
   if CheckButton(0, 10, 40, 40) then
   begin
     if not FSpawnButton1WasDown then
@@ -1685,6 +1720,7 @@ begin
   end
   else
     FSpawnButton1WasDown := False;
+
   if CheckButton(40, 10, 40, 40) then
   begin
     if not FSpawnButton2WasDown then
@@ -1697,6 +1733,7 @@ begin
   end
   else
     FSpawnButton2WasDown := False;
+
   if CheckButton(80, 10, 40, 40) then
   begin
     if not FSpawnButton3WasDown then
@@ -1709,6 +1746,7 @@ begin
   end
   else
     FSpawnButton3WasDown := False;
+
   if CheckButton(120, 10, 40, 40) then
   begin
     if not FSpawnButton4WasDown then
@@ -1721,6 +1759,7 @@ begin
   end
   else
     FSpawnButton4WasDown := False;
+
   if CheckButton(160, 10, 40, 40) then
   begin
     if not FSpawnButton5WasDown then
@@ -1733,33 +1772,53 @@ begin
   end
   else
     FSpawnButton5WasDown := False;
+
   if FShootCooldown > 0 then
     Exit;
+
   if bLeftMouseDown then
   begin
     if not FDragging then
     begin
+      // Find the CLOSEST object to the camera under the mouse cursor
+      var ClosestActor: TA3DComponent := nil;
+      var ClosestDist: Single := 1e9;
+      var TempHit: TRayCollision;
+
       for i := 0 to High(FItems) do
       begin
         if FItems[i] = nil then
           Continue;
+
         HalfH := FItems[i].Scale.y * 0.5;
         itemBox.min := Vector3Create(FItems[i].position.x - (FItems[i].Scale.x * 0.5), FItems[i].position.y - HalfH, FItems[i].position.z - (FItems[i].Scale.z * 0.5));
         itemBox.max := Vector3Create(FItems[i].position.x + (FItems[i].Scale.x * 0.5), FItems[i].position.y + HalfH, FItems[i].position.z + (FItems[i].Scale.z * 0.5));
-        hitInfo := GetRayCollisionBox(ray, itemBox);
-        if hitInfo.hit then
+
+        TempHit := GetRayCollisionBox(ray, itemBox);
+        if TempHit.hit then
         begin
-          if FItemSelected <> FItems[i] then
+          // Check if this object is closer to the camera than the previous closest
+          if TempHit.distance < ClosestDist then
           begin
-            FItemSelected := FItems[i];
-            DoObjectSelected(FItemSelected);
+            ClosestDist := TempHit.distance;
+            ClosestActor := FItems[i];
           end;
-          FDragging := True;
-          Break;
         end;
       end;
-      if not FDragging then
+
+      // After checking all objects, select the closest one
+      if Assigned(ClosestActor) then
       begin
+        if FItemSelected <> ClosestActor then
+        begin
+          FItemSelected := ClosestActor;
+          DoObjectSelected(FItemSelected);
+        end;
+        FDragging := True;
+      end
+      else
+      begin
+        // Clicked into empty space -> deselect
         if Assigned(FItemSelected) then
         begin
           FItemSelected := nil;
@@ -1807,14 +1866,17 @@ begin
       end;
     end;
   end;
+
   if FPopupHoverIndex <> NewHover then
     FPopupHoverIndex := NewHover;
+
   if FPopupCloseLock then
   begin
     if (GetAsyncKeyState(VK_RBUTTON) and $8000) = 0 then
       FPopupCloseLock := False;
     Exit;
   end;
+
   if (GetAsyncKeyState(VK_LBUTTON) and $8000) <> 0 then
   begin
     if FPopupHoverIndex >= 0 then
@@ -1824,7 +1886,9 @@ begin
       else
         ExecutePopupAction(FPopupHoverIndex - 100);
     end;
+
     FPopupOpen := False;
+    // Prevents the click that closed the popup from selecting/deselecting 3D objects in the background!
     FMouseLeftHandled := True;
   end;
 end;
@@ -1873,25 +1937,37 @@ begin
   if (Index < 0) or (Index > High(FPopupSegments)) then
     Exit;
   if FPopupSegments[Index] = 'Delete' then
-    DeleteSelectedActor
+  begin
+    // Disable brush to prevent immediate spawn of a standard cube on the same click
+    FIsBrushActive := False;
+    FGhostVisible := False;
+    DeleteSelectedActor;
+  end
   else if FPopupSegments[Index] = 'Duplicate' then
   begin
     if not Assigned(FItemSelected) then
       Exit;
     OldLen := Length(FItems);
     SetLength(FItems, OldLen + 1);
+
+    // Lift the duplicate slightly so it doesn't get stuck in the original
     NewPos.x := FItemSelected.Position.x + 1.0;
-    NewPos.y := FItemSelected.Position.y;
+    NewPos.y := FItemSelected.Position.y + (FItemSelected.Scale.y * 0.5);
     NewPos.z := FItemSelected.Position.z;
+
     NewRot.x := FItemSelected.Quaternion.x;
     NewRot.y := FItemSelected.Quaternion.y;
     NewRot.z := FItemSelected.Quaternion.z;
     NewRot.w := FItemSelected.Quaternion.w;
     NewSize := FItemSelected.Scale;
+
+    // Create the duplicate with exact properties
     NewActor := TA3DComponent.Create('', FEngine, FItemSelected.ShapeType, NewSize, FSpawnStatic, @NewPos, @NewRot);
     NewActor.Friction := FItemSelected.Friction;
     NewActor.Restitution := FItemSelected.Restitution;
     NewActor.TargetColor := FItemSelected.TargetColor;
+    NewActor.ActColor := FItemSelected.ActColor;
+
     New(NewData);
     FillChar(NewData^, SizeOf(TItemData), 0);
     NewData^.SpawnTime := GetTime();
@@ -1910,11 +1986,18 @@ begin
     end;
     NewActor.UserData := NewData;
     NewActor.Visible := True;
+
+    // Assign it to the array
     FItems[OldLen] := NewActor;
+
     PlaySpawnSound;
     DoActorSpawned(NewActor, OldLen);
     DoObjectSelected(NewActor);
+
+    // Update the sandbox's internal selection explicitly
+    FItemSelected := NewActor;
   end;
+  FMouseLeftHandled := True;
 end;
 
 procedure TRaylibSandbox.DeleteSelectedActor;
@@ -2116,15 +2199,22 @@ var
   InvRot: TQuaternion;
   LocalRay: TRay;
   LocalDir: TVector3;
+  Radius: Single;
 begin
   Result := False;
   Axis := 0;
+
+  // Make the radius thicker by default to make it easily grabbable
+  Radius := RayRadius + 0.2;
+
   InvRot := QuaternionInvert(FItemSelected.Quaternion);
   LocalRay.position := Vector3RotateByQuaternion(Vector3Subtract(Ray.position, Pos), InvRot);
   LocalDir := Vector3RotateByQuaternion(Ray.direction, InvRot);
   LocalRay.direction := Vector3Normalize(LocalDir);
-  Box.min := Vector3Create(Scale.x - RayRadius, -RayRadius, -RayRadius);
-  Box.max := Vector3Create(Scale.x + RayRadius, RayRadius, RayRadius);
+
+  // X Axis: Full thick line on BOTH sides (negative and positive) including handle cubes
+  Box.min := Vector3Create(-Scale.x - Radius, -Radius, -Radius);
+  Box.max := Vector3Create(Scale.x + Radius, Radius, Radius);
   Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
@@ -2132,8 +2222,10 @@ begin
     Axis := 1;
     Exit;
   end;
-  Box.min := Vector3Create(-RayRadius, Scale.y - RayRadius, -RayRadius);
-  Box.max := Vector3Create(RayRadius, Scale.y + RayRadius, RayRadius);
+
+  // Y Axis: Full thick line on BOTH sides
+  Box.min := Vector3Create(-Radius, -Scale.y - Radius, -Radius);
+  Box.max := Vector3Create(Radius, Scale.y + Radius, Radius);
   Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
@@ -2141,8 +2233,10 @@ begin
     Axis := 2;
     Exit;
   end;
-  Box.min := Vector3Create(-RayRadius, -RayRadius, Scale.z - RayRadius);
-  Box.max := Vector3Create(RayRadius, RayRadius, Scale.z + RayRadius);
+
+  // Z Axis: Full thick line on BOTH sides
+  Box.min := Vector3Create(-Radius, -Radius, -Scale.z - Radius);
+  Box.max := Vector3Create(Radius, Radius, Scale.z + Radius);
   Hit := GetRayCollisionBox(LocalRay, Box);
   if Hit.hit then
   begin
@@ -2411,6 +2505,9 @@ begin
   end;
   dt := GetFrameTime();
 
+  if Assigned(FMPVPlayer) then
+    FMPVPlayer.Update;
+
   // Slow Motion calculation: Scale time if active, otherwise normal speed
   if FSlowMotionActive then
     FTimeScale := 0.2 // 20% speed
@@ -2470,7 +2567,7 @@ begin
     HoverScaleZ := EnsureRange(FItemSelected.Scale.z + 1.0, 1.0, 100.0);
     if FGizmoMode = gmTranslate then
     begin
-      if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(HoverScaleX, HoverScaleY, HoverScaleZ), 0.25, HoverRay, HoverAxis) then
+      if CheckGizmoAxisHit(FItemSelected.Position, Vector3Create(HoverScaleX, HoverScaleY, HoverScaleZ), 0.4, HoverRay, HoverAxis) then
         FGizmoHoverAxis := HoverAxis;
     end
     else if FGizmoMode = gmRotate then
@@ -2480,7 +2577,7 @@ begin
     end
     else if FGizmoMode = gmScale then
     begin
-      if CheckGizmoScaleHit(FItemSelected.Position, Vector3Create(HoverScaleX, HoverScaleY, HoverScaleZ), 0.25, HoverRay, HoverAxis) then
+      if CheckGizmoScaleHit(FItemSelected.Position, Vector3Create(HoverScaleX, HoverScaleY, HoverScaleZ), 0.4, HoverRay, HoverAxis) then
         FGizmoHoverAxis := HoverAxis;
     end;
   end;
@@ -2492,13 +2589,10 @@ begin
       begin
         if PItemData(FItems[i].UserData)^.IsProjectile then
           Continue;
-
         ItemVel := FItems[i].GetLinearVelocity;
         if (Abs(ItemVel.x) > 2.0) or (Abs(ItemVel.y) > 2.0) or (Abs(ItemVel.z) > 2.0) then
           PItemData(FItems[i].UserData)^.LastHitTime := GetTime();
-
         IsTeal := (GetTime() - PItemData(FItems[i].UserData)^.LastHitTime) < 0.3;
-
         FItems[i].CollisionHighlighting := IsTeal or (FItems[i] = FItemSelected);
       end;
     end;
@@ -2629,6 +2723,8 @@ begin
   // Render the main scene
   BeginDrawing();
   ClearBackground(BLACK);
+  if Assigned(FMPVPlayer) then
+    FMPVPlayer.Render;
   Render3DScene;
   DrawGUI;
   DrawNativePopup;
@@ -2899,13 +2995,32 @@ begin
         end
         else if Actor.ShapeType = stBox then
         begin
+          // If this box has a video texture, assign it.
+          if Actor.FVideoTexture.id > 0 then
+          begin
+            FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := Actor.FVideoTexture;
+
+            ColorShaderVec[0] := 1.0;
+            ColorShaderVec[1] := 1.0;
+            ColorShaderVec[2] := 1.0;
+            ColorShaderVec[3] := 1.0;
+            SetShaderValue(FLightShader, ActorColorLoc, @ColorShaderVec, SHADER_UNIFORM_VEC4);
+          end
+          else
+          begin
+            FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := FDefaultWhiteTex;
+          end;
+
           rlScalef(Actor.Scale.x, Actor.Scale.y, Actor.Scale.z);
 
           ModelMat := rlGetMatrixTransform();
           SetShaderValueMatrix(FLightShader, ModelMatLoc, ModelMat);
 
-          // Standard-Box nutzt die Base-Textur von Raylib
-          DrawModel(FBoxModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
+          if Actor.FVideoTexture.id > 0 then
+            DrawModel(FBoxModel, Vector3Create(0, 0, 0), 1.0, WHITE)
+          else
+            DrawModel(FBoxModel, Vector3Create(0, 0, 0), 1.0, GetActorColor(Actor));
+
           DrawCubeWires(Vector3Create(0, 0, 0), 1.0, 1.0, 1.0, BLACK);
         end
         // ====================================================================
@@ -3017,7 +3132,9 @@ begin
           rlTranslatef(0, 0, BtnOffset);
           rlScalef(Actor.Scale.x * 0.85, Actor.Scale.y * 0.85, Actor.Scale.z);
 
-          if Actor.FButtonTexture.id > 0 then
+          if Actor.FVideoTexture.id > 0 then
+            FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := Actor.FVideoTexture
+          else if Actor.FButtonTexture.id > 0 then
             FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := Actor.FButtonTexture
           else
             FBoxModel.materials[0].maps[MATERIAL_MAP_ALBEDO].texture := FDefaultWhiteTex;
@@ -3784,12 +3901,47 @@ begin
   Obj.TargetColor := Req.Color;
   Obj.ActColor := Req.Color;
 
+
+
   // If it's the bomb, set up the explosion timer
   if Req.Name = 'THE_BOMB' then
   begin
     FBombActor := Obj;
     FBombTimer := 2.0; // 2 seconds until boom!
     FBombExploded := False;
+  end
+  else
+  // If requested, generate a unique test texture safely within the Raylib thread
+    if Req.GenerateTestTexture then
+  begin
+    if (Req.Name = 'Screen_1') then
+    begin
+      // Initialize MPV Player on the fly when Screen 1 is spawned
+      if not Assigned(FMPVPlayer) then
+      begin
+        try
+          FMPVPlayer := TMPVPlayer.Create(640, 360);
+
+          FMPVPlayer.LoadFile(ExtractFilePath(ParamStr(0)) + 'ressources\video\test.mp4');
+        except
+          on E: Exception do
+          begin
+            DoEngineException(E.Message, 'MPVInit');
+            FMPVPlayer := nil;
+          end;
+        end;
+      end;
+
+      if Assigned(FMPVPlayer) then
+        Obj.FVideoTexture := FMPVPlayer.Target.texture
+      else
+        // Fallback if MPV failed to load
+        Obj.FVideoTexture := LoadTextureFromImage(GenImageColor(640, 360, RED));
+    end
+    else
+    begin
+
+    end;
   end;
 
   FItems[oldLen] := Obj;
@@ -3889,6 +4041,9 @@ begin
     FDragging := False;
     FItemSelected := nil;
     FSpawnQueue := 0;
+    // Stop and free MPV player when the scene is cleared!
+    if Assigned(FMPVPlayer) then
+      FreeAndNil(FMPVPlayer);
     // Only clear dynamic items, keep FFloorActor and Engine alive!
     var i: Integer;
     for i := High(FItems) downto 0 do

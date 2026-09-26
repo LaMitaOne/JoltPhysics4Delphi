@@ -28,6 +28,9 @@ type
 
     { Spawns a 3D UI Button with OnClick Event }
     class procedure SpawnButton(Sandbox: TRaylibSandbox; const ACaption: string; APos, ASize: TVector3; AOnClick: TNotifyEvent);
+
+    { Spawns a 2x5 grid of floating TV screens for a future multiview system }
+    class procedure SpawnMonitorWall(Sandbox: TRaylibSandbox);
   end;
 
 implementation
@@ -102,6 +105,7 @@ begin
   Req.Size := Vector3Create(BrickSize, BrickSize, BrickSize);
   Req.IsStatic := False; // Always dynamic so the bomb can destroy them!
   Req.Color := MAROON;
+  Req.GenerateTestTexture := False;
 
   // Strict sequential order: Left to Right, Bottom to Top (like a real bricklayer)
   for y := 0 to Height - 1 do
@@ -148,6 +152,7 @@ begin
   Req.Size := ASize;
   Req.IsStatic := True; // Buttons shouldn't fall via gravity
   Req.Name := 'UI_Button_' + ACaption;
+  Req.GenerateTestTexture := False;
 
   // Default Colors (Standard VCL Blue-ish)
   Req.Color := BLUE;
@@ -158,6 +163,59 @@ begin
   Req.OnClick := AOnClick;
 
   Sandbox.QueueCustomSpawn(Req);
+end;
+
+class procedure TVCL3D.SpawnMonitorWall(Sandbox: TRaylibSandbox);
+var
+  Req: TSpawnRequest;
+  Row, Col, i: Integer;
+  ScreenWidth, ScreenHeight, ScreenDepth: Single;
+  SpacingX, SpacingY: Single;
+  StartX, StartY, StartZ: Single;
+  PosX, PosY, PosZ: Single;
+  Colors: array[0..9] of TColorB;
+begin
+  if not Assigned(Sandbox) then
+    Exit;
+
+  // Define 10 different colors for testing
+  Colors[0] := RED; Colors[1] := GREEN; Colors[2] := BLUE; Colors[3] := YELLOW;
+  Colors[4] := MAGENTA; Colors[5] := ORANGE; Colors[6] := PURPLE; Colors[7] := PINK;
+  Colors[8] := LIME; Colors[9] := SKYBLUE;
+
+  ScreenWidth := 8.0;
+  ScreenHeight := 4.5;
+  ScreenDepth := 0.5;
+
+  SpacingX := ScreenWidth + 2.0;
+  SpacingY := ScreenHeight + 2.0;
+
+  StartX := -((5 - 1) * SpacingX) / 2.0;
+  StartY := 10.0 + ((2 - 1) * SpacingY) / 2.0;
+  StartZ := -20.0;
+
+  Req.Shape := stBox;
+  Req.IsStatic := True;
+  Req.GenerateTestTexture := True; // Tell Raylib thread to make a texture
+
+  i := 0;
+  for Row := 0 to 1 do
+  begin
+    for Col := 0 to 4 do
+    begin
+      PosX := StartX + (Col * SpacingX);
+      PosY := StartY - (Row * SpacingY);
+      PosZ := StartZ;
+
+      Req.Pos := Vector3Create(PosX, PosY, PosZ);
+      Req.Size := Vector3Create(ScreenWidth, ScreenHeight, ScreenDepth);
+      Req.Color := Colors[i]; // Use this color for the generated texture
+      Req.Name := 'Screen_' + IntToStr(i+1);
+
+      Sandbox.QueueCustomSpawn(Req);
+      Inc(i);
+    end;
+  end;
 end;
 
 end.

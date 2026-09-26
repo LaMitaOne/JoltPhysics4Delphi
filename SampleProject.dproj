@@ -122,12 +122,16 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
+        <DCCReference Include="RaylibSandbox.pas"/>
+        <DCCReference Include="JoltPhysics.pas"/>
+        <DCCReference Include="ModelEngine.pas"/>
         <DCCReference Include="Unit1.pas">
             <Form>Form1</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="RaylibSandbox.pas"/>
-        <DCCReference Include="JoltPhysics.pas"/>
+        <DCCReference Include="VCL3D.pas"/>
+        <DCCReference Include="MPVManager.pas"/>
+        <DCCReference Include="MPVEmbedded.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

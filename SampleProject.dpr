@@ -2,9 +2,13 @@ program SampleProject;
 
 uses
   Vcl.Forms,
-  Unit1 in 'Unit1.pas' {Form1},
   RaylibSandbox in 'RaylibSandbox.pas',
-  JoltPhysics in 'JoltPhysics.pas';
+  JoltPhysics in 'JoltPhysics.pas',
+  ModelEngine in 'ModelEngine.pas',
+  Unit1 in 'Unit1.pas' {Form1},
+  VCL3D in 'VCL3D.pas',
+  MPVManager in 'MPVManager.pas',
+  MPVEmbedded in 'MPVEmbedded.pas';
 
 {$R *.res}
 
