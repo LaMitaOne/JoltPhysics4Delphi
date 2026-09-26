@@ -3,15 +3,15 @@ A Delphi wrapper and object-oriented binding layer for the Jolt Physics high-per
     
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/LaMitaOne/JoltPhysics4Delphi)    
             
-<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/5f465c5e-0379-4367-a2b9-1e46335d4f98" />
-        
+<img width="1920" height="1080" alt="Unbenannt" src="https://github.com/user-attachments/assets/846ad2b2-ba06-4980-b522-ebac50bce046" />
+       
 <img width="360" height="202" alt="b0rb5q" src="https://github.com/user-attachments/assets/34ceeff9-129f-4173-ad6c-093e9a228f75" />    
         
 Sample video: https://youtu.be/EaJqNMYcxJo        
       
 This project provides a clean VCL-friendly implementation that bridges the native Jolt Physics C API with Raylib for 3D rendering. It allows you to run a fully multi-threaded physics simulation directly inside a Delphi application. 
            
-   Status: Work in Progress (Beta v0.60)       
+   Status: Work in Progress (Beta v0.61)       
    The original Jolt Physics C API contains over 3,000 lines of definitions. This wrapper currently covers approximately 85% of the API (over 1,500 lines of Delphi bindings).     
 While some highly specific low-level telemetry and niche constraints are still missing, the wrapper now includes comprehensive support for advanced game engine systems. This includes Ragdolls, Soft Body configuration, advanced Shape Casting (Sweep tests), Vehicles, and Table-based Collision Groups. The core simulation functionality—rigid bodies, complex shapes, all standard constraints, collision callbacks, and queries—is fully implemented and highly stable for practical use.             
        
@@ -99,6 +99,17 @@ Since the original C API is massive, there is still a lot to cover. Here is what
   Exe and sample project included    
 
   Latest Changes:  
+    
+  v0.61:
+
+     Fixed spawn pos and ghost rotation of capsule, prism and pyramid   
+     Fixed delete from treeview working now
+     Fixed delete from popup spawning empty cube after
+     Improved gizmos, better clickable from far distance
+     Raised Camera movement height and distance
+     Improved 3d model loading std sizes, not 1x1x1 anymore
+     Added spawn screens button and units for video injection
+     
     
   v0.60:
      
