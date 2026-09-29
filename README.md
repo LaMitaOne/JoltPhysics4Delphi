@@ -276,8 +276,8 @@ v0.52:
  ModelEngine based on  https://github.com/GuvaCode/raylib-TPS-prototype    
           
 includes:      
-Raylib 3d Wrapper https://github.com/LaMitaOne/r3d-delphi   
-MiniAudio4Delphi Wrapper https://github.com/LaMitaOne/MiniAudio4Delphi    
+Raylib 3d https://github.com/LaMitaOne/r3d-delphi   
+MiniAudio4Delphi https://github.com/LaMitaOne/MiniAudio4Delphi    
       
 3D Test Models by https://kenney.nl/     
 
